@@ -3,7 +3,7 @@
 // Supports: Scan / Auto / Loop modes, scan-mode pills, dedup, sort, vol filter.
 
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react'
-import { fetchDeltaSymbols, fetchDeltaCandles } from '../utils/deltaScanner.js'
+import { fetchDeltaSymbols, fetchDeltaCandles, DELTA_FALLBACK_SYMBOLS as DELTA_FALLBACK_SYMBOLS_IMPORT } from '../utils/deltaScanner.js'
 import { compilePattern } from './PatternBuilder.jsx'
 import { intervalToMs, sendTelegram, buildTelegramMsg, fmt, timeSince } from '../utils/scanner.js'
 
@@ -289,14 +289,15 @@ export default function DeltaScannerTab({
 
   // ── Load Delta symbols ───────────────────────────────────────────────────────
   const loadSymbols = useCallback(async () => {
-    setLoadingSyms(true); setSymFailed(false)
+    setLoadingSyms(true); setSymFailed(false); setSymFallback(false)
     try {
-      const syms = await fetchDeltaSymbols()
+      const { symbols: syms, fallback, error } = await fetchDeltaSymbols()
       setSymbols(syms)
+      setSymFallback(fallback || false)
       setSymFailed(syms.length === 0)
-      setSymFallback(syms.length > 0 && syms.every(s => !s.volume))
     } catch {
       setSymFailed(true)
+      setSymbols(DELTA_FALLBACK_SYMBOLS_IMPORT)
     } finally {
       setLoadingSyms(false)
     }
@@ -525,12 +526,15 @@ export default function DeltaScannerTab({
             {loadingSyms
               ? <span style={{color:AM}}>⟳ Loading Delta symbols…</span>
               : symFailed
-                ? <><span style={{color:RD}}>⚠ Proxy failed · {symbols.length} fallback syms</span>
+                ? <><span style={{color:RD}}>⚠ Proxy failed · using {symbols.length} fallback syms</span>
                     <button onClick={loadSymbols} style={{fontSize:10, padding:'1px 6px', borderRadius:4,
                       border:`1px solid ${RD2}`, background:'var(--red-dim)', color:RD, cursor:'pointer', fontFamily:'var(--mono)'}}>Retry</button>
                   </>
                 : symFallback
-                  ? <span style={{color:AM}}>⚠ {symbols.length} fallback symbols (proxy down)</span>
+                  ? <><span style={{color:AM}}>⚠ {symbols.length} fallback syms (API down)</span>
+                      <button onClick={loadSymbols} style={{fontSize:10, padding:'1px 6px', borderRadius:4,
+                        border:'1px solid rgba(255,167,38,.5)', background:'rgba(255,167,38,.1)', color:AM, cursor:'pointer', fontFamily:'var(--mono)'}}>Retry</button>
+                    </>
                   : <span>{symbols.length} symbols · {activePatterns.length} pattern{activePatterns.length!==1?'s':''}</span>
             }
           </div>

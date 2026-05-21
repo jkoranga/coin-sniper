@@ -9,19 +9,20 @@ const DELTA_RES_MAP = {
 }
 
 // ── Fetch all active USDT perpetuals via proxy ────────────────────────────────
+// Returns: { symbols: [...], fallback: bool, error: string|null }
 export async function fetchDeltaSymbols() {
   try {
     const res = await fetch('/api/delta-symbols', {
       signal: AbortSignal.timeout(15000),
     })
-    if (!res.ok) throw new Error(`Proxy error ${res.status}`)
+    if (!res.ok) throw new Error(`Proxy HTTP ${res.status}`)
     const data = await res.json()
-    if (data.error) throw new Error(data.error)
-    return data.products || []
+    const products = data.products || []
+    if (products.length === 0) throw new Error('Empty product list from proxy')
+    return { symbols: products, fallback: data.fallback || false, error: data.error || null }
   } catch (e) {
-    console.warn('[Delta] fetchDeltaSymbols failed:', e.message)
-    // Return hardcoded top Delta India symbols as fallback
-    return DELTA_FALLBACK_SYMBOLS
+    console.warn('[Delta] fetchDeltaSymbols failed — using hardcoded fallback:', e.message)
+    return { symbols: DELTA_FALLBACK_SYMBOLS, fallback: true, error: e.message }
   }
 }
 
