@@ -637,6 +637,7 @@ function JoinBadge({ value, onChange, onGroupToggle, grouped, groupColor }) {
 function CondCard({ cond, idx, total, color, onChange, onRemove, onCopy, onMoveUp, onMoveDown, open, onToggleOpen }) {
   function s(k, v) { onChange({ ...cond, [k]: v }) }
   const formula = condFormula(cond)
+  const [confirmDelete, setConfirmDelete] = useState(false)
 
   return (
     <div style={{
@@ -688,10 +689,17 @@ function CondCard({ cond, idx, total, color, onChange, onRemove, onCopy, onMoveU
 
         {/* Action icons */}
         <div style={{ display: 'flex', gap: 3, flexShrink: 0 }}>
-          {idx > 0        && <IBtn onClick={onMoveUp}   title="Move up">↑</IBtn>}
-          {idx < total-1  && <IBtn onClick={onMoveDown} title="Move down">↓</IBtn>}
+          {!open && idx > 0        && <IBtn onClick={onMoveUp}   title="Move up">↑</IBtn>}
+          {!open && idx < total-1  && <IBtn onClick={onMoveDown} title="Move down">↓</IBtn>}
           <IBtn onClick={onCopy}   title="Duplicate condition" col={BLU}>⧉</IBtn>
-          <IBtn onClick={onRemove} title="Delete" col="var(--red)">×</IBtn>
+          {confirmDelete ? (
+            <>
+              <IBtn onClick={onRemove} title="Confirm delete" col="var(--red)" style={{ padding: '0 7px', fontSize: 9, fontWeight: 800, letterSpacing: '.03em' }}>DEL?</IBtn>
+              <IBtn onClick={() => setConfirmDelete(false)} title="Cancel" col="var(--text3)">✕</IBtn>
+            </>
+          ) : (
+            <IBtn onClick={() => setConfirmDelete(true)} title="Delete" col="var(--red)">×</IBtn>
+          )}
         </div>
         <span onClick={onToggleOpen} style={{ color:'var(--text3)', fontSize:11, cursor:'pointer', flexShrink:0 }}>
           {open ? '▲' : '▼'}
