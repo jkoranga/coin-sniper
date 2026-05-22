@@ -689,8 +689,8 @@ function CondCard({ cond, idx, total, color, onChange, onRemove, onCopy, onMoveU
 
         {/* Action icons */}
         <div style={{ display: 'flex', gap: 3, flexShrink: 0 }}>
-          {!open && idx > 0        && <IBtn onClick={onMoveUp}   title="Move up">↑</IBtn>}
-          {!open && idx < total-1  && <IBtn onClick={onMoveDown} title="Move down">↓</IBtn>}
+          {idx > 0        && <IBtn onClick={onMoveUp}   title="Move up">↑</IBtn>}
+          {idx < total-1  && <IBtn onClick={onMoveDown} title="Move down">↓</IBtn>}
           <IBtn onClick={onCopy}   title="Duplicate condition" col={BLU}>⧉</IBtn>
           {confirmDelete ? (
             <>
@@ -1165,8 +1165,13 @@ function IconPicker({ value, onChange, color }) {
 }
 
 // ── Pattern editor ────────────────────────────────────────────────────────────
-function PatternEditor({ pattern, onChange, onDelete, onMirrorPattern, onCopyPattern, defaultOpen, allPatternNames }) {
-  const [open, setOpen] = useState(!!defaultOpen)
+function PatternEditor({ pattern, onChange, onDelete, onMirrorPattern, onCopyPattern, defaultOpen, allPatternNames, onOpenChange }) {
+  const [open, setOpenRaw] = useState(!!defaultOpen)
+  function setOpen(v) {
+    const next = typeof v === 'function' ? v(open) : v
+    setOpenRaw(next)
+    onOpenChange?.(next)
+  }
   const [openCondIds, setOpenCondIds] = useState(new Set())
   const [confirmDelete, setConfirmDelete] = useState(false)
   const [lockPopup, setLockPopup] = useState(false)
@@ -1814,6 +1819,7 @@ export default function PatternBuilderTab({ settings, update }) {
   const patterns = useMemo(() => settings.customPatterns || [], [settings.customPatterns])
   const trash    = useMemo(() => settings.deletedPatterns || [], [settings.deletedPatterns])
   const [newId, setNewId] = useState(null)
+  const [openPatternId, setOpenPatternId] = useState(null)
   const [trashOpen, setTrashOpen] = useState(false)
   const [confirmPurgeId, setConfirmPurgeId] = useState(null)
   const [confirmPurgeAll, setConfirmPurgeAll] = useState(false)
@@ -1846,7 +1852,7 @@ export default function PatternBuilderTab({ settings, update }) {
     update({ deletedPatterns: ts, _deletedPatternsAt: now })
   }
 
-  function add() { const p = blankPattern(); setNewId(p.id); savePatterns([...patterns, p]) }
+  function add() { const p = blankPattern(); setNewId(p.id); setOpenPatternId(p.id); savePatterns([...patterns, p]) }
 
   // upd() is called on every keystroke (name input, condition values).
   // Each call saves the full updated pattern list to state + Firebase immediately.
@@ -2360,10 +2366,13 @@ export default function PatternBuilderTab({ settings, update }) {
             <div style={{ flex: 1, height: 1, background: 'var(--lime-dim)' }} />
           </div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 9, marginBottom: 10 }}>
-            {patterns.map((p, i) => (
+            {patterns.map((p, i) => {
+              const isOpen = openPatternId === p.id
+              return (
               <div key={p.id} style={{ display: 'flex', alignItems: 'stretch', gap: 0 }}>
 
-                {/* ── Left gutter ── */}
+                {/* ── Left gutter — hidden when pattern is open for full-width edit ── */}
+                {!isOpen && (
                 <div style={{
                   flexShrink: 0, width: 28,
                   display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
@@ -2429,6 +2438,7 @@ export default function PatternBuilderTab({ settings, update }) {
                     </>
                   )}
                 </div>
+                )}
 
                 {/* ── Pattern card ── */}
                 <div style={{ flex: 1, minWidth: 0 }}>
@@ -2438,10 +2448,11 @@ export default function PatternBuilderTab({ settings, update }) {
                     onMirrorPattern={(name) => mirrorPattern(i, name)}
                     onCopyPattern={(name) => copyPattern(i, name)}
                     allPatternNames={patterns.map(x => x.name)}
+                    onOpenChange={(isNowOpen) => setOpenPatternId(isNowOpen ? p.id : null)}
                   />
                 </div>
               </div>
-            ))}
+            )})}
           </div>
         </>
       )}
