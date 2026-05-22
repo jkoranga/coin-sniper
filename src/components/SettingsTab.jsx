@@ -293,23 +293,6 @@ function ScanSettingsSection({ settings, update, saveNowWithPatch }) {
         </div>
       </div>
 
-      {/* Dedup */}
-      <div className="setting-row">
-        <div className="row-label">
-          <span>Repeat Filter</span>
-          <small>Hide same signal for N minutes</small>
-        </div>
-        <div style={{display:'flex',gap:4,flexWrap:'wrap',justifyContent:'flex-end'}}>
-          {DEDUP_OPTIONS.map(([v,l])=>(
-            <button key={v} className={`btn-small ${settings.dedupInterval===v?'active':''}`}
-              onClick={()=>set('dedupInterval',v)}
-              style={settings.dedupInterval===v?{borderColor:'var(--amber)',color:'var(--amber)',background:'rgba(255,180,0,.1)'}:{}}>
-              {l}
-            </button>
-          ))}
-        </div>
-      </div>
-
       {/* Volume default */}
       <div className="setting-row" style={{borderBottom:'none',paddingBottom:0}}>
         <div className="row-label">

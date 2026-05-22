@@ -463,9 +463,8 @@ export default function App() {
       )}
 
       {/* Top bar */}
-      <header className="topbar-v2" style={{ borderBottom:'none', position:'relative',
-        boxShadow: scanProgress.pct >= 0 ? 'none' : 'inset 0 -1px 0 var(--border)' }}>
-        {/* Progress bar */}
+      <header className="topbar-v2" style={{ borderBottom:'none', position:'relative' }}>
+        {/* Progress bar — always acts as the bottom border of the top section */}
         <div style={{ position:'absolute', bottom:0, left:0, right:0, height:2, overflow:'hidden', zIndex:1 }}>
           <div style={{ position:'absolute', inset:0, background:'var(--border)' }}/>
           {scanProgress.pct >= 0 && (
