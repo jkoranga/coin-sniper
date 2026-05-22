@@ -247,7 +247,7 @@ export default function DeltaScannerTab({
   // Per-tab settings keys
   const tfKey       = k => `delta_${k}_${tfProp}`
   const scanMode    = settings[tfKey('scanMode')]     ?? 'all'
-  const dedupInt    = settings[tfKey('dedupInt')]     ?? '15m'
+  const dedupInt    = settings[tfKey('dedupInt')]     ?? '3m'
   const resultFilter= settings[tfKey('resultFilter')] ?? 'all'
   const volumeFilter= settings[tfKey('volumeFilter')] ?? '1m'
   const sortBy      = settings[tfKey('sortBy')]       ?? 'time'
@@ -607,14 +607,6 @@ export default function DeltaScannerTab({
             }}>■</button>
           )}
 
-          {/* Clear */}
-          {alerts.length > 0 && (
-            <button onClick={() => setAlerts([])} style={{
-              fontSize:10, fontFamily:'var(--mono)', color:'var(--text3)',
-              padding:'5px 9px', border:'1px solid var(--border)', borderRadius:8,
-              cursor:'pointer', background:'var(--bg2)',
-            }}>✕ {alerts.length}</button>
-          )}
         </div>
       </div>
 
@@ -661,22 +653,7 @@ export default function DeltaScannerTab({
         </div>
       )}
 
-      {/* ── Dedup row ── */}
-      <div style={{
-        display:'flex', alignItems:'center', gap:5, marginBottom:10,
-        overflowX:'auto', paddingBottom:2, scrollbarWidth:'none',
-      }}>
-        <span style={{fontSize:9, color:'var(--text3)', fontFamily:'var(--mono)', flexShrink:0, whiteSpace:'nowrap'}}>Dedup:</span>
-        {DEDUP_OPT.map(d => (
-          <button key={d} onClick={() => { seenRef.current = {}; setTfSetting('dedupInt', d) }} style={{
-            padding:'3px 9px', borderRadius:6, cursor:'pointer', fontSize:9, fontWeight:700,
-            fontFamily:'var(--mono)', flexShrink:0, whiteSpace:'nowrap',
-            border:`1px solid ${dedupInt===d?DB:'var(--border)'}`,
-            background:dedupInt===d?DD:'var(--bg2)',
-            color:dedupInt===d?DC:'var(--text3)',
-          }}>{d}</button>
-        ))}
-      </div>
+      {/* ── Dedup (hidden inline — default 3m, accessible via settings) ── */}
 
       {errors.length > 0 && (
         <div style={{
@@ -689,11 +666,71 @@ export default function DeltaScannerTab({
         </div>
       )}
 
+      {/* ── Sort / Filter bar — always visible above results ── */}
+      <div style={{
+        display:'flex', alignItems:'center', gap:4, overflowX:'auto', flexWrap:'nowrap',
+        marginBottom:8, paddingBottom:2,
+        WebkitOverflowScrolling:'touch', scrollbarWidth:'none',
+        marginLeft:-12, marginRight:-12, paddingLeft:12, paddingRight:12,
+      }}>
+        {/* Result filter */}
+        {[['all','All',CY,'rgba(0,212,255,.1)'],['bull','🟢',GR,'var(--green-dim)'],['bear','🔴',RD,'var(--red-dim)']].map(([id,lbl,col,bg])=>(
+          <button key={id} onClick={() => setTfSetting('resultFilter', id)} style={{
+            padding:'5px 10px', borderRadius:7, cursor:'pointer', fontSize:10,
+            fontFamily:'var(--mono)', flexShrink:0, whiteSpace:'nowrap',
+            fontWeight:resultFilter===id?800:400,
+            border:`1px solid ${resultFilter===id?col:'var(--border)'}`,
+            background:resultFilter===id?bg:'var(--bg2)',
+            color:resultFilter===id?col:'var(--text3)',
+          }}>{lbl}</button>
+        ))}
+
+        <div style={{width:1, height:16, background:'var(--border)', flexShrink:0, margin:'0 2px'}}/>
+
+        {/* Volume filter */}
+        {VOLUME_FILTERS.map(f => (
+          <button key={f.id} onClick={() => setTfSetting('volumeFilter', f.id)} style={{
+            padding:'5px 9px', borderRadius:7, cursor:'pointer', fontSize:10,
+            fontFamily:'var(--mono)', flexShrink:0, whiteSpace:'nowrap',
+            fontWeight:volumeFilter===f.id?800:400,
+            border:`1px solid ${volumeFilter===f.id?PU:'var(--border)'}`,
+            background:volumeFilter===f.id?PUD:'var(--bg2)',
+            color:volumeFilter===f.id?PU:'var(--text3)',
+          }}>{f.label}</button>
+        ))}
+
+        <div style={{width:1, height:16, background:'var(--border)', flexShrink:0, margin:'0 2px'}}/>
+
+        {/* Sort */}
+        <span style={{fontSize:10, color:'var(--text3)', flexShrink:0, fontFamily:'var(--mono)'}}>↕</span>
+        {[['time','Time'],['symbol','Sym'],['gain','Gain']].map(([col,lbl])=>(
+          <button key={col} onClick={() => toggleSort(col)} style={{
+            padding:'5px 9px', borderRadius:7, cursor:'pointer', fontSize:10,
+            fontFamily:'var(--mono)', flexShrink:0, whiteSpace:'nowrap',
+            fontWeight:sortBy===col?800:400,
+            border:`1px solid ${sortBy===col?DC:'var(--border)'}`,
+            background:sortBy===col?DD:'var(--bg2)',
+            color:sortBy===col?DC:'var(--text3)',
+          }}>{lbl}{sortBy===col?(sortDir==='desc'?' ↓':' ↑'):''}</button>
+        ))}
+
+        {/* View mode */}
+        <div style={{display:'flex', gap:3, marginLeft:'auto', flexShrink:0}}>
+          {['list','cards'].map(v => (
+            <button key={v} onClick={() => setTfSetting('viewMode', v)} style={{
+              padding:'5px 9px', borderRadius:7, cursor:'pointer', fontSize:13,
+              border:`1px solid ${viewMode===v?DC:'var(--border)'}`,
+              background:viewMode===v?DD:'var(--bg2)',
+              color:viewMode===v?DC:'var(--text3)',
+            }}>{v === 'list' ? '≡' : '⊞'}</button>
+          ))}
+        </div>
+      </div>
+
       {/* ── Results header — only render after first scan ── */}
       {(alerts.length > 0 || lastScan) && (
-      <div style={{background:'var(--bg1)', border:`1.5px solid ${DC}33`, borderRadius:12, padding:'12px 14px', marginBottom:8}}>
-        {/* Count + view toggle */}
-        <div style={{display:'flex', alignItems:'center', gap:5, marginBottom:8, flexWrap:'wrap'}}>
+      <div style={{background:'var(--bg1)', border:`1.5px solid ${DC}33`, borderRadius:12, padding:'10px 14px', marginBottom:8}}>
+        <div style={{display:'flex', alignItems:'center', gap:5, flexWrap:'wrap'}}>
           {scanning && (
             <span style={{display:'flex', alignItems:'center', gap:4, fontFamily:'var(--mono)', fontSize:11,
               color:AM, background:'rgba(255,167,38,.1)', border:`1px solid ${AM}`,
@@ -712,60 +749,13 @@ export default function DeltaScannerTab({
           {lastScan && !scanning && displayed === 0 && (
             <span style={{fontFamily:'var(--mono)', fontSize:11, color:'var(--text3)'}}>No signals · {activePatterns.length} patterns scanned</span>
           )}
-          <div style={{display:'flex', gap:3, marginLeft:'auto', flexShrink:0}}>
-            {['list','cards'].map(v => (
-              <button key={v} onClick={() => setTfSetting('viewMode', v)} style={{
-                padding:'5px 9px', borderRadius:7, cursor:'pointer', fontSize:13,
-                border:`1px solid ${viewMode===v?DC:'var(--border)'}`,
-                background:viewMode===v?DD:'var(--bg2)',
-                color:viewMode===v?DC:'var(--text3)',
-              }}>{v === 'list' ? '≡' : '⊞'}</button>
-            ))}
-          </div>
-        </div>
-
-        {/* Filter + sort row */}
-        <div style={{
-          display:'flex', alignItems:'center', gap:4, overflowX:'auto', flexWrap:'nowrap',
-          paddingBottom:2, WebkitOverflowScrolling:'touch', scrollbarWidth:'none',
-        }}>
-          {[['all','Signal',CY,'rgba(0,212,255,.1)'],['bull','🟢 Bull',GR,'var(--green-dim)'],['bear','🔴 Bear',RD,'var(--red-dim)']].map(([id,lbl,col,bg])=>(
-            <button key={id} onClick={() => setTfSetting('resultFilter', id)} style={{
-              padding:'4px 10px', borderRadius:7, cursor:'pointer', fontSize:10,
-              fontFamily:'var(--mono)', flexShrink:0, whiteSpace:'nowrap',
-              fontWeight:resultFilter===id?700:400,
-              border:`1px solid ${resultFilter===id?col:'var(--border)'}`,
-              background:resultFilter===id?bg:'var(--bg2)',
-              color:resultFilter===id?col:'var(--text3)',
-            }}>{lbl}</button>
-          ))}
-
-          <div style={{width:1, height:16, background:'var(--border)', flexShrink:0, margin:'0 2px'}}/>
-
-          {VOLUME_FILTERS.map(f => (
-            <button key={f.id} onClick={() => setTfSetting('volumeFilter', f.id)} style={{
-              padding:'4px 9px', borderRadius:7, cursor:'pointer', fontSize:10,
-              fontFamily:'var(--mono)', flexShrink:0, whiteSpace:'nowrap',
-              fontWeight:volumeFilter===f.id?700:400,
-              border:`1px solid ${volumeFilter===f.id?PU:'var(--border)'}`,
-              background:volumeFilter===f.id?PUD:'var(--bg2)',
-              color:volumeFilter===f.id?PU:'var(--text3)',
-            }}>{f.label}</button>
-          ))}
-
-          <div style={{width:1, height:16, background:'var(--border)', flexShrink:0, margin:'0 2px'}}/>
-
-          <span style={{fontSize:10, color:'var(--text3)', flexShrink:0, fontFamily:'var(--mono)'}}>↕</span>
-          {[['time','Time'],['symbol','Sym'],['gain','Gain']].map(([col,lbl])=>(
-            <button key={col} onClick={() => toggleSort(col)} style={{
-              padding:'4px 9px', borderRadius:7, cursor:'pointer', fontSize:10,
-              fontFamily:'var(--mono)', flexShrink:0, whiteSpace:'nowrap',
-              fontWeight:sortBy===col?700:400,
-              border:`1px solid ${sortBy===col?DC:'var(--border)'}`,
-              background:sortBy===col?DD:'var(--bg2)',
-              color:sortBy===col?DC:'var(--text3)',
-            }}>{lbl}{sortBy===col?(sortDir==='desc'?' ↓':' ↑'):''}</button>
-          ))}
+          {alerts.length > 0 && (
+            <button onClick={() => setAlerts([])} style={{
+              marginLeft:'auto', fontSize:10, fontFamily:'var(--mono)', color:'var(--text3)',
+              padding:'3px 8px', border:'1px solid var(--border)', borderRadius:6,
+              cursor:'pointer', background:'var(--bg2)', flexShrink:0,
+            }}>✕ Clear</button>
+          )}
         </div>
       </div>
       )} {/* end (alerts.length > 0 || lastScan) */}
@@ -803,11 +793,6 @@ export default function DeltaScannerTab({
       )}
 
       {/* ── Alert list ── */}
-      {lastScan && displayed === 0 && alerts.length > 0 && (
-        <div style={{textAlign:'center', padding:'8px', fontSize:10, fontFamily:'var(--mono)', color:'var(--text3)'}}>
-          All results filtered out — try relaxing the filter
-        </div>
-      )}
 
       <div style={{display:'flex', flexDirection:'column', gap:viewMode==='cards'?10:5}}>
         {viewMode === 'list'
