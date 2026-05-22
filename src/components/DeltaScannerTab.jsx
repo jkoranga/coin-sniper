@@ -21,8 +21,6 @@ const RD  = 'var(--red)'
 const RD2 = 'var(--red2)'
 const AM  = 'var(--amber)'
 
-const TF_LIST = ['1m','3m','5m','15m','30m','1h','4h','1d']
-
 const SCAN_MODES = [
   {id:'single', icon:'⚡', label:'Single', col:'var(--amber)',  bd:'var(--amber)',  bg:'rgba(255,180,0,.1)'},
   {id:'all',    icon:'⬡',  label:'All',    col:CY,             bd:CY,              bg:CYD},
@@ -481,6 +479,24 @@ export default function DeltaScannerTab({
   // ── Render ───────────────────────────────────────────────────────────────────
   return (
     <div style={{ paddingBottom: 4 }}>
+      {/* ── Sticky progress bar ── */}
+      {scanning && (
+        <div style={{
+          position:'sticky', top:0, zIndex:10,
+          height:4, background:'var(--bg3)',
+          marginLeft:-12, marginRight:-12, marginBottom:8,
+        }}>
+          <div style={{
+            height:'100%',
+            width:`${Math.max(2, progress)}%`,
+            background: `linear-gradient(90deg, ${DC}, #ffaa44)`,
+            boxShadow:`0 0 10px ${DC}cc`,
+            transition:'width .25s linear',
+            borderRadius:'0 2px 2px 0',
+          }}/>
+        </div>
+      )}
+
       <DetailSheet alert={selected} onClose={() => setSelected(null)}/>
 
       {/* No-pattern modal */}
@@ -673,7 +689,8 @@ export default function DeltaScannerTab({
         </div>
       )}
 
-      {/* ── Results header ── */}
+      {/* ── Results header — only render after first scan ── */}
+      {(alerts.length > 0 || lastScan) && (
       <div style={{background:'var(--bg1)', border:`1.5px solid ${DC}33`, borderRadius:12, padding:'12px 14px', marginBottom:8}}>
         {/* Count + view toggle */}
         <div style={{display:'flex', alignItems:'center', gap:5, marginBottom:8, flexWrap:'wrap'}}>
@@ -681,15 +698,20 @@ export default function DeltaScannerTab({
             <span style={{display:'flex', alignItems:'center', gap:4, fontFamily:'var(--mono)', fontSize:11,
               color:AM, background:'rgba(255,167,38,.1)', border:`1px solid ${AM}`,
               borderRadius:8, padding:'3px 10px', flexShrink:0}}>
-              <span style={{display:'inline-block', animation:'spin 1s linear infinite'}}>⟳</span> LIVE {progress}%
+              <span style={{display:'inline-block', animation:'spin 1s linear infinite'}}>⟳</span> {progress}%
             </span>
           )}
-          <span style={{fontFamily:'var(--mono)', fontSize:17, fontWeight:800, color:'var(--text)', flexShrink:0}}>{displayed}</span>
-          <span style={{fontFamily:'var(--mono)', fontSize:12, color:'var(--text3)', flexShrink:0}}>results</span>
-          <span style={{padding:'3px 9px', borderRadius:8, fontSize:11, fontWeight:700,
-            background:'var(--green-dim)', color:GR, border:`1px solid ${GR2}`, fontFamily:'var(--mono)', flexShrink:0}}>🟢 {bull}</span>
-          <span style={{padding:'3px 9px', borderRadius:8, fontSize:11, fontWeight:700,
-            background:'var(--red-dim)', color:RD, border:`1px solid ${RD2}`, fontFamily:'var(--mono)', flexShrink:0}}>🔴 {bear}</span>
+          {displayed > 0 && <>
+            <span style={{fontFamily:'var(--mono)', fontSize:17, fontWeight:800, color:'var(--text)', flexShrink:0}}>{displayed}</span>
+            <span style={{fontFamily:'var(--mono)', fontSize:12, color:'var(--text3)', flexShrink:0}}>results</span>
+            {bull > 0 && <span style={{padding:'3px 9px', borderRadius:8, fontSize:11, fontWeight:700,
+              background:'var(--green-dim)', color:GR, border:`1px solid ${GR2}`, fontFamily:'var(--mono)', flexShrink:0}}>🟢 {bull}</span>}
+            {bear > 0 && <span style={{padding:'3px 9px', borderRadius:8, fontSize:11, fontWeight:700,
+              background:'var(--red-dim)', color:RD, border:`1px solid ${RD2}`, fontFamily:'var(--mono)', flexShrink:0}}>🔴 {bear}</span>}
+          </>}
+          {lastScan && !scanning && displayed === 0 && (
+            <span style={{fontFamily:'var(--mono)', fontSize:11, color:'var(--text3)'}}>No signals · {activePatterns.length} patterns scanned</span>
+          )}
           <div style={{display:'flex', gap:3, marginLeft:'auto', flexShrink:0}}>
             {['list','cards'].map(v => (
               <button key={v} onClick={() => setTfSetting('viewMode', v)} style={{
@@ -746,21 +768,35 @@ export default function DeltaScannerTab({
           ))}
         </div>
       </div>
+      )} {/* end (alerts.length > 0 || lastScan) */}
 
-      {/* ── Empty state ── */}
-      {displayed === 0 && (
+      {/* ── Empty state — only before first scan or after scan with no results ── */}
+      {!scanning && displayed === 0 && (
         <div style={{textAlign:'center', padding:'40px 16px'}}>
           <div style={{fontSize:36, marginBottom:10, color:DC}}>
-            {scanMode==='single'?'⚡':scanning?'🔍':loopMode?'🔁':autoEnabled?'⏳':'🔶'}
+            {scanMode==='single'?'⚡':loopMode?'🔁':autoEnabled?'⏳':'🔶'}
           </div>
           <div style={{fontSize:12, fontFamily:'var(--mono)', color:'var(--text3)', lineHeight:1.7}}>
             {scanMode==='single'?'Enter a symbol and tap Scan'
-              :scanning?`Scanning ${progressSym} (${progress}%)…`
               :loopMode?`Loop #${loopCount} — scanning continuously`
               :autoEnabled?'Auto-scan armed · waiting for next cycle…'
-              :`Tap ▶ Scan to run patterns on ${symbols.length} Delta perpetuals`}
+              :lastScan?'Scan complete — no signals matched'
+              :`Tap ▶ Scan to run patterns on ${symbols.length} symbols`}
           </div>
           <div style={{fontSize:10, color:'var(--text3)', marginTop:6, fontFamily:'var(--mono)'}}>
+            {activePatterns.length} pattern{activePatterns.length!==1?'s':''} · {symbols.length} symbols · {timeframe}
+          </div>
+        </div>
+      )}
+
+      {/* ── Scanning indicator (shown while scan runs, no results yet) ── */}
+      {scanning && displayed === 0 && (
+        <div style={{textAlign:'center', padding:'32px 16px'}}>
+          <div style={{fontSize:32, marginBottom:8, color:DC, animation:'spin 1.5s linear infinite', display:'inline-block'}}>⟳</div>
+          <div style={{fontSize:12, fontFamily:'var(--mono)', color:AM, marginBottom:4}}>
+            Scanning {progressSym}… {progress}%
+          </div>
+          <div style={{fontSize:10, color:'var(--text3)', fontFamily:'var(--mono)'}}>
             {activePatterns.length} pattern{activePatterns.length!==1?'s':''} · {symbols.length} symbols · {timeframe}
           </div>
         </div>
