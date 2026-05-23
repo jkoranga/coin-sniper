@@ -1483,7 +1483,7 @@ function PatternEditor({ pattern, onChange, onDelete, onMirrorPattern, onCopyPat
       transition: 'opacity .15s, border .2s, box-shadow .2s',
       pointerEvents: mirrorPopup || copyPopup || lockPopup ? 'none' : 'auto',
     }}>
-      {/* Header */}
+      {/* Header — icon + name + subtitle + lock + toggle only */}
       <div
         onClick={() => pattern.locked ? setLockPopup(true) : setOpen(o => !o)}
         style={{
@@ -1493,18 +1493,25 @@ function PatternEditor({ pattern, onChange, onDelete, onMirrorPattern, onCopyPat
             : 'transparent',
         }}
       >
-        <span style={{ fontSize: 22 }}>{pattern.icon}</span>
+        <span style={{ fontSize: 22, flexShrink: 0 }}>{pattern.icon}</span>
+
+        {/* Name + subtitle — takes all available space */}
         <div style={{ flex: 1, minWidth: 0 }}>
-          <div style={{ fontWeight: 800, fontSize: 14, color: pattern.enabled ? color : 'var(--text2)',
-            wordBreak: 'normal', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{pattern.name}</div>
-          <div style={{ fontSize: 9, fontFamily: 'var(--mono)', color: 'var(--text3)', marginTop: 3,
-            whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+          <div style={{
+            fontWeight: 800, fontSize: 15, color: pattern.enabled ? color : 'var(--text2)',
+            whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
+          }}>{pattern.name}</div>
+          <div style={{
+            fontSize: 9, fontFamily: 'var(--mono)', color: 'var(--text3)', marginTop: 3,
+            whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
+          }}>
             {pattern.side.toUpperCase()} · {active} cond{active !== 1 ? 's' : ''} · {pattern.tfs.join(' ') || 'no TF'}
           </div>
         </div>
-        <div style={{ display: 'flex', gap: 6, alignItems: 'center' }} onClick={e => e.stopPropagation()}>
 
-          {/* Lock button */}
+        {/* Right side: lock + toggle + chevron */}
+        <div style={{ display: 'flex', gap: 6, alignItems: 'center', flexShrink: 0 }} onClick={e => e.stopPropagation()}>
+          {/* Lock */}
           <button
             onClick={() => pattern.locked ? setLockPopup(true) : s('locked', true)}
             title={pattern.locked ? 'Locked — tap to unlock' : 'Lock pattern'}
@@ -1520,10 +1527,10 @@ function PatternEditor({ pattern, onChange, onDelete, onMirrorPattern, onCopyPat
             }}
           >{pattern.locked ? '🔒' : '🔓'}</button>
 
-          {/* Enable toggle — disabled when locked */}
+          {/* Enable toggle */}
           <div onClick={() => !pattern.locked && s('enabled', !pattern.enabled)} style={{
             width: 36, height: 20, borderRadius: 10,
-            cursor: pattern.locked ? 'not-allowed' : 'pointer', flexShrink: 0,
+            cursor: pattern.locked ? 'not-allowed' : 'pointer',
             background: pattern.enabled ? color : 'var(--bg3)',
             border: `1.5px solid ${pattern.enabled ? color : 'var(--border)'}`,
             position: 'relative', transition: 'all .2s',
@@ -1534,49 +1541,56 @@ function PatternEditor({ pattern, onChange, onDelete, onMirrorPattern, onCopyPat
               width: 12, height: 12, borderRadius: '50%', background: '#fff', transition: 'left .2s',
             }} />
           </div>
+        </div>
 
-          {/* Mirror — hidden when locked */}
-          {!pattern.locked && (
-            <button onClick={() => {
-              const names = (allPatternNames || []).map(n => n.toLowerCase())
-              if (!names.includes(mirroredDefaultName.toLowerCase())) {
-                onMirrorPattern(mirroredDefaultName)
-              } else {
-                setMirrorPopup(true)
-              }
-            }} title="Create mirrored pattern (flips Bull↔Bear + all operators)" style={{
-              width: 28, height: 28, borderRadius: 7,
-              border: '1px solid rgba(100,180,255,0.35)', background: 'rgba(100,180,255,0.08)',
-              color: BLU, cursor: 'pointer', fontSize: 15,
-              display: 'flex', alignItems: 'center', justifyContent: 'center',
-              fontWeight: 700,
-            }}>⇄</button>
-          )}
+        <span style={{ color: pattern.locked ? 'rgba(255,200,0,0.6)' : 'var(--text3)', fontSize: 12, flexShrink: 0 }}>
+          {pattern.locked ? '' : open ? '▲' : '▼'}
+        </span>
+      </div>
 
-          {/* Copy — hidden when locked */}
-          {!pattern.locked && (
-            <button onClick={() => setCopyPopup(true)} title="Copy pattern with new name" style={{
-              width: 28, height: 28, borderRadius: 7,
-              border: '1px solid rgba(255,200,0,0.35)', background: 'rgba(255,200,0,0.08)',
-              color: 'rgb(255,200,0)', cursor: 'pointer', fontSize: 15,
-              display: 'flex', alignItems: 'center', justifyContent: 'center',
-              fontWeight: 700,
-            }}>⧉</button>
-          )}
+      {/* Action bar — mirror / copy / delete — shown below header, same row as locked hint */}
+      {!pattern.locked && (
+        <div style={{
+          display: 'flex', alignItems: 'center', gap: 8, padding: '6px 13px 8px',
+          borderTop: `1px solid ${color}22`,
+          background: 'rgba(0,0,0,0.12)',
+        }} onClick={e => e.stopPropagation()}>
+          {/* Mirror */}
+          <button onClick={() => {
+            const names = (allPatternNames || []).map(n => n.toLowerCase())
+            if (!names.includes(mirroredDefaultName.toLowerCase())) {
+              onMirrorPattern(mirroredDefaultName)
+            } else {
+              setMirrorPopup(true)
+            }
+          }} title="Mirror pattern (Bull↔Bear + flip operators)" style={{
+            display: 'flex', alignItems: 'center', gap: 5,
+            padding: '4px 10px', borderRadius: 7, cursor: 'pointer',
+            border: '1px solid rgba(100,180,255,0.35)', background: 'rgba(100,180,255,0.08)',
+            color: BLU, fontSize: 11, fontFamily: 'var(--mono)', fontWeight: 700,
+          }}>⇄ Mirror</button>
 
-          {/* Delete — hidden when locked */}
-          {!pattern.locked && (
-            confirmDelete ? (
-              <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+          {/* Copy */}
+          <button onClick={() => setCopyPopup(true)} title="Copy pattern" style={{
+            display: 'flex', alignItems: 'center', gap: 5,
+            padding: '4px 10px', borderRadius: 7, cursor: 'pointer',
+            border: '1px solid rgba(255,200,0,0.35)', background: 'rgba(255,200,0,0.08)',
+            color: 'rgb(255,200,0)', fontSize: 11, fontFamily: 'var(--mono)', fontWeight: 700,
+          }}>⧉ Copy</button>
+
+          {/* Delete */}
+          <div style={{ marginLeft: 'auto' }}>
+            {confirmDelete ? (
+              <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
                 <span style={{ fontSize: 10, fontFamily: 'var(--mono)', color: 'var(--red)', whiteSpace: 'nowrap' }}>Delete?</span>
                 <button onClick={onDelete} style={{
-                  padding: '3px 8px', borderRadius: 6, cursor: 'pointer',
+                  padding: '4px 10px', borderRadius: 6, cursor: 'pointer',
                   fontSize: 10, fontFamily: 'var(--mono)', fontWeight: 800,
                   border: '1px solid rgba(255,60,60,0.5)', background: 'rgba(255,60,60,0.18)',
                   color: 'var(--red)',
                 }}>Yes</button>
                 <button onClick={() => setConfirmDelete(false)} style={{
-                  padding: '3px 8px', borderRadius: 6, cursor: 'pointer',
+                  padding: '4px 8px', borderRadius: 6, cursor: 'pointer',
                   fontSize: 10, fontFamily: 'var(--mono)', fontWeight: 800,
                   border: '1px solid var(--border)', background: 'var(--bg3)',
                   color: 'var(--text2)',
@@ -1584,18 +1598,15 @@ function PatternEditor({ pattern, onChange, onDelete, onMirrorPattern, onCopyPat
               </div>
             ) : (
               <button onClick={() => setConfirmDelete(true)} style={{
-                width: 28, height: 28, borderRadius: 7,
+                display: 'flex', alignItems: 'center', gap: 5,
+                padding: '4px 10px', borderRadius: 7, cursor: 'pointer',
                 border: '1px solid rgba(255,60,60,0.3)', background: 'rgba(255,60,60,0.07)',
-                color: 'var(--red)', cursor: 'pointer', fontSize: 16,
-                display: 'flex', alignItems: 'center', justifyContent: 'center',
-              }}>🗑</button>
-            )
-          )}
+                color: 'var(--red)', fontSize: 11, fontFamily: 'var(--mono)', fontWeight: 700,
+              }}>🗑 Delete</button>
+            )}
+          </div>
         </div>
-        <span style={{ color: pattern.locked ? 'rgba(255,200,0,0.6)' : 'var(--text3)', fontSize: 12 }}>
-          {pattern.locked ? '🔒' : open ? '▲' : '▼'}
-        </span>
-      </div>
+      )}
 
       {/* Body */}
       {/* Locked banner */}
