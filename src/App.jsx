@@ -298,28 +298,69 @@ function PatternsModal({ open, onClose, settings, update, onGoToBuilder }) {
             <div style={{ textAlign:'center', padding:'32px 16px', color:'var(--text3)', fontSize:12, fontFamily:'var(--mono)' }}>
               No patterns yet.<br/>Tap "+ New Pattern" to build one.
             </div>
-          ) : patterns.map(p => (
+          ) : patterns.map(p => {
+            const isBull = p.side === 'bull'
+            const pColor = isBull ? '#00e676' : '#ff4757'
+            const enabledConds = (p.conditions||[]).filter(c=>c.enabled)
+            return (
             <div key={p.id} style={{
-              display:'flex', alignItems:'center', gap:10, padding:'10px 12px', borderRadius:10,
-              marginBottom:6, background:'var(--bg3)', border:'1px solid var(--border)',
+              borderRadius:11, marginBottom:8,
+              background:'var(--bg3)', border:`1.5px solid ${pColor}30`,
             }}>
-              <span style={{ fontSize:18 }}>{p.icon || (p.side==='bull'?'🟢':'🔴')}</span>
-              <div style={{ flex:1 }}>
-                <div style={{ fontWeight:700, fontSize:13, color:'var(--text)' }}>{p.name}</div>
-                <div style={{ fontSize:10, fontFamily:'var(--mono)', color:'var(--text3)', marginTop:2 }}>
-                  {(p.tfs||[]).join(' · ') || 'No TFs'} · {(p.conditions||[]).filter(c=>c.enabled).length} conditions
+              {/* Header row */}
+              <div style={{ display:'flex', alignItems:'center', gap:10, padding:'10px 12px' }}>
+                <span style={{ fontSize:18, flexShrink:0 }}>{p.icon || (isBull?'🟢':'🔴')}</span>
+                <div style={{ flex:1, minWidth:0 }}>
+                  <div style={{ fontWeight:700, fontSize:13, color:'var(--text)', wordBreak:'break-word' }}>{p.name}</div>
+                  <div style={{ fontSize:10, fontFamily:'var(--mono)', color:'var(--text3)', marginTop:2 }}>
+                    {(p.tfs||[]).join(' · ') || 'No TFs'} · {enabledConds.length} condition{enabledConds.length!==1?'s':''}
+                  </div>
                 </div>
+                <button onClick={() => update(prev => ({
+                  customPatterns: (prev.customPatterns||[]).map(x => x.id===p.id ? {...x, enabled:!x.enabled} : x)
+                }))} style={{
+                  padding:'4px 10px', borderRadius:7, cursor:'pointer', fontSize:10, fontWeight:700, fontFamily:'var(--mono)',
+                  border: p.enabled ? `1px solid ${ORANGE_BORDER}` : '1px solid var(--border)',
+                  background: p.enabled ? ORANGE_DIM : 'var(--bg2)',
+                  color: p.enabled ? ORANGE : 'var(--text3)',
+                  flexShrink:0,
+                }}>{p.enabled ? 'ON' : 'OFF'}</button>
               </div>
-              <button onClick={() => update(prev => ({
-                customPatterns: (prev.customPatterns||[]).map(x => x.id===p.id ? {...x, enabled:!x.enabled} : x)
-              }))} style={{
-                padding:'4px 10px', borderRadius:7, cursor:'pointer', fontSize:10, fontWeight:700, fontFamily:'var(--mono)',
-                border: p.enabled ? `1px solid ${ORANGE_BORDER}` : '1px solid var(--border)',
-                background: p.enabled ? ORANGE_DIM : 'var(--bg2)',
-                color: p.enabled ? ORANGE : 'var(--text3)',
-              }}>{p.enabled ? 'ON' : 'OFF'}</button>
+              {/* Conditions list */}
+              {enabledConds.length > 0 && (
+                <div style={{ padding:'0 12px 10px', borderTop:'1px solid var(--border)' }}>
+                  {enabledConds.map((c,i) => {
+                    const formula = [
+                      c.lhsField,
+                      c.op,
+                      c.rhsMode==='number' ? (c.rhsNum??0)
+                        : c.rhsMode==='field' ? c.rhsField
+                        : c.rhsMode==='mult'  ? `${c.rhsField}×${c.rhsMult??1}`
+                        : c.rhsMode==='pct'   ? `${c.rhsField}${c.rhsPct>=0?'+':''}${c.rhsPct??0}%`
+                        : c.rhsField
+                    ].join(' ')
+                    return (
+                      <div key={c.id||i} style={{
+                        display:'flex', alignItems:'center', gap:6,
+                        padding:'4px 0',
+                        borderBottom: i < enabledConds.length-1 ? '1px solid var(--border)' : 'none',
+                      }}>
+                        <div style={{
+                          width:16, height:16, borderRadius:4, flexShrink:0,
+                          background:`${pColor}20`, border:`1px solid ${pColor}50`,
+                          display:'flex', alignItems:'center', justifyContent:'center',
+                          fontSize:8, fontWeight:800, color:pColor, fontFamily:'var(--mono)',
+                        }}>{i+1}</div>
+                        <span style={{ fontSize:10, fontFamily:'var(--mono)', color:'var(--text2)', flex:1, wordBreak:'break-all' }}>
+                          {formula}
+                        </span>
+                      </div>
+                    )
+                  })}
+                </div>
+              )}
             </div>
-          ))}
+          )})}
         </div>
       </div>
     </>
@@ -547,6 +588,7 @@ export default function App() {
                 isActive={activeTab === tab.id && userTappedTabs.has(tab.id)}
                 onAlertCount={handleAlertCount}
                 onGoToPatterns={() => { setShowPatterns(true) }}
+                triggerAutoScan={activeTab === tab.id && userTappedTabs.has(tab.id)}
               />
             </ErrorBoundary>
           </div>

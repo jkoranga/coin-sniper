@@ -243,6 +243,7 @@ function DetailSheet({ alert: a, onClose }) {
 export default function DeltaScannerTab({
   settings, update, saveNowWithPatch, isActive,
   onGoToPatterns, onAlertCount, timeframe: tfProp,
+  triggerAutoScan,
 }) {
   // Per-tab settings keys
   const tfKey       = k => `delta_${k}_${tfProp}`
@@ -436,6 +437,22 @@ export default function DeltaScannerTab({
       scanningRef.current = false; setScanning(false)
     }
   }, [isActive])
+
+  // ── Auto-start when tab first tapped (triggerAutoScan flips true) ────────────
+  const prevTriggerRef = useRef(false)
+  useEffect(() => {
+    if (triggerAutoScan && !prevTriggerRef.current && !scanningRef.current) {
+      // Small delay so symbols have time to load first
+      const t = setTimeout(() => {
+        if (!scanningRef.current) {
+          setAutoEnabled(true)
+          runScan()
+        }
+      }, 300)
+      return () => clearTimeout(t)
+    }
+    prevTriggerRef.current = triggerAutoScan
+  }, [triggerAutoScan]) // eslint-disable-line
 
   function stopScan() {
     loopRef.current = false; abortRef.current?.abort()

@@ -137,30 +137,47 @@ function mirrorCond(cond) {
   // Size/magnitude fields are always absolute positive values (0-100 range, no negatives).
   // Body%, Body, Range, Wick sizes, IsGreen/IsRed — keep RHS sign and operator on mirror.
   // Bull Body% > 90  →  Bear Body% > 90  (same threshold, not -90)
+  // Size/magnitude fields — always absolute positive (0-100), keep value & op
   const SIZE_FIELDS = new Set([
     'body','bodyPct','range','rangePct',
     'upperWick','lowerWick','wickPct',
     'isGreen','isRed','volume',
   ])
   const isSizeField = SIZE_FIELDS.has(cond.lhsField)
-  const keepSign = wickSwap || isSizeField
 
-  // Invert multiplier for non-size fields only
+  // RSI mirrors around 50 (the neutral midpoint):
+  //   Bull RSI > 60  →  Bear RSI < 40   (100 - 60 = 40)
+  //   Bull RSI > 70  →  Bear RSI < 30   (100 - 70 = 30)
+  //   Bull RSI = 50  →  Bear RSI = 50   (symmetric)
+  const isRsiField = cond.lhsField === 'rsi'
+
+  const keepSign = wickSwap || isSizeField
+  const keepOp   = isSizeField || wickSwap
+
+  // Invert multiplier for non-size, non-RSI fields
   const rhsMult = cond.rhsMult != null
-    ? (isSizeField ? parseFloat(cond.rhsMult) : parseFloat((1 / parseFloat(cond.rhsMult)).toFixed(6)))
+    ? (isSizeField || isRsiField ? parseFloat(cond.rhsMult) : parseFloat((1 / parseFloat(cond.rhsMult)).toFixed(6)))
     : cond.rhsMult
 
-  const rhsNum   = cond.rhsNum   != null ? (keepSign ? parseFloat(cond.rhsNum)   : -parseFloat(cond.rhsNum))   : cond.rhsNum
+  // RSI: mirror rhsNum around 50; others: keep or negate
+  const rhsNum = cond.rhsNum != null
+    ? (isRsiField
+        ? parseFloat((100 - parseFloat(cond.rhsNum)).toFixed(4))
+        : keepSign ? parseFloat(cond.rhsNum) : -parseFloat(cond.rhsNum))
+    : cond.rhsNum
+
   const rhsPct   = cond.rhsPct   != null ? (keepSign ? parseFloat(cond.rhsPct)   : -parseFloat(cond.rhsPct))   : cond.rhsPct
   const slopeNum = cond.slopeNum != null ? (keepSign ? parseFloat(cond.slopeNum) : -parseFloat(cond.slopeNum)) : cond.slopeNum
 
-  // Size fields and wick swaps keep the same operator (big is big either direction)
-  const keepOp = isSizeField || wickSwap
+  // RSI flips operator (> 60 → < 40); size fields keep op; others flip
+  const finalOp = isRsiField
+    ? (MIRROR_OP[cond.op] ?? cond.op)
+    : keepOp ? cond.op : (MIRROR_OP[cond.op] ?? cond.op)
 
   return {
     ...cond,
     id: uid(),
-    op: keepOp ? cond.op : (MIRROR_OP[cond.op] ?? cond.op),
+    op: finalOp,
     lhsField: mirroredLhs,
     rhsField: mirroredRhs,
     rhsMult,
@@ -1479,7 +1496,7 @@ function PatternEditor({ pattern, onChange, onDelete, onMirrorPattern, onCopyPat
         <span style={{ fontSize: 22 }}>{pattern.icon}</span>
         <div style={{ flex: 1, minWidth: 0 }}>
           <div style={{ fontWeight: 800, fontSize: 14, color: pattern.enabled ? color : 'var(--text2)',
-            overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{pattern.name}</div>
+            wordBreak: 'break-word', whiteSpace: 'normal' }}>{pattern.name}</div>
           <div style={{ fontSize: 9, fontFamily: 'var(--mono)', color: 'var(--text3)', marginTop: 3 }}>
             {pattern.side.toUpperCase()} · {active} cond{active !== 1 ? 's' : ''} · {pattern.tfs.join(' ') || 'no TF'}
           </div>
