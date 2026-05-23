@@ -482,24 +482,6 @@ export default function DeltaScannerTab({
   // ── Render ───────────────────────────────────────────────────────────────────
   return (
     <div style={{ paddingBottom: 4 }}>
-      {/* ── Sticky progress bar ── */}
-      {scanning && (
-        <div style={{
-          position:'sticky', top:0, zIndex:10,
-          height:4, background:'var(--bg3)',
-          marginLeft:-12, marginRight:-12, marginBottom:8,
-        }}>
-          <div style={{
-            height:'100%',
-            width:`${Math.max(2, progress)}%`,
-            background: `linear-gradient(90deg, ${DC}, #ffaa44)`,
-            boxShadow:`0 0 10px ${DC}cc`,
-            transition:'width .25s linear',
-            borderRadius:'0 2px 2px 0',
-          }}/>
-        </div>
-      )}
-
       <DetailSheet alert={selected} onClose={() => setSelected(null)}/>
 
       {/* No-pattern modal */}
@@ -535,7 +517,29 @@ export default function DeltaScannerTab({
       )}
 
       {/* ── TF Header ── */}
-      <div style={{display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:14, gap:8}}>
+      <div style={{
+        display:'flex', alignItems:'center', justifyContent:'space-between', gap:8,
+        marginBottom:14, paddingBottom:10, position:'relative',
+        borderBottom: scanning
+          ? 'none'
+          : '1px solid var(--border)',
+      }}>
+        {/* Progress bar as bottom border */}
+        {scanning && (
+          <div style={{
+            position:'absolute', bottom:0, left:0, right:0,
+            height:3, background:'var(--bg3)', borderRadius:2, overflow:'hidden',
+          }}>
+            <div style={{
+              position:'absolute', top:0, left:0, height:'100%',
+              width:`${Math.max(2, progress)}%`,
+              background:`linear-gradient(90deg, ${DC}, #ffaa44)`,
+              boxShadow:`0 0 8px ${DC}bb`,
+              transition:'width .25s linear',
+              borderRadius:2,
+            }}/>
+          </div>
+        )}
         <div>
           <div style={{display:'flex', alignItems:'center', gap:7}}>
             <div style={{width:8, height:8, borderRadius:'50%', background:DC, boxShadow:`0 0 7px ${DC}`}}/>
