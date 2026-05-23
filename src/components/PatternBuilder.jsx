@@ -2393,11 +2393,58 @@ export default function PatternBuilderTab({ settings, update }) {
             </span>
             <div style={{ flex: 1, height: 1, background: 'var(--lime-dim)' }} />
           </div>
+
+          {/* ── Horizontal name strip — tap to jump to pattern ── */}
+          {patterns.length > 1 && (
+            <div style={{
+              display: 'flex', gap: 5, overflowX: 'auto', flexWrap: 'nowrap',
+              marginBottom: 10, paddingBottom: 4,
+              scrollbarWidth: 'none', WebkitOverflowScrolling: 'touch',
+              marginLeft: -10, marginRight: -10, paddingLeft: 10, paddingRight: 10,
+            }}>
+              {patterns.map(p => {
+                const isBull = p.side === 'bull'
+                const col = isBull ? 'var(--green)' : 'var(--red)'
+                const bd  = isBull ? 'rgba(0,230,118,0.4)' : 'rgba(255,60,80,0.4)'
+                const bg  = isBull ? 'rgba(0,230,118,0.08)' : 'rgba(255,60,80,0.08)'
+                const isActive = openPatternId === p.id
+                return (
+                  <button
+                    key={p.id}
+                    onClick={() => {
+                      setOpenPatternId(p.id)
+                      // Scroll to pattern card
+                      setTimeout(() => {
+                        const el = document.getElementById(`pattern-card-${p.id}`)
+                        if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' })
+                      }, 60)
+                    }}
+                    style={{
+                      display: 'flex', alignItems: 'center', gap: 5, flexShrink: 0,
+                      padding: '5px 10px', borderRadius: 20, cursor: 'pointer',
+                      border: `1.5px solid ${isActive ? bd : 'var(--border)'}`,
+                      background: isActive ? bg : 'var(--bg2)',
+                      color: isActive ? col : 'var(--text3)',
+                      fontSize: 11, fontFamily: 'var(--mono)', fontWeight: isActive ? 800 : 400,
+                      whiteSpace: 'nowrap', maxWidth: 140, transition: 'all .12s',
+                    }}
+                  >
+                    <span style={{ fontSize: 13 }}>{p.icon || (isBull ? '🟢' : '🔴')}</span>
+                    <span style={{
+                      overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+                      maxWidth: 100,
+                    }}>{p.name}</span>
+                  </button>
+                )
+              })}
+            </div>
+          )}
+
           <div style={{ display: 'flex', flexDirection: 'column', gap: 9, marginBottom: 10 }}>
             {patterns.map((p, i) => {
               const isOpen = openPatternId === p.id
               return (
-              <div key={p.id} style={{ display: 'flex', alignItems: 'stretch', gap: 0 }}>
+              <div key={p.id} id={`pattern-card-${p.id}`} style={{ display: 'flex', alignItems: 'stretch', gap: 0 }}>
 
                 {/* ── Left gutter — hidden when pattern is open for full-width edit ── */}
                 {!isOpen && (
@@ -2471,7 +2518,7 @@ export default function PatternBuilderTab({ settings, update }) {
                 {/* ── Pattern card ── */}
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <PatternEditor
-                    key={p.id} pattern={p} defaultOpen={p.id === newId}
+                    key={p.id} pattern={p} defaultOpen={p.id === newId || p.id === openPatternId}
                     onChange={np => upd(i, np)} onDelete={() => del(i)}
                     onMirrorPattern={(name) => mirrorPattern(i, name)}
                     onCopyPattern={(name) => copyPattern(i, name)}
