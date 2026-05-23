@@ -130,26 +130,37 @@ function mirrorCond(cond) {
   const mirroredLhs = MIRROR_FIELD[cond.lhsField] ?? cond.lhsField
   const mirroredRhs = MIRROR_FIELD[cond.rhsField] ?? cond.rhsField
 
-  // When a wick swaps to the opposite wick, the comparison direction stays the
-  // same and the ±% offset keeps its sign — both wicks are measured the same way.
-  // e.g.  LWick > Body +25%  mirrors to  UWick > Body +25%  (not UWick < Body -25%)
+  // Wick swap: lowerWick <-> upperWick — same measurement direction, keep sign & op
   const wickSwap = cond.lhsField !== mirroredLhs &&
     (cond.lhsField === 'lowerWick' || cond.lhsField === 'upperWick')
 
-  // Invert multiplier: × 1.005 → × (1/1.005) = × 0.995
+  // Size/magnitude fields are always absolute positive values (0-100 range, no negatives).
+  // Body%, Body, Range, Wick sizes, IsGreen/IsRed — keep RHS sign and operator on mirror.
+  // Bull Body% > 90  →  Bear Body% > 90  (same threshold, not -90)
+  const SIZE_FIELDS = new Set([
+    'body','bodyPct','range','rangePct',
+    'upperWick','lowerWick','wickPct',
+    'isGreen','isRed','volume',
+  ])
+  const isSizeField = SIZE_FIELDS.has(cond.lhsField)
+  const keepSign = wickSwap || isSizeField
+
+  // Invert multiplier for non-size fields only
   const rhsMult = cond.rhsMult != null
-    ? parseFloat((1 / parseFloat(cond.rhsMult)).toFixed(6))
+    ? (isSizeField ? parseFloat(cond.rhsMult) : parseFloat((1 / parseFloat(cond.rhsMult)).toFixed(6)))
     : cond.rhsMult
 
-  // Wick swap: keep sign.  Price/EMA/other mirror: invert.
-  const rhsNum   = cond.rhsNum   != null ? (wickSwap ?  parseFloat(cond.rhsNum)   : -parseFloat(cond.rhsNum))   : cond.rhsNum
-  const rhsPct   = cond.rhsPct   != null ? (wickSwap ?  parseFloat(cond.rhsPct)   : -parseFloat(cond.rhsPct))   : cond.rhsPct
-  const slopeNum = cond.slopeNum != null ? (wickSwap ?  parseFloat(cond.slopeNum) : -parseFloat(cond.slopeNum)) : cond.slopeNum
+  const rhsNum   = cond.rhsNum   != null ? (keepSign ? parseFloat(cond.rhsNum)   : -parseFloat(cond.rhsNum))   : cond.rhsNum
+  const rhsPct   = cond.rhsPct   != null ? (keepSign ? parseFloat(cond.rhsPct)   : -parseFloat(cond.rhsPct))   : cond.rhsPct
+  const slopeNum = cond.slopeNum != null ? (keepSign ? parseFloat(cond.slopeNum) : -parseFloat(cond.slopeNum)) : cond.slopeNum
+
+  // Size fields and wick swaps keep the same operator (big is big either direction)
+  const keepOp = isSizeField || wickSwap
 
   return {
     ...cond,
     id: uid(),
-    op: wickSwap ? cond.op : (MIRROR_OP[cond.op] ?? cond.op),
+    op: keepOp ? cond.op : (MIRROR_OP[cond.op] ?? cond.op),
     lhsField: mirroredLhs,
     rhsField: mirroredRhs,
     rhsMult,

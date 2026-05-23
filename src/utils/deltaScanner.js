@@ -13,11 +13,11 @@ const INTERVAL_MAP = {
 
 // ── Fetch all active USDT perpetuals ─────────────────────────────────────────
 export async function fetchDeltaSymbols() {
-  // Bybit linear (USDT perpetual) instruments — same assets as Delta India
+  // Bybit /v5/market/tickers has live price + volume (turnover24h) for all linear perps
   const URLS = [
-    `${BYBIT}/v5/market/instruments-info?category=linear&status=Trading&limit=500`,
-    `${BYBIT2}/v5/market/instruments-info?category=linear&status=Trading&limit=500`,
-    `/api/delta-symbols`, // Vercel proxy fallback (returns hardcoded list)
+    `${BYBIT}/v5/market/tickers?category=linear`,
+    `${BYBIT2}/v5/market/tickers?category=linear`,
+    `/api/delta-symbols`,
   ]
 
   for (const url of URLS) {
@@ -26,19 +26,23 @@ export async function fetchDeltaSymbols() {
       if (!res.ok) continue
       const data = await res.json()
 
-      // Bybit shape: { retCode:0, result:{ list:[...] } }
+      // Bybit tickers shape: { retCode:0, result:{ list:[{ symbol, lastPrice, turnover24h, volume24h, ... }] } }
       if (data.retCode === 0 && Array.isArray(data.result?.list)) {
         const products = data.result.list
-          .filter(p => p.quoteCoin === 'USDT' && p.status === 'Trading' && p.contractType === 'LinearPerpetual')
+          .filter(p =>
+            p.symbol?.endsWith('USDT') &&
+            !p.symbol?.includes('-') // exclude options
+          )
           .map(p => ({
             symbol:    p.symbol,
-            name:      p.baseCoin,
-            markPrice: parseFloat(p.lastPrice || 0),
-            volume:    parseFloat(p.turnover24h || 0),
+            name:      p.symbol.replace('USDT', ''),
+            markPrice: parseFloat(p.lastPrice    || p.markPrice || 0),
+            volume:    parseFloat(p.turnover24h  || 0), // 24h volume in USDT — what filters use
           }))
+          .filter(p => p.volume > 0)
           .sort((a, b) => b.volume - a.volume)
         if (products.length > 0) {
-          console.log(`[Sniper] Bybit symbols: ${products.length}`)
+          console.log(`[Sniper] Bybit tickers: ${products.length} symbols`)
           return { symbols: products, fallback: false, error: null }
         }
       }
