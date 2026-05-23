@@ -370,7 +370,9 @@ export default function DeltaScannerTab({
         if (abortRef.current.signal.aborted) return
         const idx = i++
         if (idx >= symList.length) return
-        const sym = (symList[idx]?.symbol || symList[idx])
+        const symObj = symList[idx]
+        const sym = symObj?.symbol || symObj
+        const symVol = parseFloat(symObj?.volume ?? symObj?.turnover24h ?? 0)
         setProgressSym(sym)
         try {
           const candles = await fetchCached(sym, timeframe, 60)
@@ -384,6 +386,7 @@ export default function DeltaScannerTab({
                 id: ++idRef.current, exchange:'delta', symbol:sym, timeframe,
                 time: Date.now(), scannerId:sc.id, scannerName:sc.name,
                 scannerIcon:sc.icon, side:sc.side, details:result,
+                volume: symVol,
               }
               newAlerts.push(a)
               setAlerts(prev => [a, ...prev].slice(0, 300))
@@ -460,7 +463,7 @@ export default function DeltaScannerTab({
   const volMin = VOLUME_FILTERS.find(f => f.id === volumeFilter)?.min ?? 0
 
   const filteredAlerts = useMemo(() => [...alerts]
-    .filter(a => (a.details?.volume ?? 0) >= volMin || volMin === 0)
+    .filter(a => volMin === 0 || (a.volume ?? 0) >= volMin)
     .sort((x, y) => {
       let c = 0
       if (sortBy === 'time')   c = x.time - y.time
