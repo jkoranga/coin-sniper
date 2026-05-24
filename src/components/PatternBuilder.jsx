@@ -2458,7 +2458,6 @@ export default function PatternBuilderTab({ settings, update }) {
               const isOpen = openPatternId === p.id
               return (
               <div key={p.id} id={`pattern-card-${p.id}`} style={{
-                display: 'flex', alignItems: 'stretch', gap: 0,
                 borderRadius: 13,
                 border: p.locked
                   ? '2px solid rgba(255,200,0,0.85)'
@@ -2466,16 +2465,20 @@ export default function PatternBuilderTab({ settings, update }) {
                     ? (p.side==='bull' ? '2px solid rgba(0,230,118,0.95)' : '2px solid rgba(255,60,80,0.95)')
                     : (p.side==='bull' ? '2px solid rgba(0,230,118,0.28)' : '2px solid rgba(255,60,80,0.28)'),
                 boxShadow: p.locked
-                  ? '0 0 18px 3px rgba(255,200,0,0.45), inset 0 0 12px rgba(255,200,0,0.07)'
+                  ? '0 0 18px 3px rgba(255,200,0,0.45)'
                   : p.enabled
                     ? (p.side==='bull'
-                        ? '0 0 18px 4px rgba(0,230,118,0.45), inset 0 0 14px rgba(0,230,118,0.08)'
-                        : '0 0 18px 4px rgba(255,60,80,0.45), inset 0 0 14px rgba(255,60,80,0.08)')
+                        ? '0 0 18px 4px rgba(0,230,118,0.45)'
+                        : '0 0 18px 4px rgba(255,60,80,0.45)')
                     : (p.side==='bull'
-                        ? '0 0 6px rgba(0,230,118,0.12)'
-                        : '0 0 6px rgba(255,60,80,0.12)'),
-                overflow: 'hidden',
+                        ? '0 0 6px rgba(0,230,118,0.18)'
+                        : '0 0 6px rgba(255,60,80,0.18)'),
                 transition: 'border .2s, box-shadow .2s',
+              }}>
+              <div style={{
+                display: 'flex', alignItems: 'stretch', gap: 0,
+                borderRadius: 11,
+                overflow: 'hidden',
               }}>
 
                 {/* ── Left gutter — hidden when pattern is open for full-width edit ── */}
@@ -2558,7 +2561,8 @@ export default function PatternBuilderTab({ settings, update }) {
                     onOpenChange={(isNowOpen) => setOpenPatternId(isNowOpen ? p.id : null)}
                   />
                 </div>
-              </div>
+              </div>{/* end overflow:hidden inner */}
+              </div>{/* end glow shell */}
             )})}
           </div>
         </>
