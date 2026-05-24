@@ -84,8 +84,8 @@ const ICON_CATEGORIES = [
   { label: '🎰 Fun',      icons: ['🎰','🎲','🎯','🃏','🎪','🎭','🎬','🎵','🎸','🥂','🍀','🦋'] },
 ]
 
-const G = 'var(--green)'
-const R = 'var(--red)'
+const G = '#00e676'
+const R = '#ff4757'
 const A = '#b388ff'
 const BLU = '#4dabf7'
 const AMB = '#ffa000'
@@ -2457,29 +2457,14 @@ export default function PatternBuilderTab({ settings, update }) {
             {patterns.map((p, i) => {
               const isOpen = openPatternId === p.id
               return (
-              <div key={p.id} id={`pattern-card-${p.id}`} style={{
-                display: 'flex', alignItems: 'stretch', gap: 0,
-                borderRadius: 13, overflow: 'hidden',
-                border: p.locked
-                  ? '2px solid rgba(255,200,0,0.9)'
-                  : p.enabled
-                    ? (p.side==='bull' ? '2px solid rgba(0,230,118,0.85)' : '2px solid rgba(255,60,80,0.85)')
-                    : (p.side==='bull' ? '2px solid rgba(0,230,118,0.32)' : '2px solid rgba(255,60,80,0.32)'),
-                boxShadow: p.locked
-                  ? '0 0 16px 3px rgba(255,200,0,0.45)'
-                  : p.enabled
-                    ? (p.side==='bull' ? '0 0 14px 3px rgba(0,230,118,0.45)' : '0 0 14px 3px rgba(255,60,80,0.45)')
-                    : (p.side==='bull' ? '0 0 6px 1px rgba(0,230,118,0.18)' : '0 0 6px 1px rgba(255,60,80,0.18)'),
-                transition: 'border .2s, box-shadow .2s',
-              }}>
+              <div key={p.id} id={`pattern-card-${p.id}`} style={{ display: 'flex', alignItems: 'stretch', gap: 0 }}>
 
-                {/* ── Left gutter — hidden when pattern is open for full-width edit ── */}
+                {/* ── Left gutter — outside the border ── */}
                 {!isOpen && (
                 <div style={{
                   flexShrink: 0, width: 28,
                   display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
                   gap: 4, paddingRight: 4,
-                  background: p.side==='bull' ? 'rgba(0,230,118,0.04)' : 'rgba(255,60,80,0.04)',
                 }}>
                   {selectionMode ? (
                     /* Checkbox */
@@ -2543,8 +2528,24 @@ export default function PatternBuilderTab({ settings, update }) {
                 </div>
                 )}
 
-                {/* ── Pattern card ── */}
-                <div style={{ flex: 1, minWidth: 0 }}>
+                {/* ── Pattern card with glow border ── */}
+                <div style={{
+                  flex: 1, minWidth: 0,
+                  borderRadius: 13, overflow: 'hidden',
+                  border: p.locked
+                    ? '2px solid rgba(255,200,0,0.9)'
+                    : p.enabled
+                      ? (p.side==='bull' ? '2px solid #00e676cc' : '2px solid #ff4757cc')
+                      : (p.side==='bull' ? '2px solid #00e67644' : '2px solid #ff475744'),
+                  boxShadow: p.locked
+                    ? '0 0 16px rgba(255,200,0,0.5)'
+                    : p.enabled
+                      ? (p.side==='bull'
+                          ? '0 0 14px rgba(0,230,118,0.55), inset 0 0 8px rgba(0,230,118,0.08)'
+                          : '0 0 14px rgba(255,71,87,0.55), inset 0 0 8px rgba(255,71,87,0.08)')
+                      : (p.side==='bull' ? '0 0 6px rgba(0,230,118,0.2)' : '0 0 6px rgba(255,71,87,0.2)'),
+                  transition: 'border .2s, box-shadow .2s',
+                }}>
                   <PatternEditor
                     key={p.id} pattern={p} defaultOpen={p.id === newId || p.id === openPatternId}
                     onChange={np => upd(i, np)} onDelete={() => del(i)}
