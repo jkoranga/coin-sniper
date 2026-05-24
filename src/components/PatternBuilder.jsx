@@ -1476,9 +1476,9 @@ function PatternEditor({ pattern, onChange, onDelete, onMirrorPattern, onCopyPat
 
     <div style={{
       borderRadius: 13,
-      border: `2px solid ${pattern.locked ? 'rgba(255,200,0,0.55)' : pattern.enabled ? color + '66' : 'var(--border2)'}`,
-      background: pattern.locked ? 'rgba(255,200,0,0.04)' : pattern.enabled ? color + '08' : 'var(--bg1)', overflow: 'hidden',
-      boxShadow: pattern.locked ? '0 0 14px rgba(255,200,0,0.12)' : pattern.enabled ? `0 0 10px ${color}18` : 'none',
+      border: `2px solid ${pattern.locked ? 'rgba(255,200,0,0.6)' : pattern.enabled ? color + 'cc' : color + '33'}`,
+      background: pattern.locked ? 'rgba(255,200,0,0.04)' : pattern.enabled ? color + '0a' : 'var(--bg1)', overflow: 'hidden',
+      boxShadow: pattern.locked ? '0 0 14px rgba(255,200,0,0.2)' : pattern.enabled ? `0 0 14px ${color}44, inset 0 0 10px ${color}10` : `0 0 4px ${color}15`,
       opacity: mirrorPopup || copyPopup || lockPopup ? 0.3 : 1,
       transition: 'opacity .15s, border .2s, box-shadow .2s',
       pointerEvents: mirrorPopup || copyPopup || lockPopup ? 'none' : 'auto',
@@ -1488,9 +1488,9 @@ function PatternEditor({ pattern, onChange, onDelete, onMirrorPattern, onCopyPat
         onClick={() => pattern.locked ? setLockPopup(true) : setOpen(o => !o)}
         style={{
           display: 'flex', alignItems: 'center', gap: 9, padding: '12px 13px', cursor: 'pointer',
-          background: pattern.enabled
-            ? pattern.side === 'bull' ? 'rgba(0,230,118,0.07)' : 'rgba(255,60,80,0.07)'
-            : 'transparent',
+          background: pattern.side === 'bull'
+            ? pattern.enabled ? 'rgba(0,230,118,0.08)' : 'rgba(0,230,118,0.03)'
+            : pattern.enabled ? 'rgba(255,60,80,0.08)' : 'rgba(255,60,80,0.03)',
         }}
       >
         <span style={{ fontSize: 22, flexShrink: 0 }}>{pattern.icon}</span>
@@ -1498,7 +1498,7 @@ function PatternEditor({ pattern, onChange, onDelete, onMirrorPattern, onCopyPat
         {/* Name + subtitle — takes all available space */}
         <div style={{ flex: 1, minWidth: 0 }}>
           <div style={{
-            fontWeight: 800, fontSize: 15, color: pattern.enabled ? color : 'var(--text2)',
+            fontWeight: 800, fontSize: 15, color: pattern.enabled ? color : color + '88',
             whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
           }}>{pattern.name}</div>
           <div style={{
