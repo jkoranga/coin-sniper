@@ -1477,12 +1477,11 @@ function PatternEditor({ pattern, onChange, onDelete, onMirrorPattern, onCopyPat
     <div style={{
       borderRadius: 0,
       border: 'none',
-      background: pattern.locked ? 'rgba(255,200,0,0.04)' : pattern.enabled ? (pattern.side==='bull'?'rgba(0,230,118,0.06)':'rgba(255,60,80,0.06)') : 'var(--bg1)', overflow: 'hidden',
+      background: pattern.locked ? 'rgba(255,200,0,0.04)' : pattern.enabled ? (pattern.side==='bull'?'rgba(0,230,118,0.06)':'rgba(255,60,80,0.06)') : 'var(--bg1)',
       boxShadow: 'none',
       opacity: mirrorPopup || copyPopup || lockPopup ? 0.3 : 1,
       transition: 'opacity .15s',
       pointerEvents: mirrorPopup || copyPopup || lockPopup ? 'none' : 'auto',
-      width: '100%',
     }}>
       {/* Header — icon + name + subtitle + lock + toggle only */}
       <div
