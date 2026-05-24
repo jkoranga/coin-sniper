@@ -1475,13 +1475,14 @@ function PatternEditor({ pattern, onChange, onDelete, onMirrorPattern, onCopyPat
       )}
 
     <div style={{
-      borderRadius: 13,
-      border: `2px solid ${pattern.locked ? 'rgba(255,200,0,0.6)' : pattern.enabled ? color + 'cc' : color + '33'}`,
-      background: pattern.locked ? 'rgba(255,200,0,0.04)' : pattern.enabled ? color + '0a' : 'var(--bg1)', overflow: 'hidden',
-      boxShadow: pattern.locked ? '0 0 14px rgba(255,200,0,0.2)' : pattern.enabled ? `0 0 14px ${color}44, inset 0 0 10px ${color}10` : `0 0 4px ${color}15`,
+      borderRadius: 0,
+      border: 'none',
+      background: pattern.locked ? 'rgba(255,200,0,0.04)' : pattern.enabled ? (pattern.side==='bull'?'rgba(0,230,118,0.06)':'rgba(255,60,80,0.06)') : 'var(--bg1)', overflow: 'hidden',
+      boxShadow: 'none',
       opacity: mirrorPopup || copyPopup || lockPopup ? 0.3 : 1,
-      transition: 'opacity .15s, border .2s, box-shadow .2s',
+      transition: 'opacity .15s',
       pointerEvents: mirrorPopup || copyPopup || lockPopup ? 'none' : 'auto',
+      width: '100%',
     }}>
       {/* Header — icon + name + subtitle + lock + toggle only */}
       <div
@@ -2456,7 +2457,18 @@ export default function PatternBuilderTab({ settings, update }) {
             {patterns.map((p, i) => {
               const isOpen = openPatternId === p.id
               return (
-              <div key={p.id} id={`pattern-card-${p.id}`} style={{ display: 'flex', alignItems: 'stretch', gap: 0 }}>
+              <div key={p.id} id={`pattern-card-${p.id}`} style={{
+                display: 'flex', alignItems: 'stretch', gap: 0,
+                borderRadius: 13,
+                border: `2px solid ${p.locked ? 'rgba(255,200,0,0.6)' : p.enabled ? (p.side==='bull'?'rgba(0,230,118,0.8)':'rgba(255,60,80,0.8)') : (p.side==='bull'?'rgba(0,230,118,0.3)':'rgba(255,60,80,0.3)')}`,
+                boxShadow: p.locked
+                  ? '0 0 14px rgba(255,200,0,0.2)'
+                  : p.enabled
+                    ? p.side==='bull' ? '0 0 14px rgba(0,230,118,0.3), inset 0 0 10px rgba(0,230,118,0.06)' : '0 0 14px rgba(255,60,80,0.3), inset 0 0 10px rgba(255,60,80,0.06)'
+                    : p.side==='bull' ? '0 0 4px rgba(0,230,118,0.1)' : '0 0 4px rgba(255,60,80,0.1)',
+                overflow: 'hidden',
+                transition: 'border .2s, box-shadow .2s',
+              }}>
 
                 {/* ── Left gutter — hidden when pattern is open for full-width edit ── */}
                 {!isOpen && (
