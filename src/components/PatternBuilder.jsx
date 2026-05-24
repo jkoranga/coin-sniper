@@ -2460,12 +2460,20 @@ export default function PatternBuilderTab({ settings, update }) {
               <div key={p.id} id={`pattern-card-${p.id}`} style={{
                 display: 'flex', alignItems: 'stretch', gap: 0,
                 borderRadius: 13,
-                border: `2px solid ${p.locked ? 'rgba(255,200,0,0.6)' : p.enabled ? (p.side==='bull'?'rgba(0,230,118,0.8)':'rgba(255,60,80,0.8)') : (p.side==='bull'?'rgba(0,230,118,0.3)':'rgba(255,60,80,0.3)')}`,
-                boxShadow: p.locked
-                  ? '0 0 14px rgba(255,200,0,0.2)'
+                border: p.locked
+                  ? '2px solid rgba(255,200,0,0.85)'
                   : p.enabled
-                    ? p.side==='bull' ? '0 0 14px rgba(0,230,118,0.3), inset 0 0 10px rgba(0,230,118,0.06)' : '0 0 14px rgba(255,60,80,0.3), inset 0 0 10px rgba(255,60,80,0.06)'
-                    : p.side==='bull' ? '0 0 4px rgba(0,230,118,0.1)' : '0 0 4px rgba(255,60,80,0.1)',
+                    ? (p.side==='bull' ? '2px solid rgba(0,230,118,0.95)' : '2px solid rgba(255,60,80,0.95)')
+                    : (p.side==='bull' ? '2px solid rgba(0,230,118,0.28)' : '2px solid rgba(255,60,80,0.28)'),
+                boxShadow: p.locked
+                  ? '0 0 18px 3px rgba(255,200,0,0.45), inset 0 0 12px rgba(255,200,0,0.07)'
+                  : p.enabled
+                    ? (p.side==='bull'
+                        ? '0 0 18px 4px rgba(0,230,118,0.45), inset 0 0 14px rgba(0,230,118,0.08)'
+                        : '0 0 18px 4px rgba(255,60,80,0.45), inset 0 0 14px rgba(255,60,80,0.08)')
+                    : (p.side==='bull'
+                        ? '0 0 6px rgba(0,230,118,0.12)'
+                        : '0 0 6px rgba(255,60,80,0.12)'),
                 overflow: 'hidden',
                 transition: 'border .2s, box-shadow .2s',
               }}>
