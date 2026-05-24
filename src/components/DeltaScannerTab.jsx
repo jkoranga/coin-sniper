@@ -5,7 +5,7 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react'
 import { fetchDeltaSymbols, fetchDeltaCandles, DELTA_FALLBACK_SYMBOLS as DELTA_FALLBACK_SYMBOLS_IMPORT } from '../utils/deltaScanner.js'
 import { compilePattern } from './PatternBuilder.jsx'
-import { intervalToMs, sendTelegram, buildTelegramMsg, fmt, timeSince } from '../utils/scanner.js'
+import { intervalToMs, sendTelegram, buildTelegramMsg, fmt, timeSince, fmtVol } from '../utils/scanner.js'
 
 const DC  = '#ff6b00'
 const DD  = 'rgba(255,107,0,0.12)'
@@ -181,6 +181,43 @@ function AlertCard({ a, onDismiss, onTap, resultFilter }) {
   )
 }
 
+// ── Mini candle chart ─────────────────────────────────────────────────────────
+function MiniCandleChart({ candles }) {
+  if (!candles || candles.length < 2) return null
+  const W = 320, H = 90, PAD = 6
+  const minP = Math.min(...candles.map(c => c.low))
+  const maxP = Math.max(...candles.map(c => c.high))
+  const rng  = maxP - minP || 1
+  const toY  = p => PAD + (1 - (p - minP) / rng) * (H - PAD * 2)
+  const cw   = Math.floor((W - PAD * 2) / candles.length)
+  const bw   = Math.max(2, cw - 3)
+  return (
+    <svg width="100%" viewBox={`0 0 ${W} ${H}`} style={{ display:'block', borderRadius:8, background:'rgba(0,0,0,0.25)' }}>
+      {candles.map((c, i) => {
+        const bull = c.close >= c.open
+        const col  = bull ? '#00e676' : '#ff4757'
+        const x    = PAD + i * cw + (cw - bw) / 2
+        const bTop = toY(Math.max(c.open, c.close))
+        const bBot = toY(Math.min(c.open, c.close))
+        const bH   = Math.max(1, bBot - bTop)
+        const cx   = x + bw / 2
+        return (
+          <g key={i}>
+            <line x1={cx} y1={toY(c.high)} x2={cx} y2={toY(c.low)} stroke={col} strokeWidth={1} opacity={0.65}/>
+            <rect x={x} y={bTop} width={bw} height={bH} fill={col} rx={1}/>
+          </g>
+        )
+      })}
+      {candles[0]?.ema20 && (
+        <polyline
+          points={candles.map((c,i) => `${PAD+i*cw+cw/2},${toY(c.ema20)}`).join(' ')}
+          fill="none" stroke="#ff6b00" strokeWidth={1.5} opacity={0.85} strokeLinejoin="round"
+        />
+      )}
+    </svg>
+  )
+}
+
 // ── Detail bottom sheet ────────────────────────────────────────────────────────
 function DetailSheet({ alert: a, onClose }) {
   useEffect(() => {
@@ -191,47 +228,99 @@ function DetailSheet({ alert: a, onClose }) {
   }, [a, onClose])
   if (!a) return null
   const isBull = a.side === 'bull'
-  const col = isBull ? GR : RD, bd = isBull ? 'rgba(0,200,100,0.4)' : 'rgba(255,60,80,0.4)'
+  const col = isBull ? GR : RD
+  const bd  = isBull ? 'rgba(0,200,100,0.4)' : 'rgba(255,60,80,0.4)'
+  const d   = a.details || {}
+  const entry  = d.lowestOpen  ?? d.entry ?? null
+  const close  = d.highestClose ?? d.close ?? null
+  const gainPct = parseFloat(d.gainPct)
+  const gainStr = d.gainPct != null ? `${gainPct >= 0 ? '+' : ''}${d.gainPct}%` : null
+
+  const StatBox = ({ label, value, valColor }) => (
+    <div style={{ background:'var(--bg2)', borderRadius:10, padding:'10px 14px', border:'1px solid var(--border)' }}>
+      <div style={{ fontSize:9, fontFamily:'var(--mono)', color:'var(--text3)', marginBottom:4, letterSpacing:'.08em' }}>{label}</div>
+      <div style={{ fontFamily:'var(--mono)', fontWeight:800, fontSize:17, color: valColor || 'var(--text)', letterSpacing:'-.01em' }}>
+        {value ?? '—'}
+      </div>
+    </div>
+  )
+
   return (
     <>
-      <div onClick={onClose} style={{position:'fixed', inset:0, zIndex:499, background:'rgba(0,0,0,0.7)', backdropFilter:'blur(4px)'}}/>
+      <div onClick={onClose} style={{position:'fixed', inset:0, zIndex:499, background:'rgba(0,0,0,0.72)', backdropFilter:'blur(5px)'}}/>
       <div style={{
         position:'fixed', bottom:0, left:0, right:0, zIndex:500,
-        background:'var(--bg1)', borderRadius:'20px 20px 0 0',
-        border:'1px solid var(--border2)', maxHeight:'82vh', overflow:'auto', paddingBottom:40,
+        background:'var(--bg1)', borderRadius:'22px 22px 0 0',
+        border:`1px solid ${bd}`, maxHeight:'88vh', overflow:'auto', paddingBottom:44,
       }}>
-        <div style={{width:36, height:4, borderRadius:2, background:'var(--border2)', margin:'12px auto 0'}}/>
-        <div style={{padding:'16px'}}>
+        <div style={{width:38, height:4, borderRadius:2, background:'var(--border2)', margin:'12px auto 0'}}/>
+        <div style={{padding:'14px 16px 0'}}>
+
+          {/* Header */}
           <div style={{display:'flex', alignItems:'center', gap:10, marginBottom:14}}>
-            <span style={{fontSize:24}}>{a.scannerIcon}</span>
-            <div style={{flex:1}}>
-              <div style={{fontWeight:800, fontSize:16, color:col}}>{a.scannerName}</div>
-              <div style={{fontSize:11, fontFamily:'var(--mono)', color:'var(--text3)', marginTop:2}}>
+            <span style={{fontSize:26, flexShrink:0}}>{a.scannerIcon}</span>
+            <div style={{flex:1, minWidth:0}}>
+              <div style={{fontWeight:900, fontSize:17, color:col, lineHeight:1.15}}>{a.scannerName}</div>
+              <div style={{fontSize:11, fontFamily:'var(--mono)', color:'var(--text3)', marginTop:3}}>
                 {a.symbol} · {a.timeframe} · {timeSince(a.time)}
               </div>
             </div>
-            <TvIcon symbol={a.symbol} timeframe={a.timeframe}/>
-            <span style={{padding:'3px 8px', borderRadius:6, fontSize:10, fontWeight:800,
-              background:isBull?'rgba(0,230,118,0.1)':'rgba(255,60,80,0.1)', color:col,
-              border:`1px solid ${col}50`, fontFamily:'var(--mono)'}}>{isBull?'BULL':'BEAR'}</span>
+            <TvIcon symbol={a.symbol} timeframe={a.timeframe} sz={32}/>
+            <span style={{
+              padding:'4px 10px', borderRadius:7, fontSize:11, fontWeight:800,
+              background:isBull?'rgba(0,230,118,0.12)''rgba(255,60,80,0.12)',
+              color:col, border:`1.5px solid ${col}55`, fontFamily:'var(--mono)',
+            }}>{isBull?'BULL':'BEAR'}</span>
           </div>
+
+          {/* Candle chart */}
+          {d.run && d.run.length >= 2 && (
+            <div style={{marginBottom:12}}>
+              <div style={{fontSize:9, fontFamily:'var(--mono)', color:'var(--text3)', letterSpacing:'.1em', marginBottom:6}}>CANDLE CHART</div>
+              <MiniCandleChart candles={d.run}/>
+            </div>
+          )}
+
+          {/* Stat grid */}
           <div style={{display:'grid', gridTemplateColumns:'1fr 1fr', gap:8, marginBottom:12}}>
-            {Object.entries(a.details || {})
-              .filter(([k]) => !['time'].includes(k))
-              .slice(0, 8)
-              .map(([k, v]) => (
-              <div key={k} style={{background:'var(--bg2)', borderRadius:9, padding:'10px 12px', border:'1px solid var(--border)'}}>
-                <div style={{fontSize:9, fontFamily:'var(--mono)', color:'var(--text3)', marginBottom:3, letterSpacing:'.05em'}}>{k.toUpperCase()}</div>
-                <div style={{fontFamily:'var(--mono)', fontWeight:700, fontSize:14, color:'var(--text)'}}>
-                  {typeof v === 'number' ? fmt(v) : String(v)}
-                </div>
-              </div>
-            ))}
+            <StatBox label="CANDLES" value={d.candleCount ?? '—'}/>
+            <StatBox label="GAIN" value={gainStr} valColor={gainPct >= 0 ? GR : RD}/>
+            {entry != null && <StatBox label="ENTRY" value={fmt(entry)}/>}
+            {close != null && <StatBox label="CLOSE" value={fmt(close)}/>}
+            {a.volume > 0 && <StatBox label="24H VOL" value={fmtVol(a.volume)}/>}
+            {d.accuracy && (
+              <StatBox
+                label="ACCURACY"
+                value={`${d.accuracy.pct}%  (${d.accuracy.wins}/${d.accuracy.signals})`}
+                valColor={d.accuracy.pct >= 60 ? GR : d.accuracy.pct >= 40 ? AM : RD}
+              />
+            )}
           </div>
+
+          {/* Matched conditions */}
+          {Array.isArray(d.conds) && d.conds.length > 0 && (
+            <div style={{marginBottom:12}}>
+              <div style={{fontSize:9, fontFamily:'var(--mono)', color:'var(--text3)', letterSpacing:'.1em', marginBottom:8}}>CONDITIONS</div>
+              <div style={{background:'var(--bg2)', borderRadius:10, border:'1px solid var(--border)', overflow:'hidden'}}>
+                {d.conds.map((c, i) => (
+                  <div key={i} style={{
+                    display:'flex', alignItems:'flex-start', gap:8, padding:'9px 12px',
+                    borderBottom: i < d.conds.length-1 ? '1px solid var(--border)' : 'none',
+                  }}>
+                    <span style={{color:GR, fontWeight:800, fontSize:14, flexShrink:0, marginTop:1}}>✓</span>
+                    <span style={{fontSize:12, fontFamily:'var(--mono)', color:'var(--text2)', lineHeight:1.5}}>
+                      {String(c).replace(/^✓\s*/,'')}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
           <button onClick={onClose} style={{
-            width:'100%', padding:'12px', borderRadius:10, cursor:'pointer',
-            border:'1px solid var(--border2)', background:'var(--bg2)', color:'var(--text3)',
-            fontFamily:'var(--mono)', fontWeight:700, fontSize:12,
+            width:'100%', padding:'14px', borderRadius:12, cursor:'pointer',
+            border:`1px solid ${bd}`, background:`${col}10`,
+            color:col, fontFamily:'var(--mono)', fontWeight:800, fontSize:14,
           }}>Close</button>
         </div>
       </div>

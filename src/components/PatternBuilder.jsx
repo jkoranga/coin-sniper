@@ -1476,9 +1476,9 @@ function PatternEditor({ pattern, onChange, onDelete, onMirrorPattern, onCopyPat
 
     <div style={{
       borderRadius: 13,
-      border: `1.5px solid ${pattern.locked ? 'rgba(255,200,0,0.5)' : pattern.enabled ? color + '55' : 'var(--border)'}`,
-      background: pattern.locked ? 'rgba(255,200,0,0.04)' : 'var(--bg1)', overflow: 'hidden',
-      boxShadow: pattern.locked ? '0 0 14px rgba(255,200,0,0.12)' : 'none',
+      border: `2px solid ${pattern.locked ? 'rgba(255,200,0,0.55)' : pattern.enabled ? color + '66' : 'var(--border2)'}`,
+      background: pattern.locked ? 'rgba(255,200,0,0.04)' : pattern.enabled ? color + '08' : 'var(--bg1)', overflow: 'hidden',
+      boxShadow: pattern.locked ? '0 0 14px rgba(255,200,0,0.12)' : pattern.enabled ? `0 0 10px ${color}18` : 'none',
       opacity: mirrorPopup || copyPopup || lockPopup ? 0.3 : 1,
       transition: 'opacity .15s, border .2s, box-shadow .2s',
       pointerEvents: mirrorPopup || copyPopup || lockPopup ? 'none' : 'auto',
