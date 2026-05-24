@@ -1193,7 +1193,7 @@ function IconPicker({ value, onChange, color }) {
 }
 
 // ── Pattern editor ────────────────────────────────────────────────────────────
-function PatternEditor({ pattern, onChange, onDelete, onMirrorPattern, onCopyPattern, defaultOpen, allPatternNames, onOpenChange }) {
+function PatternEditor({ pattern, onChange, onDelete, onMirrorPattern, onCopyPattern, defaultOpen, allPatternNames, onOpenChange, outerStyle }) {
   const [open, setOpenRaw] = useState(!!defaultOpen)
   function setOpen(v) {
     const next = typeof v === 'function' ? v(open) : v
@@ -1292,7 +1292,7 @@ function PatternEditor({ pattern, onChange, onDelete, onMirrorPattern, onCopyPat
   const active = pattern.conditions.filter(c => c.enabled).length
 
   return (
-    <div style={{ position: 'relative' }}>
+    <div style={{ position: 'relative', borderRadius: 13, overflow: 'hidden', ...outerStyle }}>
 
       {/* ── Mirror rename popup ── */}
       {mirrorPopup && (
@@ -2528,24 +2528,8 @@ export default function PatternBuilderTab({ settings, update }) {
                 </div>
                 )}
 
-                {/* ── Pattern card with glow border ── */}
-                <div style={{
-                  flex: 1, minWidth: 0,
-                  borderRadius: 13, overflow: 'hidden',
-                  border: p.locked
-                    ? '2px solid rgba(255,200,0,0.9)'
-                    : p.enabled
-                      ? (p.side==='bull' ? '2px solid #00e676cc' : '2px solid #ff4757cc')
-                      : (p.side==='bull' ? '2px solid #00e67644' : '2px solid #ff475744'),
-                  boxShadow: p.locked
-                    ? '0 0 16px rgba(255,200,0,0.5)'
-                    : p.enabled
-                      ? (p.side==='bull'
-                          ? '0 0 14px rgba(0,230,118,0.55), inset 0 0 8px rgba(0,230,118,0.08)'
-                          : '0 0 14px rgba(255,71,87,0.55), inset 0 0 8px rgba(255,71,87,0.08)')
-                      : (p.side==='bull' ? '0 0 6px rgba(0,230,118,0.2)' : '0 0 6px rgba(255,71,87,0.2)'),
-                  transition: 'border .2s, box-shadow .2s',
-                }}>
+                {/* ── Pattern card — border via outerStyle prop ── */}
+                <div style={{ flex: 1, minWidth: 0 }}>
                   <PatternEditor
                     key={p.id} pattern={p} defaultOpen={p.id === newId || p.id === openPatternId}
                     onChange={np => upd(i, np)} onDelete={() => del(i)}
@@ -2553,6 +2537,20 @@ export default function PatternBuilderTab({ settings, update }) {
                     onCopyPattern={(name) => copyPattern(i, name)}
                     allPatternNames={patterns.map(x => x.name)}
                     onOpenChange={(isNowOpen) => setOpenPatternId(isNowOpen ? p.id : null)}
+                    outerStyle={{
+                      border: p.locked
+                        ? '2px solid rgba(255,200,0,0.9)'
+                        : p.enabled
+                          ? (p.side==='bull' ? '2px solid #00e676' : '2px solid #ff4757')
+                          : (p.side==='bull' ? '2px solid rgba(0,230,118,0.35)' : '2px solid rgba(255,71,87,0.35)'),
+                      boxShadow: p.locked
+                        ? '0 0 16px rgba(255,200,0,0.5)'
+                        : p.enabled
+                          ? (p.side==='bull'
+                              ? '0 0 14px rgba(0,230,118,0.6), inset 0 0 10px rgba(0,230,118,0.08)'
+                              : '0 0 14px rgba(255,71,87,0.6), inset 0 0 10px rgba(255,71,87,0.08)')
+                          : (p.side==='bull' ? '0 0 4px rgba(0,230,118,0.2)' : '0 0 4px rgba(255,71,87,0.2)'),
+                    }}
                   />
                 </div>
               </div>
