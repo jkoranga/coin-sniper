@@ -274,7 +274,7 @@ function PatternsModal({ open, onClose, settings, update, onGoToBuilder }) {
   const patterns = (settings.customPatterns || [])
 
   function condFormula(c) {
-    const rhs = c.rhsMode==='number' ? (c.rhsNum??0)
+    const rhs = c.rhsMode==='number'  ? (c.rhsNum??0)
       : c.rhsMode==='field'   ? c.rhsField
       : c.rhsMode==='mult'    ? `${c.rhsField}×${c.rhsMult??1}`
       : c.rhsMode==='pct'     ? `${c.rhsField}${(c.rhsPct??0)>=0?'+':''}${c.rhsPct??0}%`
@@ -286,115 +286,187 @@ function PatternsModal({ open, onClose, settings, update, onGoToBuilder }) {
   return (
     <>
       <div onClick={onClose} style={{
-        position:'fixed', inset:0, zIndex:499, background:'rgba(0,0,0,0.6)', backdropFilter:'blur(3px)',
+        position:'fixed', inset:0, zIndex:499,
+        background:'rgba(0,0,0,0.65)', backdropFilter:'blur(4px)',
       }}/>
       <div style={{
         position:'fixed', bottom:0, left:0, right:0, zIndex:500,
-        background:'var(--bg2)', borderRadius:'20px 20px 0 0',
-        border:'1px solid var(--border2)', maxHeight:'75vh', overflow:'hidden',
-        display:'flex', flexDirection:'column',
+        background:'var(--bg1)', borderRadius:'22px 22px 0 0',
+        border:'1px solid var(--border2)', maxHeight:'80vh',
+        overflow:'hidden', display:'flex', flexDirection:'column',
       }}>
         {/* Drag handle */}
-        <div style={{width:36,height:4,borderRadius:2,background:'var(--border2)',margin:'10px auto 0'}}/>
-        <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', padding:'12px 16px 10px' }}>
-          <div style={{ fontWeight:800, fontSize:15, color:'var(--text)' }}>
-            Patterns <span style={{fontSize:11,fontFamily:'var(--mono)',color:'var(--text3)',fontWeight:400}}>({patterns.length})</span>
+        <div style={{width:38,height:4,borderRadius:2,background:'var(--border2)',margin:'12px auto 0',flexShrink:0}}/>
+
+        {/* Header */}
+        <div style={{display:'flex', alignItems:'center', justifyContent:'space-between', padding:'12px 16px 10px', flexShrink:0}}>
+          <div style={{fontWeight:800, fontSize:15, color:'var(--text)'}}>
+            Patterns
+            <span style={{fontSize:11,fontFamily:'var(--mono)',color:'var(--text3)',fontWeight:400,marginLeft:6}}>
+              ({patterns.length})
+            </span>
           </div>
-          <div style={{ display:'flex', gap:8 }}>
-            <button onClick={onGoToBuilder} style={{
-              padding:'6px 12px', borderRadius:8, cursor:'pointer',
-              border:`1.5px solid ${ORANGE_BORDER}`, background: ORANGE_DIM,
-              color: ORANGE, fontSize:11, fontWeight:700, fontFamily:'var(--mono)',
+          <div style={{display:'flex', gap:8}}>
+            <button onClick={()=>{onClose();onGoToBuilder()}} style={{
+              padding:'6px 14px', borderRadius:8, cursor:'pointer',
+              border:`1.5px solid ${ORANGE_BORDER}`, background:ORANGE_DIM,
+              color:ORANGE, fontSize:11, fontWeight:800, fontFamily:'var(--mono)',
             }}>+ New</button>
-            <button onClick={onClose} style={{ background:'none', border:'none', cursor:'pointer', fontSize:20, color:'var(--text3)', lineHeight:1 }}>✕</button>
+            <button onClick={onClose} style={{background:'none',border:'none',cursor:'pointer',fontSize:22,color:'var(--text3)',lineHeight:1}}>✕</button>
           </div>
         </div>
-        <div style={{ overflow:'auto', padding:'0 12px 32px' }}>
+
+        {/* List */}
+        <div style={{overflow:'auto', padding:'4px 12px 40px', WebkitOverflowScrolling:'touch'}}>
           {patterns.length === 0 ? (
-            <div style={{ textAlign:'center', padding:'32px 16px', color:'var(--text3)', fontSize:12, fontFamily:'var(--mono)' }}>
+            <div style={{textAlign:'center', padding:'36px 16px', color:'var(--text3)', fontSize:12, fontFamily:'var(--mono)', lineHeight:1.7}}>
               No patterns yet.<br/>Tap "+ New" to build one.
             </div>
           ) : patterns.map(p => {
-            const isBull = p.side === 'bull'
-            const pColor = isBull ? '#00e676' : '#ff4757'
-            const pBorder = isBull ? 'rgba(0,230,118,0.35)' : 'rgba(255,60,80,0.35)'
+            const isBull  = p.side === 'bull'
+            const pColor  = isBull ? '#00e676' : '#ff4757'
+            const pGlow   = isBull ? 'rgba(0,230,118,0.22)' : 'rgba(255,60,80,0.22)'
+            const pBorder = isBull ? 'rgba(0,230,118,0.55)' : 'rgba(255,60,80,0.55)'
+            const pDim    = isBull ? 'rgba(0,230,118,0.07)' : 'rgba(255,60,80,0.07)'
+            const pFade   = isBull ? 'rgba(0,230,118,0.15)' : 'rgba(255,60,80,0.15)'
             const allConds = (p.conditions||[]).filter(c=>c.enabled)
-            const isOpen = openId === p.id
+            const isOpen  = openId === p.id
+
             return (
               <div key={p.id} style={{
-                borderRadius:12, marginBottom:7,
-                background: isOpen ? 'var(--bg1)' : 'var(--bg3)',
-                border:`1.5px solid ${isOpen ? pBorder : pColor+'22'}`,
-                overflow:'hidden', transition:'border-color .15s',
+                borderRadius:14, marginBottom:10,
+                border: `2px solid ${p.enabled ? pBorder : 'var(--border)'}`,
+                background: isOpen ? pDim : 'var(--bg2)',
+                boxShadow: p.enabled
+                  ? isOpen
+                    ? `0 0 18px ${pGlow}, inset 0 0 12px ${pFade}`
+                    : `0 0 10px ${pGlow}`
+                  : 'none',
+                overflow:'hidden',
+                transition:'box-shadow .2s, border-color .2s, background .15s',
               }}>
-                {/* ── Header — tap to toggle conditions ── */}
+                {/* ── Card header ── */}
                 <div
                   onClick={() => setOpenId(isOpen ? null : p.id)}
-                  style={{ display:'flex', alignItems:'center', gap:10, padding:'10px 12px', cursor:'pointer' }}
+                  style={{display:'flex', alignItems:'center', gap:10, padding:'11px 13px', cursor:'pointer'}}
                 >
-                  <span style={{ fontSize:18, flexShrink:0 }}>{p.icon || (isBull?'🟢':'🔴')}</span>
-                  <div style={{ flex:1, minWidth:0 }}>
-                    <div style={{ fontWeight:700, fontSize:13, color: p.enabled ? pColor : 'var(--text2)', wordBreak:'break-word' }}>
-                      {p.name}
-                    </div>
-                    <div style={{ fontSize:9, fontFamily:'var(--mono)', color:'var(--text3)', marginTop:2 }}>
-                      {(p.tfs||[]).join(' · ') || 'No TFs'}
-                      {' · '}{allConds.length} cond{allConds.length!==1?'s':''}
-                      {isOpen ? ' · ▲' : ' · ▼'}
+                  <span style={{fontSize:20, flexShrink:0}}>{p.icon || (isBull?'🟢':'🔴')}</span>
+
+                  <div style={{flex:1, minWidth:0}}>
+                    <div style={{
+                      fontWeight:800, fontSize:14,
+                      color: p.enabled ? pColor : 'var(--text3)',
+                      whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis',
+                    }}>{p.name}</div>
+                    <div style={{fontSize:9, fontFamily:'var(--mono)', color:'var(--text3)', marginTop:2,
+                      whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis'}}>
+                      {isBull?'BULL':'BEAR'} · {(p.tfs||[]).join(' ') || 'no TF'} · {allConds.length} cond{allConds.length!==1?'s':''}
                     </div>
                   </div>
-                  <button
+
+                  {/* ON/OFF toggle */}
+                  <div
                     onClick={e => { e.stopPropagation(); update(prev => ({
-                      customPatterns: (prev.customPatterns||[]).map(x => x.id===p.id ? {...x, enabled:!x.enabled} : x)
+                      customPatterns:(prev.customPatterns||[]).map(x=>x.id===p.id?{...x,enabled:!x.enabled}:x)
                     }))}}
                     style={{
-                      padding:'4px 10px', borderRadius:7, cursor:'pointer', fontSize:10, fontWeight:700, fontFamily:'var(--mono)',
-                      border: p.enabled ? `1px solid ${ORANGE_BORDER}` : '1px solid var(--border)',
-                      background: p.enabled ? ORANGE_DIM : 'var(--bg2)',
-                      color: p.enabled ? ORANGE : 'var(--text3)',
-                      flexShrink:0,
+                      width:40, height:22, borderRadius:11, cursor:'pointer', flexShrink:0, position:'relative',
+                      background: p.enabled ? pColor : 'var(--bg3)',
+                      border:`2px solid ${p.enabled ? pBorder : 'var(--border)'}`,
+                      boxShadow: p.enabled ? `0 0 8px ${pGlow}` : 'none',
+                      transition:'all .2s',
                     }}
-                  >{p.enabled ? 'ON' : 'OFF'}</button>
+                  >
+                    <div style={{
+                      position:'absolute', top:2, left:p.enabled?18:2, width:14, height:14,
+                      borderRadius:'50%', background:'#fff', transition:'left .2s',
+                      boxShadow:'0 1px 3px rgba(0,0,0,0.4)',
+                    }}/>
+                  </div>
+
+                  {/* Chevron */}
+                  <span style={{color:'var(--text3)', fontSize:11, flexShrink:0, marginLeft:2}}>
+                    {isOpen ? '▲' : '▼'}
+                  </span>
                 </div>
 
-                {/* ── Accordion body — conditions ── */}
+                {/* ── Conditions accordion ── */}
                 {isOpen && (
-                  <div style={{ borderTop:`1px solid ${pBorder}`, background:'rgba(0,0,0,0.15)' }}>
+                  <div style={{borderTop:`1.5px solid ${pBorder}`}}>
                     {allConds.length === 0 ? (
-                      <div style={{ padding:'10px 14px', fontSize:10, fontFamily:'var(--mono)', color:'var(--text3)' }}>
+                      <div style={{padding:'12px 14px', fontSize:11, fontFamily:'var(--mono)', color:'var(--text3)'}}>
                         No enabled conditions.
                       </div>
-                    ) : allConds.map((c, i) => (
-                      <div key={c.id||i} style={{
-                        display:'flex', alignItems:'center', gap:8,
-                        padding:'8px 14px',
-                        borderBottom: i < allConds.length-1 ? `1px solid ${pColor}18` : 'none',
-                      }}>
-                        <div style={{
-                          width:18, height:18, borderRadius:5, flexShrink:0,
-                          background:`${pColor}18`, border:`1.5px solid ${pColor}50`,
-                          display:'flex', alignItems:'center', justifyContent:'center',
-                          fontSize:9, fontWeight:900, color:pColor, fontFamily:'var(--mono)',
-                        }}>{i+1}</div>
-                        <span style={{ fontSize:11, fontFamily:'var(--mono)', color:'var(--text2)', flex:1, lineHeight:1.4 }}>
-                          {condFormula(c)}
-                        </span>
-                        <span style={{
-                          fontSize:8, fontFamily:'var(--mono)', fontWeight:700,
-                          color: c.enabled ? pColor : 'var(--text3)',
-                          padding:'1px 5px', borderRadius:4,
-                          background:`${pColor}12`, border:`1px solid ${pColor}30`,
-                        }}>{c.enabled ? 'ON' : 'OFF'}</span>
-                      </div>
-                    ))}
-                    <div style={{ padding:'8px 14px' }}>
+                    ) : allConds.map((c, i) => {
+                      const isAnd  = c.joinNext === 'AND' || i === 0
+                      const join   = i < allConds.length-1 ? (allConds[i].joinNext || 'AND') : null
+                      return (
+                        <div key={c.id||i}>
+                          <div style={{
+                            display:'flex', alignItems:'center', gap:10,
+                            padding:'10px 14px',
+                            borderBottom: join ? `1px solid ${pColor}20` : 'none',
+                            background: i % 2 === 0 ? 'rgba(0,0,0,0.08)' : 'transparent',
+                          }}>
+                            {/* Numbered badge */}
+                            <div style={{
+                              width:22, height:22, borderRadius:6, flexShrink:0,
+                              background:`${pColor}20`,
+                              border:`1.5px solid ${pColor}`,
+                              boxShadow:`0 0 6px ${pGlow}`,
+                              display:'flex', alignItems:'center', justifyContent:'center',
+                              fontSize:10, fontWeight:900, color:pColor, fontFamily:'var(--mono)',
+                            }}>{i+1}</div>
+
+                            {/* Formula */}
+                            <span style={{
+                              fontSize:12, fontFamily:'var(--mono)', color:'var(--text)',
+                              flex:1, lineHeight:1.5, wordBreak:'break-word',
+                            }}>{condFormula(c)}</span>
+
+                            {/* Checkmark */}
+                            <span style={{
+                              fontSize:15, flexShrink:0, color:pColor,
+                              textShadow:`0 0 8px ${pGlow}`,
+                            }}>✓</span>
+                          </div>
+
+                          {/* AND / OR connector */}
+                          {join && (
+                            <div style={{
+                              display:'flex', alignItems:'center', justifyContent:'center',
+                              padding:'3px 0',
+                              background:'transparent',
+                            }}>
+                              <span style={{
+                                fontSize:9, fontFamily:'var(--mono)', fontWeight:900,
+                                color: join==='OR' ? '#ff9800' : pColor,
+                                padding:'1px 8px', borderRadius:4,
+                                background: join==='OR' ? 'rgba(255,152,0,0.12)' : `${pColor}12`,
+                                border:`1px solid ${join==='OR'?'rgba(255,152,0,0.3)':pColor+'30'}`,
+                                letterSpacing:'.06em',
+                              }}>{join}</span>
+                            </div>
+                          )}
+                        </div>
+                      )
+                    })}
+
+                    {/* Edit link */}
+                    <div style={{
+                      display:'flex', justifyContent:'flex-end',
+                      padding:'8px 14px 10px',
+                      borderTop:`1px solid ${pColor}20`,
+                    }}>
                       <button
-                        onClick={() => { onClose(); onGoToBuilder() }}
+                        onClick={()=>{onClose();onGoToBuilder()}}
                         style={{
-                          fontSize:10, fontFamily:'var(--mono)', color:ORANGE, cursor:'pointer',
-                          background:'none', border:'none', padding:0, textDecoration:'underline',
+                          fontSize:10, fontFamily:'var(--mono)', fontWeight:700,
+                          color:ORANGE, cursor:'pointer',
+                          background:ORANGE_DIM, border:`1px solid ${ORANGE_BORDER}`,
+                          padding:'4px 12px', borderRadius:7,
                         }}
-                      >Edit in Pattern Builder →</button>
+                      >Edit in Builder →</button>
                     </div>
                   </div>
                 )}
