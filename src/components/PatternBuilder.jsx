@@ -2457,7 +2457,21 @@ export default function PatternBuilderTab({ settings, update }) {
             {patterns.map((p, i) => {
               const isOpen = openPatternId === p.id
               return (
-              <div key={p.id} id={`pattern-card-${p.id}`} style={{ display: 'flex', alignItems: 'stretch', gap: 0 }}>
+              <div key={p.id} id={`pattern-card-${p.id}`} style={{
+                display: 'flex', alignItems: 'stretch', gap: 0,
+                borderRadius: 13, overflow: 'hidden',
+                border: p.locked
+                  ? '2px solid rgba(255,200,0,0.9)'
+                  : p.enabled
+                    ? (p.side==='bull' ? '2px solid rgba(0,230,118,0.85)' : '2px solid rgba(255,60,80,0.85)')
+                    : (p.side==='bull' ? '2px solid rgba(0,230,118,0.32)' : '2px solid rgba(255,60,80,0.32)'),
+                boxShadow: p.locked
+                  ? '0 0 16px 3px rgba(255,200,0,0.45)'
+                  : p.enabled
+                    ? (p.side==='bull' ? '0 0 14px 3px rgba(0,230,118,0.45)' : '0 0 14px 3px rgba(255,60,80,0.45)')
+                    : (p.side==='bull' ? '0 0 6px 1px rgba(0,230,118,0.18)' : '0 0 6px 1px rgba(255,60,80,0.18)'),
+                transition: 'border .2s, box-shadow .2s',
+              }}>
 
                 {/* ── Left gutter — hidden when pattern is open for full-width edit ── */}
                 {!isOpen && (
@@ -2465,6 +2479,7 @@ export default function PatternBuilderTab({ settings, update }) {
                   flexShrink: 0, width: 28,
                   display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
                   gap: 4, paddingRight: 4,
+                  background: p.side==='bull' ? 'rgba(0,230,118,0.04)' : 'rgba(255,60,80,0.04)',
                 }}>
                   {selectionMode ? (
                     /* Checkbox */
@@ -2528,27 +2543,8 @@ export default function PatternBuilderTab({ settings, update }) {
                 </div>
                 )}
 
-                {/* ── Pattern card — wrapped in glow border shell ── */}
-                <div style={{
-                  flex: 1, minWidth: 0,
-                  borderRadius: 13,
-                  border: p.locked
-                    ? '2px solid rgba(255,200,0,0.9)'
-                    : p.enabled
-                      ? (p.side==='bull' ? '2px solid rgba(0,230,118,1)' : '2px solid rgba(255,60,80,1)')
-                      : (p.side==='bull' ? '2px solid rgba(0,230,118,0.35)' : '2px solid rgba(255,60,80,0.35)'),
-                  boxShadow: p.locked
-                    ? '0 0 16px 3px rgba(255,200,0,0.5)'
-                    : p.enabled
-                      ? (p.side==='bull'
-                          ? '0 0 16px 4px rgba(0,230,118,0.55)'
-                          : '0 0 16px 4px rgba(255,60,80,0.55)')
-                      : (p.side==='bull'
-                          ? '0 0 8px 1px rgba(0,230,118,0.25)'
-                          : '0 0 8px 1px rgba(255,60,80,0.25)'),
-                  overflow: 'hidden',
-                  transition: 'border .2s, box-shadow .2s',
-                }}>
+                {/* ── Pattern card ── */}
+                <div style={{ flex: 1, minWidth: 0 }}>
                   <PatternEditor
                     key={p.id} pattern={p} defaultOpen={p.id === newId || p.id === openPatternId}
                     onChange={np => upd(i, np)} onDelete={() => del(i)}
@@ -2558,7 +2554,7 @@ export default function PatternBuilderTab({ settings, update }) {
                     onOpenChange={(isNowOpen) => setOpenPatternId(isNowOpen ? p.id : null)}
                   />
                 </div>
-              </div>{/* end card row */}
+              </div>
             )})}
           </div>
         </>
