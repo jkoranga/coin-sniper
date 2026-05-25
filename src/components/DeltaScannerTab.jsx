@@ -501,7 +501,7 @@ export default function DeltaScannerTab({
     if (newAlerts.length > 0 && cfg.tgOn && cfg.tgToken && cfg.tgChatId) {
       for (const a of newAlerts.slice(0, 5)) {
         sendTelegram(cfg.tgToken, cfg.tgChatId,
-          `🔶 Delta India\n${a.scannerIcon} ${a.scannerName}\n${a.symbol} · ${a.timeframe}`
+          `🔶 ${a.scannerIcon} ${a.scannerName}\n${a.symbol} · ${a.timeframe}`
         ).catch(() => {})
       }
     }
@@ -605,7 +605,7 @@ export default function DeltaScannerTab({
             <div style={{fontSize:38, marginBottom:10}}>🔶</div>
             <div style={{fontWeight:900, fontSize:15, color:DC, marginBottom:6}}>No Patterns for {timeframe}</div>
             <div style={{fontSize:11, fontFamily:'var(--mono)', color:'var(--text3)', lineHeight:1.7, marginBottom:18}}>
-              No active patterns set for <b style={{color:DC}}>{timeframe}</b> on Delta India.<br/>
+              No active patterns set for <b style={{color:DC}}>{timeframe}</b>.<br/>
               Build a pattern and enable this TF.
             </div>
             <button onClick={() => { setNoPatWarn(false); onGoToPatterns?.() }} style={{
@@ -664,7 +664,9 @@ export default function DeltaScannerTab({
                       <button onClick={loadSymbols} style={{fontSize:10, padding:'1px 6px', borderRadius:4,
                         border:'1px solid rgba(255,167,38,.5)', background:'rgba(255,167,38,.1)', color:AM, cursor:'pointer', fontFamily:'var(--mono)'}}>Retry</button>
                     </>
-                  : <span>{symbols.length} symbols · {activePatterns.length} pattern{activePatterns.length!==1?'s':''}</span>
+                  : scanMode === 'custom'
+                    ? <span><span style={{color:PU, fontWeight:700}}>{(settings.customPairs||[]).length} symbols</span> · {activePatterns.length} pattern{activePatterns.length!==1?'s':''} · {timeframe.toUpperCase()}</span>
+                    : <span>{symbols.length} symbols · {activePatterns.length} pattern{activePatterns.length!==1?'s':''}</span>
             }
           </div>
         </div>
@@ -765,7 +767,7 @@ export default function DeltaScannerTab({
         })}
       </div>
 
-      {/* Custom mode — show pairs preview and warning if empty */}
+      {/* Custom mode — compact info bar, no symbol chips */}
       {scanMode === 'custom' && (() => {
         const pairs = settings.customPairs || []
         if (pairs.length === 0) return (
@@ -785,21 +787,16 @@ export default function DeltaScannerTab({
         )
         return (
           <div style={{
-            marginBottom:10, padding:'9px 12px', borderRadius:10,
+            marginBottom:10, padding:'8px 12px', borderRadius:10,
             background:'rgba(179,136,255,0.07)', border:'1.5px solid rgba(179,136,255,0.35)',
+            display:'flex', alignItems:'center', gap:10,
           }}>
-            <div style={{fontSize:9, fontFamily:'var(--mono)', color:PU, letterSpacing:'.1em', marginBottom:7, fontWeight:800}}>
-              CUSTOM PAIRS · {pairs.length} SYMBOLS
-            </div>
-            <div style={{display:'flex', flexWrap:'wrap', gap:5}}>
-              {pairs.map(p => (
-                <span key={p} style={{
-                  fontSize:10, fontFamily:'var(--mono)', fontWeight:700,
-                  padding:'3px 8px', borderRadius:12,
-                  background:'rgba(179,136,255,0.12)', color:PU,
-                  border:'1px solid rgba(179,136,255,0.35)',
-                }}>{p.replace('USDT','')}</span>
-              ))}
+            <span style={{fontSize:16, flexShrink:0}}>⊞</span>
+            <div style={{flex:1, fontFamily:'var(--mono)', fontSize:11, color:'var(--text3)', lineHeight:1.6}}>
+              <span style={{color:PU, fontWeight:800}}>{pairs.length} symbols</span>
+              {' · '}<span style={{color:DC, fontWeight:700}}>{activePatterns.length} pattern{activePatterns.length!==1?'s':''}</span>
+              {' · '}<span style={{color:'var(--text2)', fontWeight:700}}>{timeframe.toUpperCase()}</span>
+              <span style={{fontSize:10, color:'var(--text3)', marginLeft:6}}>· custom scan only</span>
             </div>
           </div>
         )

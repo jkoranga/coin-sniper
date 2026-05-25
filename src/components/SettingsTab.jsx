@@ -638,7 +638,7 @@ export default function SettingsTab({ settings, set, update, reset, user, onUser
           fontSize:10, fontFamily:'var(--mono)', color:'var(--text3)',
           opacity:0.6, lineHeight:1.6,
         }}>
-          Built for Delta Exchange India · Pattern scanning tool<br/>
+          Built for traders · Professional pattern scanning tool<br/>
           Not financial advice. Trade responsibly.
         </div>
       </div>
