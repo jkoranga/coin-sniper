@@ -470,21 +470,6 @@ export default function DeltaScannerTab({
           for (const sc of activePatterns) {
             if (abortRef.current.signal.aborted) continue
             if (isDupe(sym, sc.id)) continue
-            // ── Major TF Filter gate ──────────────────────────────────────────
-            const rawPat = (cfg.patterns || []).find(p => p.id === sc.id)
-            if (rawPat?.htfEnabled) {
-              try {
-                const htfCandles = await fetchCached(sym, rawPat.htfTf || '1h', 120)
-                if (!htfCandles || htfCandles.length < 5) continue
-                const htfLast = htfCandles[htfCandles.length - 1]
-                const e1 = htfLast[rawPat.htfEma1 || 'ema5']
-                const e2 = htfLast[rawPat.htfEma2 || 'ema10']
-                if (e1 == null || e2 == null) continue
-                const op = rawPat.htfOp || '>'
-                const pass = op === '>' ? e1 > e2 : op === '>=' ? e1 >= e2 : op === '<' ? e1 < e2 : e1 <= e2
-                if (!pass) continue
-              } catch { continue }
-            }
             const result = sc.logic(candles)
             if (result) {
               const a = {
