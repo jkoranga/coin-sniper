@@ -717,7 +717,7 @@ export default function SettingsTab({ settings, set, update, reset, user, onUser
         <CustomPairsSection cfg={settings} set={set}/>
       </Accordion>
 
-      <Accordion title="📖 User Manual" icon="📖" badge="HELP" defaultOpen={false} accentColor="rgba(0,230,118,0.4)" openKey={openKey}>
+      <Accordion title="User Manual" icon="📖" badge="HELP" defaultOpen={false} accentColor="rgba(0,230,118,0.4)" openKey={openKey}>
         <ManualSection />
       </Accordion>
 
