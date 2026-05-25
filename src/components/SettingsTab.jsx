@@ -609,7 +609,7 @@ export default function SettingsTab({ settings, set, update, reset, user, onUser
           Coins Sniper
         </div>
         <div style={{fontSize:9, fontFamily:'var(--mono)', color:'rgba(255,107,0,0.8)', letterSpacing:'.12em', marginBottom:10}}>
-          REAL-TIME SCANNER · DELTA EXCHANGE INDIA
+          REAL-TIME SCANNER · PROFESSIONAL TRADING TOOL
         </div>
 
         {/* Version badge */}
