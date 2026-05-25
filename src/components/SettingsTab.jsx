@@ -514,6 +514,157 @@ function PatternManager({ settings, update, saveNowWithPatch }) {
   )
 }
 
+
+// ── User Manual ────────────────────────────────────────────
+function ManualSection() {
+  function Block({ icon, title, children, accent='var(--text3)' }) {
+    const [open, setOpen] = React.useState(false)
+    return (
+      <div style={{ border:'1px solid var(--border)', borderRadius:9, marginBottom:8, overflow:'hidden' }}>
+        <div onClick={() => setOpen(o => !o)} style={{
+          display:'flex', alignItems:'center', gap:8, padding:'10px 13px', cursor:'pointer',
+          background: open ? `${accent}10` : 'transparent',
+          borderBottom: open ? '1px solid var(--border)' : 'none',
+        }}>
+          <span style={{ fontSize:16 }}>{icon}</span>
+          <span style={{ flex:1, fontSize:11, fontWeight:800, color:'var(--text)' }}>{title}</span>
+          <span style={{ fontSize:10, color:'var(--text3)' }}>{open ? '▲' : '▼'}</span>
+        </div>
+        {open && <div style={{ padding:'12px 14px', fontSize:10, color:'var(--text2)', lineHeight:1.85 }}>{children}</div>}
+      </div>
+    )
+  }
+  function Row({ icon, name, desc, tip }) {
+    return (
+      <div style={{ display:'flex', gap:10, padding:'8px 0', borderBottom:'1px solid rgba(255,255,255,0.04)' }}>
+        <span style={{ fontSize:18, flexShrink:0, width:26, textAlign:'center' }}>{icon}</span>
+        <div>
+          <div style={{ fontSize:11, fontWeight:800, color:'var(--text)', marginBottom:2 }}>{name}</div>
+          <div style={{ fontSize:10, color:'var(--text2)', lineHeight:1.75 }}>{desc}</div>
+          {tip && <div style={{ fontSize:9, color:'var(--amber)', marginTop:3, fontStyle:'italic' }}>{tip}</div>}
+        </div>
+      </div>
+    )
+  }
+  function Pill({ children, color='var(--blue)', bg='rgba(77,171,247,0.12)' }) {
+    return <span style={{ display:'inline-block', padding:'1px 7px', borderRadius:4, fontSize:9, fontWeight:800, color, background:bg, border:`1px solid ${color}40`, margin:'0 2px' }}>{children}</span>
+  }
+  function Tip({ children }) {
+    return <div style={{ background:'rgba(255,160,0,0.06)', borderLeft:'2.5px solid var(--amber)', borderRadius:'0 7px 7px 0', padding:'8px 11px', fontSize:10, color:'var(--text2)', lineHeight:1.75, margin:'8px 0' }}>{children}</div>
+  }
+  function Info({ children }) {
+    return <div style={{ background:'rgba(77,171,247,0.06)', borderLeft:'2.5px solid var(--blue)', borderRadius:'0 7px 7px 0', padding:'8px 11px', fontSize:10, color:'var(--text2)', lineHeight:1.75, margin:'8px 0' }}>{children}</div>
+  }
+  function Ex({ children }) {
+    return <div style={{ background:'rgba(0,230,118,0.04)', border:'1px solid rgba(0,230,118,0.18)', borderRadius:7, padding:'9px 11px', fontSize:10, color:'var(--text2)', lineHeight:1.85, margin:'8px 0' }}>{children}</div>
+  }
+  function Table({ rows }) {
+    return (
+      <div style={{ overflowX:'auto', marginTop:6 }}>
+        <table style={{ width:'100%', borderCollapse:'collapse', fontSize:10 }}>
+          <tbody>
+            {rows.map(([a,b,c],i) => (
+              <tr key={i} style={{ borderBottom:'1px solid rgba(255,255,255,0.04)' }}>
+                <td style={{ padding:'5px 8px', color:'var(--blue)', fontWeight:700, whiteSpace:'nowrap', verticalAlign:'top' }}>{a}</td>
+                <td style={{ padding:'5px 8px', color:'var(--text2)', verticalAlign:'top' }}>{b}</td>
+                {c && <td style={{ padding:'5px 8px', color:'var(--green)', fontStyle:'italic', verticalAlign:'top' }}>{c}</td>}
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    )
+  }
+  return (
+    <div>
+      <Block icon="🏠" title="Home — Scan Modes" accent="var(--accent)">
+        <Row icon="⚡" name="Single" desc="Scans one selected symbol only. Fast and focused." tip="Tap any coin in results to switch focus to it." />
+        <Row icon="⬡" name="All" desc="Scans every symbol in your symbol set against all active Bull + Bear patterns." tip="Use Top 100 or smaller for faster scans." />
+        <Row icon="🟢" name="Bull" desc="Scans all symbols but only runs Bull patterns. Skips Bear patterns entirely." />
+        <Row icon="🔴" name="Bear" desc="Scans all symbols but only runs Bear patterns." />
+        <Row icon="⊞" name="Custom" desc="Only scans your Custom Pairs watchlist (set in Settings → Custom Pairs)." tip="Best for monitoring a focused list of 5–20 coins." />
+        <Tip>Start with <b>All mode + Top 100</b> symbols for the best balance of speed and coverage.</Tip>
+      </Block>
+      <Block icon="🔁" title="Loop Mode" accent="var(--green)">
+        <Row icon="▶" name="Normal Mode (Loop OFF)" desc="Scanner runs once, then waits for the set interval (30s / 1m / 2m / 5m) before running again." />
+        <Row icon="🔁" name="Loop Mode (Loop ON)" desc="Scanner runs continuously — as soon as one scan finishes, the next starts immediately. The loop counter shows how many full scans have completed." tip="⚠ Uses more battery and data. Best on WiFi with device charging." />
+        <Tip><b>Loop + Single mode</b> = watch one coin non-stop at maximum speed.</Tip>
+      </Block>
+      <Block icon="🔽" title="Sort & Filter Results" accent="var(--purple)">
+        <div style={{ fontSize:10, color:'var(--text2)', marginBottom:8 }}><b style={{ color:'var(--text)' }}>Result Filter</b> — show All / Bull only / Bear only signals.</div>
+        <div style={{ fontSize:10, color:'var(--text2)', marginBottom:8 }}><b style={{ color:'var(--text)' }}>Sort columns</b> — tap any column header to sort results:</div>
+        <Table rows={[['Time','When detected — newest first by default',''],['Symbol','Coin name A→Z or Z→A',''],['Pattern','Pattern name alphabetically',''],['Gain %','Price change % — biggest movers first',''],['Volume','24h trading volume — highest first','']]} />
+        <Info>Volume filter in Scan Settings hides coins with insufficient 24h volume — e.g. <b>1M</b> = only coins with ≥ $1M daily volume.</Info>
+      </Block>
+      <Block icon="⏱" title="Timeframe Tabs" accent="var(--blue)">
+        <div style={{ fontSize:10, color:'var(--text2)', lineHeight:1.85 }}>
+          The bottom bar shows: <Pill>1m</Pill><Pill>3m</Pill><Pill>5m</Pill><Pill>15m</Pill><Pill>30m</Pill><Pill>1h</Pill><Pill>4h</Pill><Pill color="var(--green)" bg="rgba(0,230,118,0.1)">Day</Pill><br/><br/>
+          Each tab is <b style={{ color:'var(--text)' }}>fully independent</b> — its own scan, results, sort, and filter. Switching tabs does not stop a scan on another tab.<br/><br/>
+          A pattern only fires on a timeframe if that TF is enabled in <b style={{ color:'var(--text)' }}>Settings → Pattern Settings</b>.
+        </div>
+        <Tip>If you see "No Patterns for this TF" go to Settings → Pattern Settings and enable the TF for at least one pattern.</Tip>
+      </Block>
+      <Block icon="⚙️" title="Scan Settings" accent="var(--accent)">
+        <Row icon="📦" name="Symbol Set" desc="How many coins to include in each scan. Top 30 = fastest · Top 100 = balanced · Top 500 = comprehensive · All = every coin (slow)" tip="Start with Top 100. Increase if you need wider market coverage." />
+        <Row icon="⏰" name="Scan Interval" desc="How often the auto-scanner runs when Loop Mode is OFF. Options: 30s / 1m / 2m / 5m. Shorter = more frequent updates but more data usage." />
+        <Row icon="🔕" name="Dedup Interval" desc="Suppresses duplicate alerts for the same coin + pattern within a time window. Set to 5m = same signal won't re-fire within 5 minutes." tip="Set 15m–30m to reduce noise. Set 0 to see every single match." />
+        <Row icon="📊" name="Volume Filter" desc="Minimum 24h volume. Coins below this threshold are hidden from all results. Applies globally to all TF tabs." />
+      </Block>
+      <Block icon="🔧" title="What is a Pattern?" accent="var(--lime,#c6ff00)">
+        <div style={{ fontSize:10, color:'var(--text2)', lineHeight:1.85 }}>
+          A <b style={{ color:'var(--text)' }}>Pattern</b> is a named set of conditions. <b>All conditions must be true</b> for a coin to fire a signal — like an AND logic gate.<br/><br/>
+          Every pattern has:<br/>
+          • A <b style={{ color:'var(--green)' }}>Side</b> — Bull or Bear<br/>
+          • A list of <b style={{ color:'var(--blue)' }}>Conditions</b><br/>
+          • A set of <b style={{ color:'var(--purple)' }}>Timeframes</b> it runs on
+        </div>
+        <Ex>
+          <b style={{ color:'var(--green)' }}>Example — "EMA Bounce Bull":</b><br/>
+          ① Close &gt; EMA20 → price is above EMA20<br/>
+          ② EMA20 &gt; EMA50 → short EMA above long EMA<br/>
+          ③ Close[-1] &lt; EMA20[-1] → previous candle was below EMA20<br/>
+          ④ RSI &lt; 60 → not overbought<br/>
+          <span style={{ color:'var(--amber)' }}>→ Fires when price just bounced back above EMA20 with trend alignment.</span>
+        </Ex>
+      </Block>
+      <Block icon="📊" title="Fields — What You Can Measure" accent="var(--blue)">
+        <Table rows={[
+          ['Close / Open / High / Low','Raw candle price data',''],
+          ['Volume','Trading volume of the candle',''],
+          ['EMA 5 → EMA 600','Exponential Moving Average. Smaller period = faster reaction',''],
+          ['RSI 14','Momentum oscillator 0–100. Below 30 = oversold, above 70 = overbought',''],
+          ['+DI / -DI / ADX','Directional trend strength. ADX > 25 = strong trend',''],
+          ['Change %','Candle close vs previous close as %',''],
+          ['Body %','% of candle range that is body (100% = no wicks)',''],
+          ['Is Green / Is Red','1 if condition true, else 0',''],
+        ]} />
+        <Tip><b>Candle Offset</b> — [0] current candle, [-1] previous, [-2] two back. Use to check past candles.</Tip>
+      </Block>
+      <Block icon="⚖️" title="Operators" accent="var(--amber)">
+        <Table rows={[
+          ['>','Greater than','Close > EMA20 → price above EMA'],
+          ['>=','Greater than or equal','RSI >= 50 → momentum positive'],
+          ['<','Less than','Close < EMA50 → price below EMA50'],
+          ['<=','Less than or equal','RSI <= 30 → oversold'],
+          ['=','Equal to','Is Green = 1 → candle is bullish'],
+          ['≠','Not equal to','Is Red ≠ 1 → not a red candle'],
+        ]} />
+      </Block>
+      <Block icon="⚡" title="Pattern Actions" accent="var(--blue)">
+        <Row icon="⇄" name="Mirror" desc="Creates the opposite pattern — flips Bull↔Bear, inverts all operators automatically." tip="Review mirrored conditions after creation." />
+        <Row icon="⧉" name="Copy" desc="Duplicates with a new name. Same side, same conditions." />
+        <Row icon="🔒" name="Lock" desc="Prevents accidental edits. Pattern still scans when locked." />
+        <Row icon="🗑" name="Delete → Trash" desc="Deleted patterns go to Trash Bin. Recoverable from there." />
+      </Block>
+      <Block icon="📤" title="Import / Export" accent="var(--green)">
+        <Row icon="📤" name="Export" desc="Download patterns as .json backup. Choose Combined or Individual files." />
+        <Row icon="📥" name="Import" desc="Load patterns from a .json file. Duplicate names are skipped automatically." />
+        <Row icon="☑" name="Select Mode" desc="Tap ☑ Select → tap patterns → Export or Delete selected." tip="Regularly backup your patterns to Google Drive or Telegram." />
+      </Block>
+    </div>
+  )
+}
+
 // ── Main SettingsTab ──────────────────────────────────────
 export default function SettingsTab({ settings, set, update, reset, user, onUserChange, cloudSynced, cloudSaving, onSaveNow, saveNowWithPatch, openCount=0 }) {
   const [resetMsg, setResetMsg] = React.useState('')
@@ -564,6 +715,10 @@ export default function SettingsTab({ settings, set, update, reset, user, onUser
 
       <Accordion title="Custom Pairs" icon="⊞" defaultOpen={false} accentColor="rgba(179,136,255,0.4)" openKey={openKey}>
         <CustomPairsSection cfg={settings} set={set}/>
+      </Accordion>
+
+      <Accordion title="📖 User Manual" icon="📖" badge="HELP" defaultOpen={false} accentColor="rgba(0,230,118,0.4)" openKey={openKey}>
+        <ManualSection />
       </Accordion>
 
       {/* Reset */}
