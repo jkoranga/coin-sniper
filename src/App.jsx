@@ -332,10 +332,11 @@ function PatternsModal({ open, onClose, settings, update, onGoToBuilder }) {
             const allConds = (p.conditions||[]).filter(c=>c.enabled)
             const isOpen  = openId === p.id
 
+            const pBorderDim = isBull ? 'rgba(0,230,118,0.28)' : 'rgba(255,71,87,0.28)'
             return (
               <div key={p.id} style={{
                 borderRadius:14, marginBottom:10,
-                border: `2px solid ${p.enabled ? pBorder : 'var(--border)'}`,
+                border: `2px solid ${p.enabled ? pBorder : pBorderDim}`,
                 background: isOpen ? pDim : 'var(--bg2)',
                 boxShadow: p.enabled
                   ? isOpen
@@ -638,7 +639,7 @@ export default function App() {
           <CoinSniperLogo size={32} />
           <div style={{ textAlign:'left' }}>
             <div style={{ fontWeight:800, fontSize:17, color: ORANGE, letterSpacing:'-.02em', lineHeight:1.1 }}>Coins Sniper</div>
-            <div style={{ fontSize:8, fontFamily:'var(--mono)', color:'var(--text3)', letterSpacing:'.05em', lineHeight:1 }}>REAL-TIME SCANNER · DELTA INDIA</div>
+            <div style={{ fontSize:8, fontFamily:'var(--mono)', color:'var(--text3)', letterSpacing:'.05em', lineHeight:1 }}>REAL-TIME SCANNER</div>
           </div>
         </button>
 
