@@ -268,7 +268,7 @@ function DetailSheet({ alert: a, onClose }) {
             <TvIcon symbol={a.symbol} timeframe={a.timeframe} sz={32}/>
             <span style={{
               padding:'4px 10px', borderRadius:7, fontSize:11, fontWeight:800,
-              background:isBull?'rgba(0,230,118,0.12)''rgba(255,60,80,0.12)',
+              background:isBull?'rgba(0,230,118,0.12)':'rgba(255,60,80,0.12)',
               color:col, border:`1.5px solid ${col}55`, fontFamily:'var(--mono)',
             }}>{isBull?'BULL':'BEAR'}</span>
           </div>
