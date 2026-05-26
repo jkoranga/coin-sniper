@@ -267,9 +267,280 @@ const CS_TABS = [
   { id: 'settings', label: 'settings', color: ORANGE, isSettings: true },
 ]
 
-// Patterns modal (inline bottom sheet showing pattern list for active TF)
+// ── Scan History helpers ───────────────────────────────────────────────────────
+const HISTORY_KEY  = 'cs_scan_history_v1'
+const HISTORY_CAP  = 100  // max per TF
+
+function historyLoad() {
+  try { return JSON.parse(localStorage.getItem(HISTORY_KEY) || '{}') } catch { return {} }
+}
+function historySave(data) {
+  try { localStorage.setItem(HISTORY_KEY, JSON.stringify(data)) } catch {}
+}
+// Call this from scanner when a new alert fires
+export function historyAddAlerts(alerts) {
+  if (!alerts || !alerts.length) return
+  const data = historyLoad()
+  for (const a of alerts) {
+    const tf = a.timeframe || 'unknown'
+    if (!data[tf]) data[tf] = []
+    // dedupe by symbol+scannerId within same minute
+    const minute = Math.floor(a.time / 60000)
+    if (data[tf].some(h => h.symbol === a.symbol && h.scannerId === a.scannerId && Math.floor(h.time/60000) === minute)) continue
+    data[tf].unshift({
+      id: a.id, symbol: a.symbol, timeframe: tf,
+      time: a.time, side: a.side,
+      scannerName: a.scannerName, scannerIcon: a.scannerIcon || '',
+      close: a.details?.close ?? null,
+      gainPct: a.details?.gainPct ?? null,
+      rsi14: a.details?.rsi14 ?? null,
+      volume: a.volume ?? 0,
+    })
+    if (data[tf].length > HISTORY_CAP) data[tf] = data[tf].slice(0, HISTORY_CAP)
+  }
+  historySave(data)
+}
+
+function fmtHistoryDate(ts) {
+  const d = new Date(ts)
+  return d.toLocaleDateString('en-GB', { day:'2-digit', month:'short', year:'numeric' }) +
+    ' ' + d.toLocaleTimeString('en-GB', { hour:'2-digit', minute:'2-digit', second:'2-digit' })
+}
+
+function exportHistoryExcel(historyData, tfFilter) {
+  const tfsToExport = tfFilter === 'all'
+    ? Object.keys(historyData)
+    : [tfFilter]
+
+  // Build CSV with multiple sections
+  const rows = []
+  rows.push(['Coin Sniper — Scan History Export'])
+  rows.push([`Exported: ${fmtHistoryDate(Date.now())}`])
+  rows.push([])
+
+  for (const tf of tfsToExport) {
+    const items = historyData[tf] || []
+    if (!items.length) continue
+    rows.push([`Timeframe: ${tf.toUpperCase()}`, `Total: ${items.length}`])
+    rows.push(['#', 'Date & Time', 'Symbol', 'Timeframe', 'Direction', 'Pattern', 'Close Price', 'Gain %', 'RSI-14', '24H Volume'])
+    items.forEach((h, i) => {
+      rows.push([
+        i + 1,
+        fmtHistoryDate(h.time),
+        h.symbol,
+        h.timeframe.toUpperCase(),
+        h.side === 'bull' ? 'BULL ▲' : 'BEAR ▼',
+        h.scannerName,
+        h.close != null ? h.close : '',
+        h.gainPct != null ? h.gainPct + '%' : '',
+        h.rsi14  != null ? h.rsi14.toFixed(1) : '',
+        h.volume > 0 ? h.volume : '',
+      ])
+    })
+    rows.push([])
+  }
+
+  const csv = rows.map(r =>
+    r.map(cell => {
+      const s = String(cell ?? '')
+      return s.includes(',') || s.includes('"') || s.includes('\n')
+        ? `"${s.replace(/"/g, '""')}"` : s
+    }).join(',')
+  ).join('\n')
+
+  const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' })
+  const url  = URL.createObjectURL(blob)
+  const a    = document.createElement('a')
+  a.href     = url
+  a.download = `coin_sniper_history_${tfFilter}_${new Date().toISOString().slice(0,10)}.csv`
+  a.click()
+  URL.revokeObjectURL(url)
+}
+
+const TF_COLORS = {
+  '1m':'#ff6b6b','3m':'#ffa94d','5m':'#ffd43b','15m':'#69db7c',
+  '30m':'#38d9a9','1h':'#4dabf7','4h':'#9775fa','1d':'#f783ac',
+}
+
+// ── History Tab ────────────────────────────────────────────────────────────────
+function HistoryTab() {
+  const [history,   setHistory]   = React.useState(() => historyLoad())
+  const [tfFilter,  setTfFilter]  = React.useState('all')
+  const [sortCol,   setSortCol]   = React.useState('time')
+  const [sortDir,   setSortDir]   = React.useState('desc')
+  const [sideFilter,setSideFilter]= React.useState('all')
+
+  // Refresh from storage whenever tab becomes visible
+  React.useEffect(() => { setHistory(historyLoad()) }, [])
+
+  const allTfs = React.useMemo(() =>
+    ['1m','3m','5m','15m','30m','1h','4h','1d'].filter(tf => (history[tf]||[]).length > 0)
+  , [history])
+
+  const rows = React.useMemo(() => {
+    const src = tfFilter === 'all'
+      ? Object.values(history).flat()
+      : (history[tfFilter] || [])
+    return [...src]
+      .filter(h => sideFilter === 'all' ? true : h.side === sideFilter)
+      .sort((a, b) => {
+        let c = 0
+        if (sortCol === 'time')   c = a.time - b.time
+        if (sortCol === 'symbol') c = a.symbol.localeCompare(b.symbol)
+        if (sortCol === 'volume') c = (a.volume ?? 0) - (b.volume ?? 0)
+        if (sortCol === 'gain')   c = (parseFloat(a.gainPct) || 0) - (parseFloat(b.gainPct) || 0)
+        return sortDir === 'desc' ? -c : c
+      })
+  }, [history, tfFilter, sortCol, sortDir, sideFilter])
+
+  function toggleSort(col) {
+    if (sortCol === col) setSortDir(d => d === 'desc' ? 'asc' : 'desc')
+    else { setSortCol(col); setSortDir('desc') }
+  }
+
+  function clearHistory() {
+    const data = historyLoad()
+    if (tfFilter === 'all') { historySave({}); setHistory({}) }
+    else { data[tfFilter] = []; historySave(data); setHistory({...data}) }
+  }
+
+  const DC = '#7ecfff', DD = 'rgba(126,207,255,0.10)'
+  const SH = (col) => ({
+    padding:'4px 8px', borderRadius:6, cursor:'pointer', fontSize:9,
+    fontFamily:'var(--mono)', fontWeight: sortCol===col?800:400, whiteSpace:'nowrap',
+    border:`1px solid ${sortCol===col?DC:'var(--border)'}`,
+    background:sortCol===col?DD:'transparent',
+    color:sortCol===col?DC:'var(--text3)',
+  })
+
+  return (
+    <div style={{display:'flex', flexDirection:'column', gap:0, height:'100%'}}>
+
+      {/* ── TF filter pills ── */}
+      <div style={{display:'flex', gap:5, flexWrap:'wrap', padding:'8px 12px 6px'}}>
+        {['all', ...allTfs].map(tf => {
+          const col = tf === 'all' ? '#aaa' : (TF_COLORS[tf] || '#aaa')
+          const cnt = tf === 'all' ? Object.values(history).flat().length : (history[tf]||[]).length
+          return (
+            <button key={tf} onClick={() => setTfFilter(tf)} style={{
+              padding:'4px 10px', borderRadius:7, cursor:'pointer', fontSize:10,
+              fontFamily:'var(--mono)', fontWeight: tfFilter===tf?800:400,
+              border:`1.5px solid ${tfFilter===tf?col:'var(--border)'}`,
+              background:tfFilter===tf?col+'22':'transparent',
+              color:tfFilter===tf?col:'var(--text3)',
+            }}>
+              {tf === 'all' ? 'All' : tf.toUpperCase()}
+              <span style={{marginLeft:4, fontSize:9, opacity:.7}}>({cnt})</span>
+            </button>
+          )
+        })}
+
+        {/* Side filter */}
+        <div style={{width:1,height:20,background:'var(--border)',margin:'auto 2px'}}/>
+        {[['all','All'],['bull','▲'],['bear','▼']].map(([v,l])=>(
+          <button key={v} onClick={()=>setSideFilter(v)} style={{
+            padding:'4px 9px', borderRadius:7, cursor:'pointer', fontSize:10,
+            fontFamily:'var(--mono)', fontWeight:sideFilter===v?800:400,
+            border:`1.5px solid ${sideFilter===v?(v==='bull'?'#00e676':v==='bear'?'#ff4757':'#aaa'):'var(--border)'}`,
+            background:sideFilter===v?(v==='bull'?'rgba(0,230,118,0.12)':v==='bear'?'rgba(255,71,87,0.12)':'rgba(255,255,255,0.06)'):'transparent',
+            color:sideFilter===v?(v==='bull'?'#00e676':v==='bear'?'#ff4757':'var(--text)'):'var(--text3)',
+          }}>{l}</button>
+        ))}
+
+        {/* Export + Clear — pushed right */}
+        <div style={{marginLeft:'auto', display:'flex', gap:5}}>
+          <button onClick={() => exportHistoryExcel(history, tfFilter)} style={{
+            padding:'4px 10px', borderRadius:7, cursor:'pointer', fontSize:10,
+            fontFamily:'var(--mono)', fontWeight:700,
+            border:'1.5px solid rgba(0,230,118,0.4)', background:'rgba(0,230,118,0.08)',
+            color:'#00e676',
+          }}>↓ Excel</button>
+          <button onClick={clearHistory} style={{
+            padding:'4px 10px', borderRadius:7, cursor:'pointer', fontSize:10,
+            fontFamily:'var(--mono)', fontWeight:700,
+            border:'1.5px solid rgba(255,60,80,0.35)', background:'rgba(255,60,80,0.07)',
+            color:'#ff4757',
+          }}>Clear</button>
+        </div>
+      </div>
+
+      {/* ── Sort bar ── */}
+      <div style={{display:'flex', alignItems:'center', gap:5, padding:'2px 12px 8px', flexWrap:'wrap'}}>
+        <span style={{fontSize:9, color:'var(--text3)', fontFamily:'var(--mono)'}}>SORT:</span>
+        {[['time','Time'],['symbol','A-Z'],['gain','Gain'],['volume','Vol']].map(([col,lbl])=>(
+          <button key={col} onClick={()=>toggleSort(col)} style={SH(col)}>
+            {lbl}{sortCol===col?(sortDir==='desc'?' ↓':' ↑'):''}
+          </button>
+        ))}
+        <span style={{marginLeft:'auto', fontSize:9, fontFamily:'var(--mono)', color:'var(--text3)'}}>
+          {rows.length} result{rows.length!==1?'s':''}
+          {HISTORY_CAP < 1000 ? ` · max ${HISTORY_CAP}/TF` : ''}
+        </span>
+      </div>
+
+      {/* ── Rows ── */}
+      {rows.length === 0 ? (
+        <div style={{flex:1, display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center',
+          color:'var(--text3)', fontFamily:'var(--mono)', fontSize:12, gap:8, padding:24}}>
+          <span style={{fontSize:32}}>📭</span>
+          No history yet — run a scan to start recording.
+        </div>
+      ) : (
+        <div style={{flex:1, overflow:'auto', padding:'0 12px 40px', WebkitOverflowScrolling:'touch'}}>
+          {rows.map((h, i) => {
+            const isBull = h.side === 'bull'
+            const col = isBull ? '#00e676' : '#ff4757'
+            const bd  = isBull ? 'rgba(0,230,118,0.3)' : 'rgba(255,71,87,0.3)'
+            const bg  = isBull ? 'rgba(0,230,118,0.04)' : 'rgba(255,71,87,0.04)'
+            const tfCol = TF_COLORS[h.timeframe] || '#aaa'
+            return (
+              <div key={h.id ?? i} style={{
+                display:'flex', alignItems:'center', gap:8, padding:'9px 11px',
+                borderRadius:10, marginBottom:6,
+                border:`1.5px solid ${bd}`, background:bg,
+              }}>
+                <span style={{fontSize:16, flexShrink:0}}>{h.scannerIcon || (isBull?'🟢':'🔴')}</span>
+                <div style={{flex:1, minWidth:0}}>
+                  <div style={{display:'flex', alignItems:'center', gap:5, flexWrap:'wrap', marginBottom:2}}>
+                    <span style={{fontWeight:900, fontSize:13, color:col, fontFamily:'var(--mono)'}}>
+                      {h.symbol.replace('USDT','')}<span style={{fontSize:9,fontWeight:400,color:'var(--text3)'}}>/USDT</span>
+                    </span>
+                    <span style={{fontSize:8, fontFamily:'var(--mono)', fontWeight:700, padding:'1px 5px',
+                      borderRadius:4, background:tfCol+'22', color:tfCol, border:`1px solid ${tfCol}55`}}>
+                      {h.timeframe.toUpperCase()}
+                    </span>
+                    <span style={{fontSize:8, fontFamily:'var(--mono)', fontWeight:800, padding:'1px 5px',
+                      borderRadius:4, background:col+'18', color:col, border:`1px solid ${col}40`}}>
+                      {h.scannerName}
+                    </span>
+                    {h.gainPct != null && (
+                      <span style={{fontSize:8, fontFamily:'var(--mono)', fontWeight:800, padding:'1px 5px',
+                        borderRadius:4, background:'rgba(255,167,38,0.12)', color:'#ffa726', border:'1px solid rgba(255,167,38,0.3)'}}>
+                        {parseFloat(h.gainPct)>=0?'+':''}{h.gainPct}%
+                      </span>
+                    )}
+                  </div>
+                  <div style={{fontSize:10, fontFamily:'var(--mono)', color:'var(--text3)'}}>
+                    {fmtHistoryDate(h.time)}
+                    {h.close  != null && <> · <span style={{color:'var(--text2)'}}>Close ${typeof h.close==='number'?h.close.toFixed(4):h.close}</span></>}
+                    {h.volume > 0    && <> · <span style={{color:'var(--text3)'}}>Vol {h.volume >= 1e9 ? (h.volume/1e9).toFixed(1)+'B' : h.volume >= 1e6 ? (h.volume/1e6).toFixed(1)+'M' : h.volume >= 1e3 ? (h.volume/1e3).toFixed(0)+'K' : h.volume}</span></>}
+                  </div>
+                </div>
+                <span style={{fontSize:12, color:col, flexShrink:0}}>{isBull?'▲':'▼'}</span>
+              </div>
+            )
+          })}
+        </div>
+      )}
+    </div>
+  )
+}
+
+// ── Patterns modal (inline bottom sheet) — Patterns tab + History tab ─────────
 function PatternsModal({ open, onClose, settings, update, onGoToBuilder }) {
+  const [tab,    setTab]    = React.useState('patterns') // 'patterns' | 'history'
   const [openId, setOpenId] = React.useState(null)
+
   if (!open) return null
   const patterns = (settings.customPatterns || [])
 
@@ -292,188 +563,142 @@ function PatternsModal({ open, onClose, settings, update, onGoToBuilder }) {
       <div style={{
         position:'fixed', bottom:0, left:0, right:0, zIndex:500,
         background:'var(--bg1)', borderRadius:'22px 22px 0 0',
-        border:'1px solid var(--border2)', maxHeight:'80vh',
+        border:'1px solid var(--border2)', maxHeight:'82vh',
         overflow:'hidden', display:'flex', flexDirection:'column',
       }}>
         {/* Drag handle */}
         <div style={{width:38,height:4,borderRadius:2,background:'var(--border2)',margin:'12px auto 0',flexShrink:0}}/>
 
         {/* Header */}
-        <div style={{display:'flex', alignItems:'center', justifyContent:'space-between', padding:'12px 16px 10px', flexShrink:0}}>
-          <div style={{fontWeight:800, fontSize:15, color:'var(--text)'}}>
-            Patterns
-            <span style={{fontSize:11,fontFamily:'var(--mono)',color:'var(--text3)',fontWeight:400,marginLeft:6}}>
-              ({patterns.length})
-            </span>
+        <div style={{display:'flex', alignItems:'center', justifyContent:'space-between', padding:'10px 16px 0', flexShrink:0}}>
+          {/* Two-tab switcher */}
+          <div style={{display:'flex', gap:4, background:'var(--bg2)', borderRadius:10, padding:3}}>
+            {[['patterns','Patterns'],['history','History']].map(([id,lbl])=>(
+              <button key={id} onClick={()=>setTab(id)} style={{
+                padding:'5px 16px', borderRadius:8, cursor:'pointer', fontSize:12, fontWeight:tab===id?800:500,
+                border:'none', transition:'all .15s',
+                background:tab===id?'var(--bg3)':'transparent',
+                color:tab===id?'var(--text)':'var(--text3)',
+              }}>{lbl}</button>
+            ))}
           </div>
-          <div style={{display:'flex', gap:8}}>
-            <button onClick={()=>{onClose();onGoToBuilder()}} style={{
-              padding:'6px 14px', borderRadius:8, cursor:'pointer',
-              border:`1.5px solid ${ORANGE_BORDER}`, background:ORANGE_DIM,
-              color:ORANGE, fontSize:11, fontWeight:800, fontFamily:'var(--mono)',
-            }}>+ New</button>
+          <div style={{display:'flex', gap:8, alignItems:'center'}}>
+            {tab === 'patterns' && (
+              <button onClick={()=>{onClose();onGoToBuilder()}} style={{
+                padding:'6px 14px', borderRadius:8, cursor:'pointer',
+                border:`1.5px solid ${ORANGE_BORDER}`, background:ORANGE_DIM,
+                color:ORANGE, fontSize:11, fontWeight:800, fontFamily:'var(--mono)',
+              }}>+ New</button>
+            )}
             <button onClick={onClose} style={{background:'none',border:'none',cursor:'pointer',fontSize:22,color:'var(--text3)',lineHeight:1}}>✕</button>
           </div>
         </div>
 
-        {/* List */}
-        <div style={{overflow:'auto', padding:'4px 12px 40px', WebkitOverflowScrolling:'touch'}}>
-          {patterns.length === 0 ? (
-            <div style={{textAlign:'center', padding:'36px 16px', color:'var(--text3)', fontSize:12, fontFamily:'var(--mono)', lineHeight:1.7}}>
-              No patterns yet.<br/>Tap "+ New" to build one.
-            </div>
-          ) : patterns.map(p => {
-            const isBull  = p.side === 'bull'
-            const pColor  = isBull ? '#00e676' : '#ff4757'
-            const pGlow   = isBull ? 'rgba(0,230,118,0.22)' : 'rgba(255,60,80,0.22)'
-            const pBorder = isBull ? 'rgba(0,230,118,0.55)' : 'rgba(255,60,80,0.55)'
-            const pDim    = isBull ? 'rgba(0,230,118,0.07)' : 'rgba(255,60,80,0.07)'
-            const pFade   = isBull ? 'rgba(0,230,118,0.15)' : 'rgba(255,60,80,0.15)'
-            const allConds = (p.conditions||[]).filter(c=>c.enabled)
-            const isOpen  = openId === p.id
+        {/* Divider */}
+        <div style={{height:1, background:'var(--border)', margin:'10px 0 0', flexShrink:0}}/>
 
-            const pBorderDim = isBull ? 'rgba(0,230,118,0.28)' : 'rgba(255,71,87,0.28)'
-            return (
-              <div key={p.id} style={{
-                borderRadius:14, marginBottom:10,
-                border: `2px solid ${p.enabled ? pBorder : pBorderDim}`,
-                background: isOpen ? pDim : 'var(--bg2)',
-                boxShadow: p.enabled
-                  ? isOpen
-                    ? `0 0 18px ${pGlow}, inset 0 0 12px ${pFade}`
-                    : `0 0 10px ${pGlow}`
-                  : 'none',
-                overflow:'hidden',
-                transition:'box-shadow .2s, border-color .2s, background .15s',
-              }}>
-                {/* ── Card header ── */}
-                <div
-                  onClick={() => setOpenId(isOpen ? null : p.id)}
-                  style={{display:'flex', alignItems:'center', gap:10, padding:'11px 13px', cursor:'pointer'}}
-                >
-                  <span style={{fontSize:20, flexShrink:0}}>{p.icon || (isBull?'🟢':'🔴')}</span>
+        {/* Tab content */}
+        <div style={{flex:1, overflow:'hidden', display:'flex', flexDirection:'column', minHeight:0}}>
 
-                  <div style={{flex:1, minWidth:0}}>
-                    <div style={{
-                      fontWeight:800, fontSize:14,
-                      color: p.enabled ? pColor : 'var(--text3)',
-                      whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis',
-                    }}>{p.name}</div>
-                    <div style={{fontSize:9, fontFamily:'var(--mono)', color:'var(--text3)', marginTop:2,
-                      whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis'}}>
-                      {isBull?'BULL':'BEAR'} · {(p.tfs||[]).join(' ') || 'no TF'} · {allConds.length} cond{allConds.length!==1?'s':''}
-                    </div>
-                  </div>
-
-                  {/* ON/OFF toggle */}
-                  <div
-                    onClick={e => { e.stopPropagation(); update(prev => ({
-                      customPatterns:(prev.customPatterns||[]).map(x=>x.id===p.id?{...x,enabled:!x.enabled}:x)
-                    }))}}
-                    style={{
-                      width:40, height:22, borderRadius:11, cursor:'pointer', flexShrink:0, position:'relative',
-                      background: p.enabled ? pColor : 'var(--bg3)',
-                      border:`2px solid ${p.enabled ? pBorder : 'var(--border)'}`,
-                      boxShadow: p.enabled ? `0 0 8px ${pGlow}` : 'none',
-                      transition:'all .2s',
-                    }}
-                  >
-                    <div style={{
-                      position:'absolute', top:2, left:p.enabled?18:2, width:14, height:14,
-                      borderRadius:'50%', background:'#fff', transition:'left .2s',
-                      boxShadow:'0 1px 3px rgba(0,0,0,0.4)',
-                    }}/>
-                  </div>
-
-                  {/* Chevron */}
-                  <span style={{color:'var(--text3)', fontSize:11, flexShrink:0, marginLeft:2}}>
-                    {isOpen ? '▲' : '▼'}
-                  </span>
+          {/* ── PATTERNS TAB ── */}
+          {tab === 'patterns' && (
+            <div style={{overflow:'auto', padding:'8px 12px 40px', WebkitOverflowScrolling:'touch'}}>
+              {patterns.length === 0 ? (
+                <div style={{textAlign:'center', padding:'36px 16px', color:'var(--text3)', fontSize:12, fontFamily:'var(--mono)', lineHeight:1.7}}>
+                  No patterns yet.<br/>Tap &quot;+ New&quot; to build one.
                 </div>
-
-                {/* ── Conditions accordion ── */}
-                {isOpen && (
-                  <div style={{borderTop:`1.5px solid ${pBorder}`}}>
-                    {allConds.length === 0 ? (
-                      <div style={{padding:'12px 14px', fontSize:11, fontFamily:'var(--mono)', color:'var(--text3)'}}>
-                        No enabled conditions.
-                      </div>
-                    ) : allConds.map((c, i) => {
-                      const isAnd  = c.joinNext === 'AND' || i === 0
-                      const join   = i < allConds.length-1 ? (allConds[i].joinNext || 'AND') : null
-                      return (
-                        <div key={c.id||i}>
-                          <div style={{
-                            display:'flex', alignItems:'center', gap:10,
-                            padding:'10px 14px',
-                            borderBottom: join ? `1px solid ${pColor}20` : 'none',
-                            background: i % 2 === 0 ? 'rgba(0,0,0,0.08)' : 'transparent',
-                          }}>
-                            {/* Numbered badge */}
-                            <div style={{
-                              width:22, height:22, borderRadius:6, flexShrink:0,
-                              background:`${pColor}20`,
-                              border:`1.5px solid ${pColor}`,
-                              boxShadow:`0 0 6px ${pGlow}`,
-                              display:'flex', alignItems:'center', justifyContent:'center',
-                              fontSize:10, fontWeight:900, color:pColor, fontFamily:'var(--mono)',
-                            }}>{i+1}</div>
-
-                            {/* Formula */}
-                            <span style={{
-                              fontSize:12, fontFamily:'var(--mono)', color:'var(--text)',
-                              flex:1, lineHeight:1.5, wordBreak:'break-word',
-                            }}>{condFormula(c)}</span>
-
-                            {/* Checkmark */}
-                            <span style={{
-                              fontSize:15, flexShrink:0, color:pColor,
-                              textShadow:`0 0 8px ${pGlow}`,
-                            }}>✓</span>
-                          </div>
-
-                          {/* AND / OR connector */}
-                          {join && (
-                            <div style={{
-                              display:'flex', alignItems:'center', justifyContent:'center',
-                              padding:'3px 0',
-                              background:'transparent',
-                            }}>
-                              <span style={{
-                                fontSize:9, fontFamily:'var(--mono)', fontWeight:900,
-                                color: join==='OR' ? '#ff9800' : pColor,
-                                padding:'1px 8px', borderRadius:4,
-                                background: join==='OR' ? 'rgba(255,152,0,0.12)' : `${pColor}12`,
-                                border:`1px solid ${join==='OR'?'rgba(255,152,0,0.3)':pColor+'30'}`,
-                                letterSpacing:'.06em',
-                              }}>{join}</span>
-                            </div>
-                          )}
+              ) : patterns.map(p => {
+                const isBull  = p.side === 'bull'
+                const pColor  = isBull ? '#00e676' : '#ff4757'
+                const pGlow   = isBull ? 'rgba(0,230,118,0.22)' : 'rgba(255,60,80,0.22)'
+                const pBorder = isBull ? 'rgba(0,230,118,0.55)' : 'rgba(255,60,80,0.55)'
+                const pDim    = isBull ? 'rgba(0,230,118,0.07)' : 'rgba(255,60,80,0.07)'
+                const pFade   = isBull ? 'rgba(0,230,118,0.15)' : 'rgba(255,60,80,0.15)'
+                const pBorderDim = isBull ? 'rgba(0,230,118,0.28)' : 'rgba(255,71,87,0.28)'
+                const allConds = (p.conditions||[]).filter(c=>c.enabled)
+                const isOpen  = openId === p.id
+                return (
+                  <div key={p.id} style={{
+                    borderRadius:14, marginBottom:10,
+                    border:`2px solid ${p.enabled ? pBorder : pBorderDim}`,
+                    background: isOpen ? pDim : 'var(--bg2)',
+                    boxShadow: p.enabled ? isOpen ? `0 0 18px ${pGlow}, inset 0 0 12px ${pFade}` : `0 0 10px ${pGlow}` : 'none',
+                    overflow:'hidden', transition:'box-shadow .2s, border-color .2s, background .15s',
+                  }}>
+                    <div onClick={() => setOpenId(isOpen ? null : p.id)}
+                      style={{display:'flex', alignItems:'center', gap:10, padding:'11px 13px', cursor:'pointer'}}>
+                      <span style={{fontSize:20, flexShrink:0}}>{p.icon || (isBull?'🟢':'🔴')}</span>
+                      <div style={{flex:1, minWidth:0}}>
+                        <div style={{fontWeight:800, fontSize:14, color: p.enabled ? pColor : 'var(--text3)',
+                          whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis'}}>{p.name}</div>
+                        <div style={{fontSize:9, fontFamily:'var(--mono)', color:'var(--text3)', marginTop:2,
+                          whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis'}}>
+                          {isBull?'BULL':'BEAR'} · {(p.tfs||[]).join(' ') || 'no TF'} · {allConds.length} cond{allConds.length!==1?'s':''}
                         </div>
-                      )
-                    })}
-
-                    {/* Edit link */}
-                    <div style={{
-                      display:'flex', justifyContent:'flex-end',
-                      padding:'8px 14px 10px',
-                      borderTop:`1px solid ${pColor}20`,
-                    }}>
-                      <button
-                        onClick={()=>{onClose();onGoToBuilder()}}
-                        style={{
-                          fontSize:10, fontFamily:'var(--mono)', fontWeight:700,
-                          color:ORANGE, cursor:'pointer',
-                          background:ORANGE_DIM, border:`1px solid ${ORANGE_BORDER}`,
-                          padding:'4px 12px', borderRadius:7,
-                        }}
-                      >Edit in Builder →</button>
+                      </div>
+                      <div onClick={e => { e.stopPropagation(); update(prev => ({
+                          customPatterns:(prev.customPatterns||[]).map(x=>x.id===p.id?{...x,enabled:!x.enabled}:x)
+                        }))}} style={{
+                        width:40, height:22, borderRadius:11, cursor:'pointer', flexShrink:0, position:'relative',
+                        background: p.enabled ? pColor : 'var(--bg3)',
+                        border:`2px solid ${p.enabled ? pBorder : 'var(--border)'}`,
+                        boxShadow: p.enabled ? `0 0 8px ${pGlow}` : 'none', transition:'all .2s',
+                      }}>
+                        <div style={{position:'absolute', top:2, left:p.enabled?18:2, width:14, height:14,
+                          borderRadius:'50%', background:'#fff', transition:'left .2s', boxShadow:'0 1px 3px rgba(0,0,0,0.4)'}}/>
+                      </div>
+                      <span style={{color:'var(--text3)', fontSize:11, flexShrink:0, marginLeft:2}}>{isOpen ? '▲' : '▼'}</span>
                     </div>
+                    {isOpen && (
+                      <div style={{borderTop:`1.5px solid ${pBorder}`}}>
+                        {allConds.length === 0 ? (
+                          <div style={{padding:'12px 14px', fontSize:11, fontFamily:'var(--mono)', color:'var(--text3)'}}>No enabled conditions.</div>
+                        ) : allConds.map((c, i) => {
+                          const join = i < allConds.length-1 ? (allConds[i].joinNext || 'AND') : null
+                          return (
+                            <div key={c.id||i}>
+                              <div style={{display:'flex', alignItems:'center', gap:10, padding:'10px 14px',
+                                borderBottom: join ? `1px solid ${pColor}20` : 'none',
+                                background: i % 2 === 0 ? 'rgba(0,0,0,0.08)' : 'transparent'}}>
+                                <div style={{width:22,height:22,borderRadius:6,flexShrink:0,background:`${pColor}20`,
+                                  border:`1.5px solid ${pColor}`,boxShadow:`0 0 6px ${pGlow}`,
+                                  display:'flex',alignItems:'center',justifyContent:'center',
+                                  fontSize:10,fontWeight:900,color:pColor,fontFamily:'var(--mono)'}}>{i+1}</div>
+                                <span style={{fontSize:12,fontFamily:'var(--mono)',color:'var(--text)',flex:1,lineHeight:1.5,wordBreak:'break-word'}}>
+                                  {c.htfTf ? <span style={{color:'rgba(179,136,255,1)',marginRight:4}}>[{c.htfTf.toUpperCase()}]</span> : null}
+                                  {condFormula(c)}
+                                </span>
+                                <span style={{fontSize:15,flexShrink:0,color:pColor,textShadow:`0 0 8px ${pGlow}`}}>✓</span>
+                              </div>
+                              {join && (
+                                <div style={{display:'flex',alignItems:'center',justifyContent:'center',padding:'3px 0'}}>
+                                  <span style={{fontSize:9,fontFamily:'var(--mono)',fontWeight:900,
+                                    color:join==='OR'?'#ff9800':pColor,padding:'1px 8px',borderRadius:4,
+                                    background:join==='OR'?'rgba(255,152,0,0.12)':`${pColor}12`,
+                                    border:`1px solid ${join==='OR'?'rgba(255,152,0,0.3)':pColor+'30'}`,
+                                    letterSpacing:'.06em'}}>{join}</span>
+                                </div>
+                              )}
+                            </div>
+                          )
+                        })}
+                        <div style={{display:'flex',justifyContent:'flex-end',padding:'8px 14px 10px',borderTop:`1px solid ${pColor}20`}}>
+                          <button onClick={()=>{onClose();onGoToBuilder()}} style={{
+                            fontSize:10,fontFamily:'var(--mono)',fontWeight:700,color:ORANGE,cursor:'pointer',
+                            background:ORANGE_DIM,border:`1px solid ${ORANGE_BORDER}`,padding:'4px 12px',borderRadius:7,
+                          }}>Edit in Builder →</button>
+                        </div>
+                      </div>
+                    )}
                   </div>
-                )}
-              </div>
-            )
-          })}
+                )
+              })}
+            </div>
+          )}
+
+          {/* ── HISTORY TAB ── */}
+          {tab === 'history' && <HistoryTab />}
+
         </div>
       </div>
     </>

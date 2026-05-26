@@ -5,6 +5,7 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react'
 import { fetchDeltaSymbols, fetchDeltaCandles, DELTA_FALLBACK_SYMBOLS as DELTA_FALLBACK_SYMBOLS_IMPORT } from '../utils/deltaScanner.js'
 import { compilePattern } from './PatternBuilder.jsx'
+import { historyAddAlerts } from '../App.jsx'
 import { intervalToMs, sendTelegram, buildTelegramMsg, fmt, timeSince, fmtVol } from '../utils/scanner.js'
 
 const DC  = '#ff6b00'
@@ -505,6 +506,7 @@ export default function DeltaScannerTab({
                 volume: symVol,
               }
               newAlerts.push(a)
+              historyAddAlerts([a])
               setAlerts(prev => [a, ...prev].slice(0, 300))
             }
           }
@@ -600,6 +602,7 @@ export default function DeltaScannerTab({
       if (sortBy === 'time')   c = x.time - y.time
       if (sortBy === 'symbol') c = x.symbol.localeCompare(y.symbol)
       if (sortBy === 'gain')   c = (parseFloat(x.details?.gainPct) || 0) - (parseFloat(y.details?.gainPct) || 0)
+      if (sortBy === 'volume') c = (x.volume ?? 0) - (y.volume ?? 0)
       return sortDir === 'desc' ? -c : c
     })
   , [alerts, sortBy, sortDir, volMin])
@@ -900,7 +903,7 @@ export default function DeltaScannerTab({
 
         {/* Sort */}
         <span style={{fontSize:10, color:'var(--text3)', flexShrink:0, fontFamily:'var(--mono)'}}>↕</span>
-        {[['time','Time'],['symbol','Sym'],['gain','Gain']].map(([col,lbl])=>(
+        {[['time','Time'],['symbol','Sym'],['gain','Gain'],['volume','Vol']].map(([col,lbl])=>(
           <button key={col} onClick={() => toggleSort(col)} style={{
             padding:'5px 9px', borderRadius:7, cursor:'pointer', fontSize:10,
             fontFamily:'var(--mono)', flexShrink:0, whiteSpace:'nowrap',

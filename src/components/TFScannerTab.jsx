@@ -8,6 +8,7 @@ import {
   sendTelegram, buildTelegramMsg, fmt, timeSince, fmtVol,
 } from '../utils/scanner.js'
 import { compilePattern } from './PatternBuilder.jsx'
+import { historyAddAlerts } from '../App.jsx'
 
 // ── TradingView link ──────────────────────────────────────
 const TF_MAP = {'1m':'1','3m':'3','5m':'5','15m':'15','30m':'30','1h':'60','4h':'240','1d':'D','1D':'D'}
@@ -494,6 +495,7 @@ export default function TFScannerTab({ timeframe, tabColor, settings, update, sa
                 details: result, ticker: tkrs[sym]||null,
               }
               newAlerts.push(a)
+              historyAddAlerts([a])
               setAlerts(prev => [a, ...prev].slice(0, 500))
             }
           }
