@@ -76,7 +76,6 @@ const OFFSETS = Array.from({ length: 11 }, (_, i) =>
 
 const TF_LIST = ['1m','3m','5m','15m','30m','1h','4h','1d']
 const HTF_TF_LIST = ['5m','15m','30m','1h','4h','1d']
-const HTF_EMA_OPTS = ['ema5','ema9','ema10','ema15','ema20','ema25','ema30','ema40','ema50','ema60','ema75','ema100','ema150','ema200']
 const ICON_CATEGORIES = [
   { label: '📈 Markets',  icons: ['📈','📉','💹','📊','💰','💵','💴','💸','🏦','💳','🪙','💲'] },
   { label: '🚀 Signals',  icons: ['🚀','⚡','🔥','💎','🎯','🏹','🧲','🔔','⭐','🌟','✨','💫'] },
@@ -295,7 +294,6 @@ export function blankPattern() {
     tfs: ['15m','1h'],
     conditions: [blankCond()],
     enabled: true, createdAt: Date.now(),
-    htfEnabled: false, htfTf: '1h', htfEma1: 'ema5', htfEma2: 'ema10', htfOp: '>',
   }
 }
 
@@ -1748,73 +1746,6 @@ function PatternEditor({ pattern, onChange, onDelete, onMirrorPattern, onCopyPat
                 <div style={{ fontSize: 9, color: 'var(--red)', fontFamily: 'var(--mono)', marginTop: 4 }}>⚠ No TF — won't scan</div>
               )}
             </div>
-          </div>
-
-          {/* Major TF Filter */}
-          <div style={{
-            borderRadius: 10, border: `1.5px solid ${pattern.htfEnabled ? 'rgba(179,136,255,0.45)' : 'var(--border)'}`,
-            background: pattern.htfEnabled ? 'rgba(179,136,255,0.06)' : 'var(--bg1)',
-            padding: '10px 13px', marginBottom: 2,
-          }}>
-            <div style={{ display:'flex', alignItems:'center', gap:10 }}>
-              <div style={{ flex:1 }}>
-                <div style={{ fontSize:10, fontWeight:800, color: pattern.htfEnabled ? 'rgba(179,136,255,1)' : 'var(--text2)', letterSpacing:'.06em' }}>
-                  🕐 MAJOR TF FILTER
-                </div>
-                <div style={{ fontSize:9, color:'var(--text3)', fontFamily:'var(--mono)', marginTop:2 }}>
-                  Gate signal on a higher timeframe EMA condition
-                </div>
-              </div>
-              <div
-                onClick={() => s('htfEnabled', !pattern.htfEnabled)}
-                style={{
-                  width:36, height:20, borderRadius:10, cursor:'pointer', flexShrink:0,
-                  background: pattern.htfEnabled ? 'rgba(179,136,255,0.8)' : 'var(--bg2)',
-                  border: `1.5px solid ${pattern.htfEnabled ? 'rgba(179,136,255,1)' : 'var(--border)'}`,
-                  position:'relative', transition:'background .2s',
-                }}>
-                <div style={{
-                  position:'absolute', top:2, left: pattern.htfEnabled ? 16 : 2,
-                  width:14, height:14, borderRadius:'50%', background:'#fff',
-                  transition:'left .2s',
-                }}/>
-              </div>
-            </div>
-            {pattern.htfEnabled && (
-              <div style={{ marginTop:12, display:'flex', flexDirection:'column', gap:10 }}>
-                {/* TF selector */}
-                <div>
-                  <div style={{ fontSize:9, fontFamily:'var(--mono)', color:'var(--text3)', letterSpacing:'.08em', marginBottom:5 }}>HIGHER TIMEFRAME</div>
-                  <div style={{ display:'flex', gap:5, flexWrap:'wrap' }}>
-                    {HTF_TF_LIST.map(tf => (
-                      <Pill key={tf} active={pattern.htfTf === tf} color='rgba(179,136,255,1)'
-                        onClick={() => s('htfTf', tf)} sm>{tf}</Pill>
-                    ))}
-                  </div>
-                </div>
-                {/* EMA condition */}
-                <div>
-                  <div style={{ fontSize:9, fontFamily:'var(--mono)', color:'var(--text3)', letterSpacing:'.08em', marginBottom:5 }}>EMA CONDITION</div>
-                  <div style={{ display:'flex', alignItems:'center', gap:6, flexWrap:'wrap' }}>
-                    <select value={pattern.htfEma1 || 'ema5'} onChange={e => s('htfEma1', e.target.value)}
-                      style={{ background:'var(--bg2)', color:'var(--text)', border:'1px solid var(--border)', borderRadius:6, padding:'4px 8px', fontSize:11, fontFamily:'var(--mono)', cursor:'pointer' }}>
-                      {HTF_EMA_OPTS.map(o => <option key={o} value={o}>{o.toUpperCase()}</option>)}
-                    </select>
-                    <select value={pattern.htfOp || '>'} onChange={e => s('htfOp', e.target.value)}
-                      style={{ background:'var(--bg2)', color:'rgba(255,200,50,1)', border:'1px solid var(--border)', borderRadius:6, padding:'4px 8px', fontSize:13, fontWeight:800, fontFamily:'var(--mono)', cursor:'pointer', width:52 }}>
-                      {['>','>=','<','<='].map(o => <option key={o} value={o}>{o}</option>)}
-                    </select>
-                    <select value={pattern.htfEma2 || 'ema10'} onChange={e => s('htfEma2', e.target.value)}
-                      style={{ background:'var(--bg2)', color:'var(--text)', border:'1px solid var(--border)', borderRadius:6, padding:'4px 8px', fontSize:11, fontFamily:'var(--mono)', cursor:'pointer' }}>
-                      {HTF_EMA_OPTS.map(o => <option key={o} value={o}>{o.toUpperCase()}</option>)}
-                    </select>
-                  </div>
-                  <div style={{ marginTop:6, fontSize:9, fontFamily:'var(--mono)', color:'rgba(179,136,255,0.8)' }}>
-                    → On {(pattern.htfTf||'1h').toUpperCase()}: {(pattern.htfEma1||'ema5').toUpperCase()} {pattern.htfOp||'>'} {(pattern.htfEma2||'ema10').toUpperCase()} must pass before signal fires
-                  </div>
-                </div>
-              </div>
-            )}
           </div>
 
           {/* Conditions */}
