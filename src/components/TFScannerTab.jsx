@@ -460,10 +460,31 @@ export default function TFScannerTab({ timeframe, tabColor, settings, update, sa
         setProgressSym(sym)
         try {
           const candles = await fetchCandlesCached(sym, timeframe, limit, tkrs[sym] || null)
+
+          // ── Collect all HTF timeframes needed across all scanners ──────────
+          const htfTfsNeeded = new Set()
+          for (const scanner of scanners) {
+            for (const cond of (scanner.conditions || [])) {
+              if (cond.htfTf && cond.enabled !== false) htfTfsNeeded.add(cond.htfTf)
+            }
+          }
+          // Pre-fetch each unique HTF TF (120 candles is enough for slope + range)
+          const htfCandlesMap = {}
+          for (const tf of htfTfsNeeded) {
+            if (tf !== timeframe) {
+              try {
+                const htfArr = await fetchCandlesCached(sym, tf, 120, null)
+                if (htfArr && htfArr.length >= 2) htfCandlesMap[tf] = htfArr
+              } catch { /* skip — condition will gracefully return null */ }
+            } else {
+              htfCandlesMap[tf] = candles // same TF reuse
+            }
+          }
+
           for (const scanner of scanners) {
             if (abort?.aborted) continue
             if (isDupe(sym, scanner.id, timeframe)) continue
-            const result = scanner.logic(candles)
+            const result = scanner.logic(candles, htfCandlesMap)
             if (result) {
               const a = {
                 id: ++idRef.current, symbol: sym, timeframe, time: Date.now(),

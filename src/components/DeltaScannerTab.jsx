@@ -403,7 +403,7 @@ export default function DeltaScannerTab({
         p.conditions.some(c => c.enabled) &&
         (!modeFilter || p.side === modeFilter)
       )
-      .map(p => ({ id:p.id, name:p.name, side:p.side, icon:p.icon||(p.side==='bull'?'🟢':'🔴'), logic:compilePattern(p) }))
+      .map(p => ({ id:p.id, name:p.name, side:p.side, icon:p.icon||(p.side==='bull'?'🟢':'🔴'), conditions: p.conditions.filter(c => c.enabled), logic:compilePattern(p) }))
       .filter(p => p.logic !== null)
   }, [settings.customPatterns, timeframe, scanMode])
 
@@ -467,10 +467,31 @@ export default function DeltaScannerTab({
         try {
           const candles = await fetchCached(sym, timeframe, 60)
           if (!candles || candles.length < 10) { done++; setProgress(Math.round(done/symList.length*100)); continue }
+
+          // ── Collect all HTF timeframes needed across active patterns ──────
+          const htfTfsNeeded = new Set()
+          for (const sc of activePatterns) {
+            for (const cond of (sc.conditions || [])) {
+              if (cond.htfTf && cond.enabled !== false) htfTfsNeeded.add(cond.htfTf)
+            }
+          }
+          // Pre-fetch each unique HTF TF once per symbol
+          const htfCandlesMap = {}
+          for (const tf of htfTfsNeeded) {
+            if (tf !== timeframe) {
+              try {
+                const htfArr = await fetchCached(sym, tf, 120)
+                if (htfArr && htfArr.length >= 2) htfCandlesMap[tf] = htfArr
+              } catch { /* condition gracefully returns null */ }
+            } else {
+              htfCandlesMap[tf] = candles
+            }
+          }
+
           for (const sc of activePatterns) {
             if (abortRef.current.signal.aborted) continue
             if (isDupe(sym, sc.id)) continue
-            const result = sc.logic(candles)
+            const result = sc.logic(candles, htfCandlesMap)
             if (result) {
               const a = {
                 id: ++idRef.current, exchange:'delta', symbol:sym, timeframe,

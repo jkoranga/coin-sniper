@@ -75,6 +75,8 @@ const OFFSETS = Array.from({ length: 11 }, (_, i) =>
 )
 
 const TF_LIST = ['1m','3m','5m','15m','30m','1h','4h','1d']
+const HTF_TF_LIST = ['5m','15m','30m','1h','4h','1d']
+const HTF_EMA_OPTS = ['ema5','ema9','ema10','ema15','ema20','ema25','ema30','ema40','ema50','ema60','ema75','ema100','ema150','ema200']
 const ICON_CATEGORIES = [
   { label: '📈 Markets',  icons: ['📈','📉','💹','📊','💰','💵','💴','💸','🏦','💳','🪙','💲'] },
   { label: '🚀 Signals',  icons: ['🚀','⚡','🔥','💎','🎯','🏹','🧲','🔔','⭐','🌟','✨','💫'] },
@@ -192,6 +194,9 @@ function uid() { return Date.now().toString(36) + Math.random().toString(36).sli
 
 // ── Formula label ─────────────────────────────────────────────────────────────
 export function condFormula(c) {
+  // HTF prefix — shown when condition runs on a higher timeframe
+  const htfPfx = c.htfTf ? `[${c.htfTf.toUpperCase()}] ` : ''
+
   // Special label for needsPrev fields
   function fieldLabel(fieldId, offset) {
     const f = FIELD_MAP[fieldId]
@@ -216,50 +221,50 @@ export function condFormula(c) {
     const rhsF = FIELD_MAP[c.rhsField]?.short || (c.rhsField || '?')
     const pinnedO = c.rhsPinned && (c.rhsPinnedOffset ?? 0) !== 0 ? `[${c.rhsPinnedOffset}]` : c.rhsPinned ? '[0]' : ''
     const rhs = c.rhsPinned ? `${rhsF}${pinnedO}` : rhsF
-    if (c.rhsMode === 'number')  return `${windowLabel} ${lhsF} ${op} ${c.rhsNum ?? 0}`
-    if (c.rhsMode === 'field')   return `${windowLabel} ${lhsF} ${op} ${rhs}`
-    if (c.rhsMode === 'mult')    return `${windowLabel} ${lhsF} ${op} ${rhs} × ${c.rhsMult ?? 1}`
+    if (c.rhsMode === 'number')  return `${htfPfx}${windowLabel} ${lhsF} ${op} ${c.rhsNum ?? 0}`
+    if (c.rhsMode === 'field')   return `${htfPfx}${windowLabel} ${lhsF} ${op} ${rhs}`
+    if (c.rhsMode === 'mult')    return `${htfPfx}${windowLabel} ${lhsF} ${op} ${rhs} × ${c.rhsMult ?? 1}`
     if (c.rhsMode === 'pct') {
       const s = (c.rhsPct ?? 0) >= 0 ? '+' : ''
-      return `${windowLabel} ${lhsF} ${op} ${rhs} ${s}${c.rhsPct ?? 0}%`
+      return `${htfPfx}${windowLabel} ${lhsF} ${op} ${rhs} ${s}${c.rhsPct ?? 0}%`
     }
-    if (c.rhsMode === 'pctdiff') return `${windowLabel} (${lhsF}/${rhs}−1)×100 ${op} ${c.rhsNum ?? 0}%`
+    if (c.rhsMode === 'pctdiff') return `${htfPfx}${windowLabel} (${lhsF}/${rhs}−1)×100 ${op} ${c.rhsNum ?? 0}%`
     if (c.rhsMode === 'slope') {
       const n = c.slopeLen ?? 5
       const sk = c.slopeSkip ?? 0
       const thresh = c.slopeNum ?? 0
       const s = thresh >= 0 ? '+' : ''
       const skipStr = sk > 0 ? `,skip${sk}` : ''
-      return `${windowLabel} Slope(${lhsF},${n}${skipStr}) ${op} ${s}${thresh}%`
+      return `${htfPfx}${windowLabel} Slope(${lhsF},${n}${skipStr}) ${op} ${s}${thresh}%`
     }
-    return `${windowLabel} ${lhsF} ${op} ?`
+    return `${htfPfx}${windowLabel} ${lhsF} ${op} ?`
   }
 
   const lhsO = c.lhsOffset === 0 ? '' : `[${c.lhsOffset}]`
   const lhs  = `${lhsF}${lhsO}`
 
-  if (c.rhsMode === 'number')  return `${lhs} ${op} ${c.rhsNum ?? 0}`
+  if (c.rhsMode === 'number')  return `${htfPfx}${lhs} ${op} ${c.rhsNum ?? 0}`
 
   const rhsF = FIELD_MAP[c.rhsField]?.short || (c.rhsField || '?')
   const rhsO = (c.rhsOffset ?? 0) === 0 ? '' : `[${c.rhsOffset}]`
   const rhs  = `${rhsF}${rhsO}`
 
-  if (c.rhsMode === 'field')   return `${lhs} ${op} ${rhs}`
-  if (c.rhsMode === 'mult')    return `${lhs} ${op} ${rhs} × ${c.rhsMult ?? 1}`
+  if (c.rhsMode === 'field')   return `${htfPfx}${lhs} ${op} ${rhs}`
+  if (c.rhsMode === 'mult')    return `${htfPfx}${lhs} ${op} ${rhs} × ${c.rhsMult ?? 1}`
   if (c.rhsMode === 'pct') {
     const s = (c.rhsPct ?? 0) >= 0 ? '+' : ''
-    return `${lhs} ${op} ${rhs} ${s}${c.rhsPct ?? 0}%`
+    return `${htfPfx}${lhs} ${op} ${rhs} ${s}${c.rhsPct ?? 0}%`
   }
-  if (c.rhsMode === 'pctdiff') return `(${lhs}/${rhs}−1)×100 ${op} ${c.rhsNum ?? 0}%`
+  if (c.rhsMode === 'pctdiff') return `${htfPfx}(${lhs}/${rhs}−1)×100 ${op} ${c.rhsNum ?? 0}%`
   if (c.rhsMode === 'slope') {
     const n = c.slopeLen ?? 5
     const sk = c.slopeSkip ?? 0
     const thresh = c.slopeNum ?? 0
     const s = thresh >= 0 ? '+' : ''
     const skipStr = sk > 0 ? `,skip${sk}` : ''
-    return `Slope(${lhs},${n}${skipStr}) ${op} ${s}${thresh}%`
+    return `${htfPfx}Slope(${lhs},${n}${skipStr}) ${op} ${s}${thresh}%`
   }
-  return `${lhs} ${op} ?`
+  return `${htfPfx}${lhs} ${op} ?`
 }
 
 // ── Blank items ───────────────────────────────────────────────────────────────
@@ -278,6 +283,8 @@ function blankCond() {
     rangeFrom: -1,   // start offset (most recent), e.g. -1
     rangeTo: -5,     // end offset (oldest), e.g. -5
     rangeMode: 'all', // 'all' | 'any'
+    // HTF: if set, this condition is evaluated on Higher-Timeframe candles instead
+    htfTf: null,     // e.g. '1h', '4h', '1d' — null means use current TF candles
   }
 }
 
@@ -288,56 +295,80 @@ export function blankPattern() {
     tfs: ['15m','1h'],
     conditions: [blankCond()],
     enabled: true, createdAt: Date.now(),
+    htfEnabled: false, htfTf: '1h', htfEma1: 'ema5', htfEma2: 'ema10', htfOp: '>',
   }
 }
 
-// ── Compile pattern → logic(candles) ─────────────────────────────────────────
-export function compilePattern(pattern) {
-  // ── Core evaluator — returns true/false/null for a given candle array ─────
-  function evalCore(candles) {
+// ── Compile pattern → logic(candles, htfCandlesMap) ──────────────────────────
+// htfCandlesMap: { '1h': [...], '4h': [...], '1d': [...] } — pre-fetched by caller
+export function compilePattern(pattern, _htfCandlesMap) {
+  // ── Core evaluator — returns true/false/null ──────────────────────────────
+  function evalCore(candles, htfCandlesMap) {
     if (!candles || candles.length < 5) return null
+    htfCandlesMap = htfCandlesMap || {}
     const len = candles.length
 
-    function getC(offset) {
-      const idx = len - 1 + offset
-      return idx >= 0 ? candles[idx] : null
-    }
-    function getVal(candle, fieldId, candleIdx) {
-      if (!candle) return null
-      const f = FIELD_MAP[fieldId]
-      if (!f) return null
-      // changePct: (close[i] / close[i-1] - 1) × 100
-      if (f.needsPrev) {
-        if (fieldId === 'changePct') {
-          const prevIdx = (candleIdx ?? (len - 1)) - 1
-          const prev = prevIdx >= 0 ? candles[prevIdx] : null
-          if (!prev || prev.close === 0) return null
-          return (candle.close / prev.close - 1) * 100
-        }
-        return null
+    // ── Helpers for a given candle array ──────────────────────────────────
+    function makeAccessors(arr) {
+      const L = arr.length
+      function getC(offset) {
+        const idx = L - 1 + offset
+        return idx >= 0 ? arr[idx] : null
       }
-      if (f.computed) return f.computed(candle)
-      const v = candle[fieldId]
-      return v == null ? null : v
+      function getVal(candle, fieldId, candleIdx) {
+        if (!candle) return null
+        const f = FIELD_MAP[fieldId]
+        if (!f) return null
+        if (f.needsPrev) {
+          if (fieldId === 'changePct') {
+            const prevIdx = (candleIdx ?? (L - 1)) - 1
+            const prev = prevIdx >= 0 ? arr[prevIdx] : null
+            if (!prev || prev.close === 0) return null
+            return (candle.close / prev.close - 1) * 100
+          }
+          return null
+        }
+        if (f.computed) return f.computed(candle)
+        const v = candle[fieldId]
+        return v == null ? null : v
+      }
+      return { arr, L, getC, getVal }
     }
+
+    // Default accessors use base candles
+    const base = makeAccessors(candles)
+
+    // Backwards-compat helpers (used by segments/group logic below)
+    function getC(offset)              { return base.getC(offset) }
+    function getVal(c, f, i)           { return base.getVal(c, f, i) }
 
     const active = pattern.conditions.filter(c => c.enabled)
     if (!active.length) return null
 
+    // ── Resolve candle accessors for a condition (HTF or base) ────────────
+    function resolveAccessors(cond) {
+      if (cond.htfTf && htfCandlesMap[cond.htfTf] && htfCandlesMap[cond.htfTf].length >= 2) {
+        return makeAccessors(htfCandlesMap[cond.htfTf])
+      }
+      return base
+    }
+
     function evalCond(cond) {
+      const { arr, L, getC: gC, getVal: gV } = resolveAccessors(cond)
+
       // ── Range check: apply condition to every candle in [rangeFrom..rangeTo] ──
+      // Uses resolved candle array (HTF or base) via gC / gV / L
       if (cond.rangeCheck) {
-        const from = Math.min(cond.rangeFrom ?? -1, 0)   // e.g. -1 (most recent)
-        const to   = Math.min(cond.rangeTo   ?? -5, 0)   // e.g. -5 (oldest)
+        const from  = Math.min(cond.rangeFrom ?? -1, 0)
+        const to    = Math.min(cond.rangeTo   ?? -5, 0)
         const start = Math.min(from, to)
         const end   = Math.max(from, to)
         const results = []
         for (let off = start; off <= end; off++) {
-          // Evaluate lhs at this offset, rhs at same offset (field-relative) or fixed
-          const absIdx = len - 1 + off
-          const lhsCandle = getC(off)
+          const absIdx   = L - 1 + off
+          const lhsCandle = gC(off)
           if (!lhsCandle) continue
-          const lhsV = getVal(lhsCandle, cond.lhsField, absIdx)
+          const lhsV = gV(lhsCandle, cond.lhsField, absIdx)
           if (lhsV == null) continue
 
           let rhsV
@@ -346,31 +377,30 @@ export function compilePattern(pattern) {
           } else if (cond.rhsMode === 'slope') {
             const n  = Math.max(1, Math.round(cond.slopeLen ?? 5))
             const sk = Math.max(0, Math.round(cond.slopeSkip ?? 0))
-            const nowCandle  = getC(off - sk)
-            const nowV       = getVal(nowCandle, cond.lhsField, len - 1 + off - sk)
-            const pastCandle = getC(off - sk - n)
-            const pastV      = getVal(pastCandle, cond.lhsField, len - 1 + off - sk - n)
+            const nowCandle  = gC(off - sk)
+            const nowV       = gV(nowCandle,  cond.lhsField, L - 1 + off - sk)
+            const pastCandle = gC(off - sk - n)
+            const pastV      = gV(pastCandle, cond.lhsField, L - 1 + off - sk - n)
             if (nowV == null || pastV == null || pastV === 0) continue
             const slopePct = (nowV / pastV - 1) * 100
             const thresh   = parseFloat(cond.slopeNum) || 0
             const op = OP_SYM[cond.op] || cond.op
             let r
-            if (op === '>')  r = slopePct >  thresh
+            if (op === '>')       r = slopePct >  thresh
             else if (op === '>=') r = slopePct >= thresh
             else if (op === '<')  r = slopePct <  thresh
             else if (op === '<=') r = slopePct <= thresh
             else if (op === '==') r = Math.abs(slopePct - thresh) < 1e-9
-            else r = Math.abs(slopePct - thresh) >= 1e-9
+            else                  r = Math.abs(slopePct - thresh) >= 1e-9
             results.push(r)
             continue
           } else {
-            // RHS field: if pinned, use fixed offset; otherwise walks with LHS
-            const rhsOff = cond.rhsPinned ? (cond.rhsPinnedOffset ?? 0) : off + (cond.rhsOffset ?? 0)
-            const rhsAbsIdx = len - 1 + rhsOff
-            const rhsCandle = getC(rhsOff)
-            const rhsBase = getVal(rhsCandle, cond.rhsField || cond.lhsField, rhsAbsIdx)
+            const rhsOff    = cond.rhsPinned ? (cond.rhsPinnedOffset ?? 0) : off + (cond.rhsOffset ?? 0)
+            const rhsAbsIdx = L - 1 + rhsOff
+            const rhsCandle = gC(rhsOff)
+            const rhsBase   = gV(rhsCandle, cond.rhsField || cond.lhsField, rhsAbsIdx)
             if (rhsBase == null) continue
-            if (cond.rhsMode === 'field')   rhsV = rhsBase
+            if (cond.rhsMode === 'field')      rhsV = rhsBase
             else if (cond.rhsMode === 'mult')  rhsV = rhsBase * (parseFloat(cond.rhsMult) || 1)
             else if (cond.rhsMode === 'pct')   rhsV = rhsBase * (1 + (parseFloat(cond.rhsPct) || 0) / 100)
             else if (cond.rhsMode === 'pctdiff') {
@@ -379,12 +409,12 @@ export function compilePattern(pattern) {
               const num  = parseFloat(cond.rhsNum) || 0
               const op   = OP_SYM[cond.op] || cond.op
               let r
-              if (op === '>')  r = diff >  num
+              if (op === '>')       r = diff >  num
               else if (op === '>=') r = diff >= num
               else if (op === '<')  r = diff <  num
               else if (op === '<=') r = diff <= num
               else if (op === '==') r = Math.abs(diff - num) < 1e-9
-              else r = Math.abs(diff - num) >= 1e-9
+              else                  r = Math.abs(diff - num) >= 1e-9
               results.push(r)
               continue
             } else { rhsV = rhsBase }
@@ -392,28 +422,28 @@ export function compilePattern(pattern) {
 
           const op = OP_SYM[cond.op] || cond.op
           let r
-          if (op === '>')  r = lhsV >  rhsV
+          if (op === '>')       r = lhsV >  rhsV
           else if (op === '>=') r = lhsV >= rhsV
           else if (op === '<')  r = lhsV <  rhsV
           else if (op === '<=') r = lhsV <= rhsV
           else if (op === '==') r = Math.abs(lhsV - rhsV) < 1e-9
-          else r = Math.abs(lhsV - rhsV) >= 1e-9
+          else                  r = Math.abs(lhsV - rhsV) >= 1e-9
           results.push(r)
         }
         if (!results.length) return null
         return cond.rangeMode === 'any' ? results.some(Boolean) : results.every(Boolean)
       }
 
-      // ── Standard single-candle check ──
-      const lhsAbsIdx = len - 1 + (cond.lhsOffset ?? 0)
-      const lhsV = getVal(getC(cond.lhsOffset), cond.lhsField, lhsAbsIdx)
+      // ── Standard single-candle check (uses gC/gV/L — HTF or base) ────────
+      const lhsAbsIdx = L - 1 + (cond.lhsOffset ?? 0)
+      const lhsV = gV(gC(cond.lhsOffset), cond.lhsField, lhsAbsIdx)
       if (lhsV == null) return null
 
       let rhsV
-      const rhsAbsIdx = len - 1 + (cond.rhsOffset ?? 0)
-      const rhsBase = cond.rhsField ? getVal(getC(cond.rhsOffset ?? 0), cond.rhsField, rhsAbsIdx) : null
+      const rhsAbsIdx = L - 1 + (cond.rhsOffset ?? 0)
+      const rhsBase   = cond.rhsField ? gV(gC(cond.rhsOffset ?? 0), cond.rhsField, rhsAbsIdx) : null
 
-      if (cond.rhsMode === 'number')  { rhsV = parseFloat(cond.rhsNum) || 0 }
+      if (cond.rhsMode === 'number')       { rhsV = parseFloat(cond.rhsNum) || 0 }
       else if (cond.rhsMode === 'field')   { if (rhsBase == null) return null; rhsV = rhsBase }
       else if (cond.rhsMode === 'mult')    { if (rhsBase == null) return null; rhsV = rhsBase * (parseFloat(cond.rhsMult) || 1) }
       else if (cond.rhsMode === 'pct')     { if (rhsBase == null) return null; rhsV = rhsBase * (1 + (parseFloat(cond.rhsPct) || 0) / 100) }
@@ -422,10 +452,10 @@ export function compilePattern(pattern) {
         const sk = Math.max(0, Math.round(cond.slopeSkip ?? 0))
         const nowAbsIdx  = lhsAbsIdx - sk
         const pastAbsIdx = lhsAbsIdx - sk - n
-        const nowCandle  = nowAbsIdx  >= 0 ? candles[nowAbsIdx]  : null
-        const pastCandle = pastAbsIdx >= 0 ? candles[pastAbsIdx] : null
-        const nowV  = getVal(nowCandle,  cond.lhsField, nowAbsIdx)
-        const pastV = getVal(pastCandle, cond.lhsField, pastAbsIdx)
+        const nowCandle  = nowAbsIdx  >= 0 ? arr[nowAbsIdx]  : null
+        const pastCandle = pastAbsIdx >= 0 ? arr[pastAbsIdx] : null
+        const nowV  = gV(nowCandle,  cond.lhsField, nowAbsIdx)
+        const pastV = gV(pastCandle, cond.lhsField, pastAbsIdx)
         if (nowV == null || pastV == null || pastV === 0) return null
         const slopePct = (nowV / pastV - 1) * 100
         const thresh   = parseFloat(cond.slopeNum) || 0
@@ -510,8 +540,10 @@ export function compilePattern(pattern) {
   }
 
   // ── Public logic function — runs pattern + computes historical accuracy ────
-  return function logic(candles) {
-    if (!evalCore(candles)) return null
+  // htfCandlesMap: { '1h': candleArr, '4h': candleArr, ... } — passed from scanner
+  return function logic(candles, htfCandlesMap) {
+    htfCandlesMap = htfCandlesMap || {}
+    if (!evalCore(candles, htfCandlesMap)) return null
 
     const len  = candles.length
     const curr = candles[len - 1]
@@ -530,7 +562,7 @@ export function compilePattern(pattern) {
     const start = Math.max(10, len - LOOKBACK - FORWARD)
     for (let ei = start; ei < len - FORWARD; ei++) {
       const slice = candles.slice(0, ei + 1)
-      if (evalCore(slice) === true) {
+      if (evalCore(slice, {}) === true) {
         sigCount++
         const entry = candles[ei].close
         const exit  = candles[ei + FORWARD].close
@@ -737,6 +769,49 @@ function CondCard({ cond, idx, total, color, onChange, onRemove, onCopy, onMoveU
       {/* Body */}
       {open && (
         <div style={{ padding: '8px 9px 10px', display: 'flex', flexDirection: 'column', gap: 7 }}>
+
+          {/* ── HTF TIMEFRAME SELECTOR (per condition) ─────────────────────── */}
+          <div style={{
+            display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+            padding: '7px 10px', borderRadius: 8,
+            background: cond.htfTf ? 'rgba(179,136,255,0.10)' : 'rgba(0,0,0,0.12)',
+            border: `1px solid ${cond.htfTf ? 'rgba(179,136,255,0.40)' : 'var(--border)'}`,
+            transition: 'all .15s',
+          }}>
+            <div style={{ flex: 1 }}>
+              <div style={{ fontSize: 11, fontWeight: 700, color: cond.htfTf ? 'rgba(179,136,255,1)' : 'var(--text2)', marginBottom: 4 }}>
+                Higher Timeframe {cond.htfTf ? `· ${cond.htfTf.toUpperCase()}` : ''}
+              </div>
+              <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
+                {/* "OFF" pill = null */}
+                {[null, ...HTF_TF_LIST].map(tf => (
+                  <div key={tf ?? 'off'}
+                    onClick={() => s('htfTf', cond.htfTf === tf ? null : tf)}
+                    style={{
+                      padding: '2px 8px', borderRadius: 5, fontSize: 10,
+                      fontFamily: 'var(--mono)', fontWeight: 700, cursor: 'pointer',
+                      background: cond.htfTf === tf
+                        ? (tf ? 'rgba(179,136,255,0.25)' : 'rgba(255,255,255,0.08)')
+                        : 'transparent',
+                      color: cond.htfTf === tf
+                        ? (tf ? 'rgba(179,136,255,1)' : 'var(--text)')
+                        : 'var(--text3)',
+                      border: `1px solid ${cond.htfTf === tf
+                        ? (tf ? 'rgba(179,136,255,0.5)' : 'var(--border)')
+                        : 'transparent'}`,
+                      transition: 'all .12s',
+                    }}>
+                    {tf ?? 'off'}
+                  </div>
+                ))}
+              </div>
+              {cond.htfTf && (
+                <div style={{ fontSize: 9, fontFamily: 'var(--mono)', color: 'rgba(179,136,255,0.7)', marginTop: 4 }}>
+                  This condition runs on {cond.htfTf.toUpperCase()} candles · all other features (slope, range, offset) apply on HTF
+                </div>
+              )}
+            </div>
+          </div>
 
           {/* RANGE CHECK TOGGLE */}
           <div style={{
@@ -1673,6 +1748,73 @@ function PatternEditor({ pattern, onChange, onDelete, onMirrorPattern, onCopyPat
                 <div style={{ fontSize: 9, color: 'var(--red)', fontFamily: 'var(--mono)', marginTop: 4 }}>⚠ No TF — won't scan</div>
               )}
             </div>
+          </div>
+
+          {/* Major TF Filter */}
+          <div style={{
+            borderRadius: 10, border: `1.5px solid ${pattern.htfEnabled ? 'rgba(179,136,255,0.45)' : 'var(--border)'}`,
+            background: pattern.htfEnabled ? 'rgba(179,136,255,0.06)' : 'var(--bg1)',
+            padding: '10px 13px', marginBottom: 2,
+          }}>
+            <div style={{ display:'flex', alignItems:'center', gap:10 }}>
+              <div style={{ flex:1 }}>
+                <div style={{ fontSize:10, fontWeight:800, color: pattern.htfEnabled ? 'rgba(179,136,255,1)' : 'var(--text2)', letterSpacing:'.06em' }}>
+                  🕐 MAJOR TF FILTER
+                </div>
+                <div style={{ fontSize:9, color:'var(--text3)', fontFamily:'var(--mono)', marginTop:2 }}>
+                  Gate signal on a higher timeframe EMA condition
+                </div>
+              </div>
+              <div
+                onClick={() => s('htfEnabled', !pattern.htfEnabled)}
+                style={{
+                  width:36, height:20, borderRadius:10, cursor:'pointer', flexShrink:0,
+                  background: pattern.htfEnabled ? 'rgba(179,136,255,0.8)' : 'var(--bg2)',
+                  border: `1.5px solid ${pattern.htfEnabled ? 'rgba(179,136,255,1)' : 'var(--border)'}`,
+                  position:'relative', transition:'background .2s',
+                }}>
+                <div style={{
+                  position:'absolute', top:2, left: pattern.htfEnabled ? 16 : 2,
+                  width:14, height:14, borderRadius:'50%', background:'#fff',
+                  transition:'left .2s',
+                }}/>
+              </div>
+            </div>
+            {pattern.htfEnabled && (
+              <div style={{ marginTop:12, display:'flex', flexDirection:'column', gap:10 }}>
+                {/* TF selector */}
+                <div>
+                  <div style={{ fontSize:9, fontFamily:'var(--mono)', color:'var(--text3)', letterSpacing:'.08em', marginBottom:5 }}>HIGHER TIMEFRAME</div>
+                  <div style={{ display:'flex', gap:5, flexWrap:'wrap' }}>
+                    {HTF_TF_LIST.map(tf => (
+                      <Pill key={tf} active={pattern.htfTf === tf} color='rgba(179,136,255,1)'
+                        onClick={() => s('htfTf', tf)} sm>{tf}</Pill>
+                    ))}
+                  </div>
+                </div>
+                {/* EMA condition */}
+                <div>
+                  <div style={{ fontSize:9, fontFamily:'var(--mono)', color:'var(--text3)', letterSpacing:'.08em', marginBottom:5 }}>EMA CONDITION</div>
+                  <div style={{ display:'flex', alignItems:'center', gap:6, flexWrap:'wrap' }}>
+                    <select value={pattern.htfEma1 || 'ema5'} onChange={e => s('htfEma1', e.target.value)}
+                      style={{ background:'var(--bg2)', color:'var(--text)', border:'1px solid var(--border)', borderRadius:6, padding:'4px 8px', fontSize:11, fontFamily:'var(--mono)', cursor:'pointer' }}>
+                      {HTF_EMA_OPTS.map(o => <option key={o} value={o}>{o.toUpperCase()}</option>)}
+                    </select>
+                    <select value={pattern.htfOp || '>'} onChange={e => s('htfOp', e.target.value)}
+                      style={{ background:'var(--bg2)', color:'rgba(255,200,50,1)', border:'1px solid var(--border)', borderRadius:6, padding:'4px 8px', fontSize:13, fontWeight:800, fontFamily:'var(--mono)', cursor:'pointer', width:52 }}>
+                      {['>','>=','<','<='].map(o => <option key={o} value={o}>{o}</option>)}
+                    </select>
+                    <select value={pattern.htfEma2 || 'ema10'} onChange={e => s('htfEma2', e.target.value)}
+                      style={{ background:'var(--bg2)', color:'var(--text)', border:'1px solid var(--border)', borderRadius:6, padding:'4px 8px', fontSize:11, fontFamily:'var(--mono)', cursor:'pointer' }}>
+                      {HTF_EMA_OPTS.map(o => <option key={o} value={o}>{o.toUpperCase()}</option>)}
+                    </select>
+                  </div>
+                  <div style={{ marginTop:6, fontSize:9, fontFamily:'var(--mono)', color:'rgba(179,136,255,0.8)' }}>
+                    → On {(pattern.htfTf||'1h').toUpperCase()}: {(pattern.htfEma1||'ema5').toUpperCase()} {pattern.htfOp||'>'} {(pattern.htfEma2||'ema10').toUpperCase()} must pass before signal fires
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
 
           {/* Conditions */}
