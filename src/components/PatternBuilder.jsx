@@ -1395,11 +1395,12 @@ function PatternEditor({ pattern: rawPattern, onChange, onDelete, onMirrorPatter
           }} />
           {/* Card */}
           <div style={{
-            position: 'absolute', top: 6, left: 0, right: 0, zIndex: 100,
-            borderRadius: 13, padding: '18px 16px',
+            position: 'fixed', top: '50%', left: '50%', transform: 'translate(-50%,-50%)',
+            width: 'min(320px,88vw)', zIndex: 1000,
+            borderRadius: 14, padding: '20px 18px',
             background: 'var(--bg1)',
-            border: `1.5px solid ${BLU}70`,
-            boxShadow: `0 10px 40px rgba(0,0,0,0.65), 0 0 0 1px ${BLU}18`,
+            border: `1.5px solid ${BLU}`,
+            boxShadow: `0 20px 60px rgba(0,0,0,0.8), 0 0 20px ${BLU}30`,
           }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
               <span style={{ fontSize: 18 }}>⇄</span>
@@ -1461,11 +1462,12 @@ function PatternEditor({ pattern: rawPattern, onChange, onDelete, onMirrorPatter
             position: 'fixed', inset: 0, zIndex: 99, background: 'rgba(0,0,0,0.45)',
           }} />
           <div style={{
-            position: 'absolute', top: 6, left: 0, right: 0, zIndex: 100,
-            borderRadius: 13, padding: '18px 16px',
+            position: 'fixed', top: '50%', left: '50%', transform: 'translate(-50%,-50%)',
+            width: 'min(320px,88vw)', zIndex: 1000,
+            borderRadius: 14, padding: '20px 18px',
             background: 'var(--bg1)',
-            border: '1.5px solid rgba(255,200,0,0.5)',
-            boxShadow: '0 10px 40px rgba(0,0,0,0.65), 0 0 0 1px rgba(255,200,0,0.1)',
+            border: '2px solid rgba(255,200,0,0.7)',
+            boxShadow: '0 20px 60px rgba(0,0,0,0.8), 0 0 20px rgba(255,200,0,0.2)',
           }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
               <span style={{ fontSize: 18 }}>⧉</span>
@@ -1524,39 +1526,43 @@ function PatternEditor({ pattern: rawPattern, onChange, onDelete, onMirrorPatter
       {lockPopup && (
         <>
           <div onClick={() => setLockPopup(false)} style={{
-            position: 'fixed', inset: 0, zIndex: 99, background: 'rgba(0,0,0,0.55)',
-            backdropFilter: 'blur(3px)',
+            position: 'fixed', inset: 0, zIndex: 999, background: 'rgba(0,0,0,0.7)',
+            backdropFilter: 'blur(4px)',
           }} />
           <div style={{
-            position: 'absolute', top: 6, left: 0, right: 0, zIndex: 100,
-            borderRadius: 13, padding: '20px 16px',
+            position: 'fixed',
+            top: '50%', left: '50%',
+            transform: 'translate(-50%, -50%)',
+            zIndex: 1000,
+            width: 'min(320px, 88vw)',
+            borderRadius: 16, padding: '24px 18px',
             background: 'var(--bg1)',
-            border: '1.5px solid rgba(255,200,0,0.6)',
-            boxShadow: '0 10px 40px rgba(0,0,0,0.65), 0 0 18px rgba(255,200,0,0.15)',
+            border: '2px solid rgba(255,200,0,0.7)',
+            boxShadow: '0 20px 60px rgba(0,0,0,0.8), 0 0 24px rgba(255,200,0,0.2)',
           }}>
-            <div style={{ textAlign: 'center', marginBottom: 14 }}>
-              <div style={{ fontSize: 32, marginBottom: 8 }}>🔒</div>
-              <div style={{ fontWeight: 900, fontSize: 14, color: 'rgb(255,200,0)' }}>Pattern Locked</div>
-              <div style={{ fontSize: 10, fontFamily: 'var(--mono)', color: 'var(--text3)', marginTop: 6, lineHeight: 1.7 }}>
-                <b style={{ color: color }}>{pattern.name}</b> is locked to prevent accidental changes.<br/>
-                Unlocking will allow editing all conditions and settings.
+            <div style={{ textAlign: 'center', marginBottom: 16 }}>
+              <div style={{ fontSize: 40, marginBottom: 10 }}>🔒</div>
+              <div style={{ fontWeight: 900, fontSize: 15, color: 'rgb(255,200,0)' }}>Pattern Locked</div>
+              <div style={{ fontSize: 11, fontFamily: 'var(--mono)', color: 'var(--text3)', marginTop: 8, lineHeight: 1.7 }}>
+                <b style={{ color: color }}>{pattern.name}</b> is locked.<br/>
+                Unlocking allows editing all conditions and settings.
               </div>
             </div>
-            <div style={{ height: 1, background: 'rgba(255,200,0,0.15)', marginBottom: 14 }} />
+            <div style={{ height: 1, background: 'rgba(255,200,0,0.2)', marginBottom: 16 }} />
             <div style={{ display: 'flex', gap: 8 }}>
               <button
                 onClick={() => { s('locked', false); setLockPopup(false); setOpen(true) }}
                 style={{
-                  flex: 1, padding: '11px', borderRadius: 9, cursor: 'pointer',
-                  fontFamily: 'var(--mono)', fontWeight: 800, fontSize: 12,
-                  border: '1.5px solid rgba(255,200,0,0.6)',
-                  background: 'rgba(255,200,0,0.14)', color: 'rgb(255,200,0)',
+                  flex: 1, padding: '12px', borderRadius: 10, cursor: 'pointer',
+                  fontFamily: 'var(--mono)', fontWeight: 800, fontSize: 13,
+                  border: '2px solid rgba(255,200,0,0.7)',
+                  background: 'rgba(255,200,0,0.15)', color: 'rgb(255,200,0)',
                 }}
               >🔓 Unlock & Edit</button>
               <button
                 onClick={() => setLockPopup(false)}
                 style={{
-                  padding: '11px 15px', borderRadius: 9, cursor: 'pointer',
+                  padding: '12px 16px', borderRadius: 10, cursor: 'pointer',
                   fontFamily: 'var(--mono)', fontWeight: 700, fontSize: 12,
                   border: '1px solid var(--border)', background: 'var(--bg3)', color: 'var(--text3)',
                 }}
