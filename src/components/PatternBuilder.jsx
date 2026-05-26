@@ -1265,8 +1265,27 @@ function IconPicker({ value, onChange, color }) {
   )
 }
 
+// ── Normalize a pattern loaded from storage — stamps missing fields onto conditions
+// so old saved patterns work correctly with all current features (id, htfTf, etc.)
+function normalizePattern(p) {
+  if (!p) return p
+  return {
+    ...p,
+    conditions: (p.conditions || []).map(c => ({
+      htfTf: null,          // default — overridden if already set
+      rangeCheck: false,    // default
+      rangeMode: 'all',     // default
+      ...c,
+      id: c.id || uid(),    // stamp missing id last so existing id wins
+    })),
+  }
+}
+
 // ── Pattern editor ────────────────────────────────────────────────────────────
-function PatternEditor({ pattern, onChange, onDelete, onMirrorPattern, onCopyPattern, defaultOpen, allPatternNames, onOpenChange, outerStyle }) {
+function PatternEditor({ pattern: rawPattern, onChange, onDelete, onMirrorPattern, onCopyPattern, defaultOpen, allPatternNames, onOpenChange, outerStyle }) {
+  // Stamp missing fields (id, htfTf, etc.) onto conditions from old saved patterns
+  const pattern = React.useMemo(() => normalizePattern(rawPattern), [rawPattern])
+  function wrappedOnChange(updated) { onChange(normalizePattern(updated)) }
   const [open, setOpenRaw] = useState(!!defaultOpen)
   function setOpen(v) {
     const next = typeof v === 'function' ? v(open) : v
@@ -1344,7 +1363,7 @@ function PatternEditor({ pattern, onChange, onDelete, onMirrorPattern, onCopyPat
 
   const mirroredSide = pattern.side === 'bull' ? 'bear' : 'bull'
 
-  function s(k, v) { onChange({ ...pattern, [k]: v }) }
+  function s(k, v) { wrappedOnChange({ ...pattern, [k]: v }) }
   function setCond(i, c) { const cs = [...pattern.conditions]; cs[i] = c; s('conditions', cs) }
   function delCond(i)    { s('conditions', pattern.conditions.filter((_,j) => j !== i)) }
   function copyCond(i)   {

@@ -71,11 +71,30 @@ function hasCriticalKey(patch) {
   )
 }
 
+function uid() { return Date.now().toString(36) + Math.random().toString(36).slice(2, 6) }
+
+// Stamp missing condition ids onto patterns loaded from storage
+function normalizeLoadedPatterns(patterns) {
+  if (!Array.isArray(patterns)) return []
+  return patterns.map(p => ({
+    ...p,
+    conditions: (p.conditions || []).map(c => ({
+      htfTf: null,
+      rangeCheck: false,
+      rangeMode: 'all',
+      ...c,
+      id: c.id || uid(),
+    })),
+  }))
+}
+
 function load() {
   try {
     const raw = localStorage.getItem(STORAGE_KEY)
     if (!raw) return { settings: DEFAULTS, isFirstVisit: true }
-    return { settings: { ...DEFAULTS, ...JSON.parse(raw) }, isFirstVisit: false }
+    const parsed = JSON.parse(raw)
+    if (parsed.customPatterns) parsed.customPatterns = normalizeLoadedPatterns(parsed.customPatterns)
+    return { settings: { ...DEFAULTS, ...parsed }, isFirstVisit: false }
   } catch { return { settings: DEFAULTS, isFirstVisit: true } }
 }
 
@@ -126,6 +145,9 @@ export function useSettings(firebaseUser) {
       merged.customPatterns    = prev.customPatterns
       merged._customPatternsAt = localAt
     }
+
+    // Normalize patterns from either source — stamp missing condition ids
+    merged.customPatterns = normalizeLoadedPatterns(merged.customPatterns)
 
     // Same for trash
     const localTrAt = prev._deletedPatternsAt  || 0
