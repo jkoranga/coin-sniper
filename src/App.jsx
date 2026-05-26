@@ -480,9 +480,17 @@ function PatternsModal({ open, onClose, settings, update, onGoToBuilder }) {
   )
 }
 
+// ── Session helpers — survive reload, clear when tab closes ───────────────────
+const SS_TAB      = 'cs_activeTab'
+const SS_TAPPED   = 'cs_tappedTabs'
+function ssGetTab()    { try { return sessionStorage.getItem(SS_TAB) || '15m' } catch { return '15m' } }
+function ssGetTapped() { try { return new Set(JSON.parse(sessionStorage.getItem(SS_TAPPED) || '[]')) } catch { return new Set() } }
+function ssSaveTab(t)    { try { sessionStorage.setItem(SS_TAB,    t) } catch {} }
+function ssSaveTapped(s) { try { sessionStorage.setItem(SS_TAPPED, JSON.stringify([...s])) } catch {} }
+
 // ── Main App ───────────────────────────────────────────────────────────────────
 export default function App() {
-  const [activeTab,      setActiveTab]      = useState('15m')
+  const [activeTab,      setActiveTab]      = useState(() => ssGetTab())
   const [user,           setUser]           = useState(null)
   const [authReady,      setAuthReady]      = useState(false)
   const [alertCounts,    setAlertCounts]    = useState({})
@@ -490,8 +498,8 @@ export default function App() {
   const [scanProgress,   setScanProgress]   = useState({ pct: -1, color: ORANGE })
   const [settingsOpenCount, setSettingsOpenCount] = useState(0)
   const [showPatterns,   setShowPatterns]   = useState(false)
-  const [prevTab,        setPrevTab]        = useState('15m')
-  const [userTappedTabs, setUserTappedTabs] = useState(new Set())
+  const [prevTab,        setPrevTab]        = useState(() => ssGetTab())
+  const [userTappedTabs, setUserTappedTabs] = useState(() => ssGetTapped())
   const [showExitWarning,setShowExitWarning]= useState(false)
 
   const HOME_TAB    = '15m'
@@ -500,6 +508,9 @@ export default function App() {
   activeTabRef.current = activeTab
   showExitRef.current  = showExitWarning
 
+  // Persist session state on every change
+  React.useEffect(() => { ssSaveTab(activeTab) },      [activeTab])
+  React.useEffect(() => { ssSaveTapped(userTappedTabs) }, [userTappedTabs])
   useEffect(() => {
     window.history.pushState({ coinsSniper: true }, '')
     function handlePop() {
