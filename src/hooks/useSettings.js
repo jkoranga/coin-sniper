@@ -261,9 +261,18 @@ export function useSettings(firebaseUser) {
   }, [update])
 
   const reset = useCallback(() => {
-    localStorage.removeItem(STORAGE_KEY)
-    settingsRef.current = DEFAULTS
-    setSettings(DEFAULTS)
+    // Preserve user patterns — reset must never delete them
+    const current = settingsRef.current
+    const preserved = {
+      customPatterns:      current.customPatterns      ?? [],
+      deletedPatterns:     current.deletedPatterns     ?? [],
+      _customPatternsAt:   current._customPatternsAt   ?? 0,
+      _deletedPatternsAt:  current._deletedPatternsAt  ?? 0,
+    }
+    const next = { ...DEFAULTS, ...preserved }
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(next))
+    settingsRef.current = next
+    setSettings(next)
   }, [])
 
   return { settings, update, updateNested, reset, cloudSynced, cloudSaving, saveNow, saveNowWithPatch, isFirstVisit: isFirstVisit.current }

@@ -539,9 +539,9 @@ export default function App() {
     })
   }
 
-  const handleAlertCount = useCallback((count) => {
-    setAlertCounts(prev => ({ ...prev, [activeTab]: (prev[activeTab]||0) + count }))
-  }, [activeTab])
+  const handleAlertCount = useCallback((timeframe, count) => {
+    setAlertCounts(prev => ({ ...prev, [timeframe]: count }))
+  }, [])
 
   const handleScanProgress = useCallback((pct, color) => {
     setScanProgress({ pct, color: color || ORANGE })

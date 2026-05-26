@@ -679,7 +679,7 @@ export default function SettingsTab({ settings, set, update, reset, user, onUser
     }
     reset()
     setResetConfirm(false)
-    setResetMsg('✓ Settings reset to defaults')
+    setResetMsg('✓ Settings reset to defaults · patterns preserved')
     setTimeout(() => setResetMsg(''), 3500)
   }
 
@@ -726,7 +726,7 @@ export default function SettingsTab({ settings, set, update, reset, user, onUser
         <div style={{ display:'flex',alignItems:'center',justifyContent:'space-between' }}>
           <div>
             <div style={{ fontWeight:700,fontSize:14,color:'var(--text)',marginBottom:3 }}>Reset All Settings</div>
-            <div style={{ fontSize:11,fontFamily:'var(--mono)',color:'var(--text3)' }}>Restore defaults across all tabs</div>
+            <div style={{ fontSize:11,fontFamily:'var(--mono)',color:'var(--text3)' }}>Restore defaults · your patterns are kept</div>
           </div>
           <button onClick={handleReset} style={{ padding:'8px 16px',borderRadius:8,
             border:`1.5px solid ${resetConfirm ? 'var(--red)' : 'var(--red2)'}`,

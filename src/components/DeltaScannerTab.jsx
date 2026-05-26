@@ -375,6 +375,11 @@ export default function DeltaScannerTab({
   const settingsRef = useRef(settings)
   useEffect(() => { settingsRef.current = settings }, [settings])
 
+  // Notify parent of current alert count (consistent with TFScannerTab)
+  useEffect(() => {
+    onAlertCount?.(timeframe, alerts.length)
+  }, [alerts.length, timeframe, onAlertCount])
+
   // ── Load Delta symbols ───────────────────────────────────────────────────────
   const loadSymbols = useCallback(async () => {
     setLoadingSyms(true); setSymFailed(false); setSymFallback(false)
@@ -516,7 +521,6 @@ export default function DeltaScannerTab({
     setProgress(-1); setProgressSym('')
     scanningRef.current = false; setScanning(false)
     if (newErrors.length) setErrors(newErrors)
-    onAlertCount?.(newAlerts.length)
 
     // Telegram
     if (newAlerts.length > 0 && cfg.tgOn && cfg.tgToken && cfg.tgChatId) {
