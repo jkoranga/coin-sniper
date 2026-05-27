@@ -457,7 +457,7 @@ export default function DeltaScannerTab({
     scanningRef.current = true
     setScanning(true); setProgress(0); setErrors([])
 
-    const CONCURRENCY = 20
+    const CONCURRENCY = 5
     const newAlerts = [], newErrors = []
     let i = 0, done = 0
 
@@ -513,7 +513,7 @@ export default function DeltaScannerTab({
         } catch { newErrors.push(sym) }
         done++
         setProgress(Math.round(done / symList.length * 100))
-        await new Promise(r => setTimeout(r, 5))
+        await new Promise(r => setTimeout(r, 80))
       }
     }
 
