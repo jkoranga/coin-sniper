@@ -4,6 +4,7 @@ import DeltaScannerTab from './components/DeltaScannerTab.jsx'
 import SettingsTab from './components/SettingsTab.jsx'
 import PatternBuilderTab from './components/PatternBuilder.jsx'
 import { onAuthChanged, checkConfigured } from './firebase.js'
+import { historyLoad, historySave, historyAddAlerts, fmtHistoryDate, exportHistoryCSV, tvUrl, TF_COLORS, HISTORY_CAP } from './utils/history.js'
 
 const ORANGE       = '#ff6b00'
 const ORANGE_DIM   = 'rgba(255,107,0,0.12)'
@@ -267,100 +268,6 @@ const CS_TABS = [
   { id: 'settings', label: 'settings', color: ORANGE, isSettings: true },
 ]
 
-// ── Scan History helpers ───────────────────────────────────────────────────────
-const HISTORY_KEY  = 'cs_scan_history_v1'
-const HISTORY_CAP  = 100  // max per TF
-
-function historyLoad() {
-  try { return JSON.parse(localStorage.getItem(HISTORY_KEY) || '{}') } catch { return {} }
-}
-function historySave(data) {
-  try { localStorage.setItem(HISTORY_KEY, JSON.stringify(data)) } catch {}
-}
-// Call this from scanner when a new alert fires
-export function historyAddAlerts(alerts) {
-  if (!alerts || !alerts.length) return
-  const data = historyLoad()
-  for (const a of alerts) {
-    const tf = a.timeframe || 'unknown'
-    if (!data[tf]) data[tf] = []
-    // dedupe by symbol+scannerId within same minute
-    const minute = Math.floor(a.time / 60000)
-    if (data[tf].some(h => h.symbol === a.symbol && h.scannerId === a.scannerId && Math.floor(h.time/60000) === minute)) continue
-    data[tf].unshift({
-      id: a.id, symbol: a.symbol, timeframe: tf,
-      time: a.time, side: a.side,
-      scannerName: a.scannerName, scannerIcon: a.scannerIcon || '',
-      close: a.details?.close ?? null,
-      gainPct: a.details?.gainPct ?? null,
-      rsi14: a.details?.rsi14 ?? null,
-      volume: a.volume ?? 0,
-    })
-    if (data[tf].length > HISTORY_CAP) data[tf] = data[tf].slice(0, HISTORY_CAP)
-  }
-  historySave(data)
-}
-
-function fmtHistoryDate(ts) {
-  const d = new Date(ts)
-  return d.toLocaleDateString('en-GB', { day:'2-digit', month:'short', year:'numeric' }) +
-    ' ' + d.toLocaleTimeString('en-GB', { hour:'2-digit', minute:'2-digit', second:'2-digit' })
-}
-
-function exportHistoryExcel(historyData, tfFilter) {
-  const tfsToExport = tfFilter === 'all'
-    ? Object.keys(historyData)
-    : [tfFilter]
-
-  // Build CSV with multiple sections
-  const rows = []
-  rows.push(['Coin Sniper — Scan History Export'])
-  rows.push([`Exported: ${fmtHistoryDate(Date.now())}`])
-  rows.push([])
-
-  for (const tf of tfsToExport) {
-    const items = historyData[tf] || []
-    if (!items.length) continue
-    rows.push([`Timeframe: ${tf.toUpperCase()}`, `Total: ${items.length}`])
-    rows.push(['#', 'Date & Time', 'Symbol', 'Timeframe', 'Direction', 'Pattern', 'Close Price', 'Gain %', 'RSI-14', '24H Volume'])
-    items.forEach((h, i) => {
-      rows.push([
-        i + 1,
-        fmtHistoryDate(h.time),
-        h.symbol,
-        h.timeframe.toUpperCase(),
-        h.side === 'bull' ? 'BULL ▲' : 'BEAR ▼',
-        h.scannerName,
-        h.close != null ? h.close : '',
-        h.gainPct != null ? h.gainPct + '%' : '',
-        h.rsi14  != null ? h.rsi14.toFixed(1) : '',
-        h.volume > 0 ? h.volume : '',
-      ])
-    })
-    rows.push([])
-  }
-
-  const csv = rows.map(r =>
-    r.map(cell => {
-      const s = String(cell ?? '')
-      return s.includes(',') || s.includes('"') || s.includes('\n')
-        ? `"${s.replace(/"/g, '""')}"` : s
-    }).join(',')
-  ).join('\n')
-
-  const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' })
-  const url  = URL.createObjectURL(blob)
-  const a    = document.createElement('a')
-  a.href     = url
-  a.download = `coin_sniper_history_${tfFilter}_${new Date().toISOString().slice(0,10)}.csv`
-  a.click()
-  URL.revokeObjectURL(url)
-}
-
-const TF_COLORS = {
-  '1m':'#ff6b6b','3m':'#ffa94d','5m':'#ffd43b','15m':'#69db7c',
-  '30m':'#38d9a9','1h':'#4dabf7','4h':'#9775fa','1d':'#f783ac',
-}
 
 // ── History Tab ────────────────────────────────────────────────────────────────
 function HistoryTab() {
@@ -449,7 +356,7 @@ function HistoryTab() {
 
         {/* Export + Clear — pushed right */}
         <div style={{marginLeft:'auto', display:'flex', gap:5}}>
-          <button onClick={() => exportHistoryExcel(history, tfFilter)} style={{
+          <button onClick={() => exportHistoryCSV(history, tfFilter)} style={{
             padding:'4px 10px', borderRadius:7, cursor:'pointer', fontSize:10,
             fontFamily:'var(--mono)', fontWeight:700,
             border:'1.5px solid rgba(0,230,118,0.4)', background:'rgba(0,230,118,0.08)',
@@ -526,7 +433,18 @@ function HistoryTab() {
                     {h.volume > 0    && <> · <span style={{color:'var(--text3)'}}>Vol {h.volume >= 1e9 ? (h.volume/1e9).toFixed(1)+'B' : h.volume >= 1e6 ? (h.volume/1e6).toFixed(1)+'M' : h.volume >= 1e3 ? (h.volume/1e3).toFixed(0)+'K' : h.volume}</span></>}
                   </div>
                 </div>
-                <span style={{fontSize:12, color:col, flexShrink:0}}>{isBull?'▲':'▼'}</span>
+                <div style={{display:'flex', flexDirection:'column', alignItems:'center', gap:4, flexShrink:0}}>
+                  <span style={{fontSize:12, color:col}}>{isBull?'▲':'▼'}</span>
+                  <a href={tvUrl(h.symbol, h.timeframe)} target="_blank" rel="noopener noreferrer"
+                    onClick={e => e.stopPropagation()}
+                    title="Open on TradingView"
+                    style={{
+                      display:'flex', alignItems:'center', justifyContent:'center',
+                      width:24, height:24, borderRadius:6,
+                      background:'rgba(33,150,243,0.12)', border:'1.5px solid rgba(33,150,243,0.4)',
+                      color:'#2196f3', textDecoration:'none', fontSize:12,
+                    }}>📈</a>
+                </div>
               </div>
             )
           })}
@@ -538,7 +456,7 @@ function HistoryTab() {
 
 // ── Patterns modal (inline bottom sheet) — Patterns tab + History tab ─────────
 function PatternsModal({ open, onClose, settings, update, onGoToBuilder }) {
-  const [tab,    setTab]    = React.useState('patterns') // 'patterns' | 'history'
+  const [tab,    setTab]    = React.useState('patterns') // 'patterns' only — history moved to Settings
   const [openId, setOpenId] = React.useState(null)
 
   if (!open) return null

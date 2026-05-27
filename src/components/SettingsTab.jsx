@@ -6,6 +6,7 @@ import { AppearanceSection, AlertsSection } from './sections/GeneralSections.jsx
 import { SignalStrengthSection } from './sections/FilterSections.jsx'
 import CustomPairsSection from './sections/CustomPairsSection.jsx'
 import AccountSection from './sections/AccountSection.jsx'
+import { historyLoad, historySave, fmtHistoryDate, exportHistoryCSV, tvUrl, TF_COLORS, HISTORY_CAP } from '../utils/history.js'
 
 // ── All available TFs for pattern selection ───────────────
 const PATTERN_TF_LIST = ['1m','3m','5m','15m','30m','1h','4h','1d']
@@ -666,6 +667,168 @@ function ManualSection() {
 }
 
 // ── Main SettingsTab ──────────────────────────────────────
+
+// ── History Section (inline in settings) ─────────────────────────────────────
+function HistorySection() {
+  const [history,    setHistory]    = useState(() => historyLoad())
+  const [tfFilter,   setTfFilter]   = useState('all')
+  const [sortCol,    setSortCol]    = useState('time')
+  const [sortDir,    setSortDir]    = useState('desc')
+  const [sideFilter, setSideFilter] = useState('all')
+
+  const allTfs = useMemo(() =>
+    ['1m','3m','5m','15m','30m','1h','4h','1d'].filter(tf => (history[tf]||[]).length > 0)
+  , [history])
+
+  const rows = useMemo(() => {
+    const src = tfFilter === 'all' ? Object.values(history).flat() : (history[tfFilter] || [])
+    return [...src]
+      .filter(h => sideFilter === 'all' ? true : h.side === sideFilter)
+      .sort((a, b) => {
+        let c = 0
+        if (sortCol === 'time')   c = a.time - b.time
+        if (sortCol === 'symbol') c = a.symbol.localeCompare(b.symbol)
+        if (sortCol === 'volume') c = (a.volume ?? 0) - (b.volume ?? 0)
+        if (sortCol === 'gain')   c = (parseFloat(a.gainPct) || 0) - (parseFloat(b.gainPct) || 0)
+        return sortDir === 'desc' ? -c : c
+      })
+  }, [history, tfFilter, sortCol, sortDir, sideFilter])
+
+  function toggleSort(col) {
+    if (sortCol === col) setSortDir(d => d === 'desc' ? 'asc' : 'desc')
+    else { setSortCol(col); setSortDir('desc') }
+  }
+  function clearHistory() {
+    const data = historyLoad()
+    if (tfFilter === 'all') { historySave({}); setHistory({}) }
+    else { data[tfFilter] = []; historySave(data); setHistory({...data}) }
+  }
+
+  const SH = (col) => ({
+    padding:'4px 8px', borderRadius:6, cursor:'pointer', fontSize:9,
+    fontFamily:'var(--mono)', fontWeight: sortCol===col?800:400, whiteSpace:'nowrap',
+    border:`1px solid ${sortCol===col?'#7ecfff':'var(--border)'}`,
+    background:sortCol===col?'rgba(126,207,255,0.10)':'transparent',
+    color:sortCol===col?'#7ecfff':'var(--text3)',
+  })
+
+  return (
+    <div style={{display:'flex', flexDirection:'column', gap:0}}>
+      {/* TF + Side filter */}
+      <div style={{display:'flex', gap:5, flexWrap:'wrap', marginBottom:8}}>
+        {['all', ...allTfs].map(tf => {
+          const col = tf === 'all' ? '#aaa' : (TF_COLORS[tf] || '#aaa')
+          const cnt = tf === 'all' ? Object.values(history).flat().length : (history[tf]||[]).length
+          return (
+            <button key={tf} onClick={() => setTfFilter(tf)} style={{
+              padding:'4px 10px', borderRadius:7, cursor:'pointer', fontSize:10,
+              fontFamily:'var(--mono)', fontWeight: tfFilter===tf?800:400,
+              border:`1.5px solid ${tfFilter===tf?col:'var(--border)'}`,
+              background:tfFilter===tf?col+'22':'transparent',
+              color:tfFilter===tf?col:'var(--text3)',
+            }}>{tf === 'all' ? 'All' : tf.toUpperCase()} <span style={{opacity:.7}}>({cnt})</span></button>
+          )
+        })}
+        <div style={{width:1,height:20,background:'var(--border)',margin:'auto 2px'}}/>
+        {[['all','All'],['bull','▲'],['bear','▼']].map(([v,l])=>(
+          <button key={v} onClick={()=>setSideFilter(v)} style={{
+            padding:'4px 9px', borderRadius:7, cursor:'pointer', fontSize:10,
+            fontFamily:'var(--mono)', fontWeight:sideFilter===v?800:400,
+            border:`1.5px solid ${sideFilter===v?(v==='bull'?'#00e676':v==='bear'?'#ff4757':'#aaa'):'var(--border)'}`,
+            background:sideFilter===v?(v==='bull'?'rgba(0,230,118,0.12)':v==='bear'?'rgba(255,71,87,0.12)':'rgba(255,255,255,0.06)'):'transparent',
+            color:sideFilter===v?(v==='bull'?'#00e676':v==='bear'?'#ff4757':'var(--text)'):'var(--text3)',
+          }}>{l}</button>
+        ))}
+        <div style={{marginLeft:'auto', display:'flex', gap:5}}>
+          <button onClick={() => exportHistoryCSV(history, tfFilter)} style={{
+            padding:'4px 10px', borderRadius:7, cursor:'pointer', fontSize:10,
+            fontFamily:'var(--mono)', fontWeight:700,
+            border:'1.5px solid rgba(0,230,118,0.4)', background:'rgba(0,230,118,0.08)', color:'#00e676',
+          }}>↓ CSV</button>
+          <button onClick={clearHistory} style={{
+            padding:'4px 10px', borderRadius:7, cursor:'pointer', fontSize:10,
+            fontFamily:'var(--mono)', fontWeight:700,
+            border:'1.5px solid rgba(255,60,80,0.35)', background:'rgba(255,60,80,0.07)', color:'#ff4757',
+          }}>Clear</button>
+        </div>
+      </div>
+
+      {/* Sort bar */}
+      <div style={{display:'flex', alignItems:'center', gap:5, marginBottom:10, flexWrap:'wrap'}}>
+        <span style={{fontSize:9, color:'var(--text3)', fontFamily:'var(--mono)'}}>SORT:</span>
+        {[['time','Time'],['symbol','A-Z'],['gain','Gain'],['volume','Vol']].map(([col,lbl])=>(
+          <button key={col} onClick={()=>toggleSort(col)} style={SH(col)}>
+            {lbl}{sortCol===col?(sortDir==='desc'?' ↓':' ↑'):''}
+          </button>
+        ))}
+        <span style={{marginLeft:'auto', fontSize:9, fontFamily:'var(--mono)', color:'var(--text3)'}}>
+          {rows.length} result{rows.length!==1?'s':''}
+        </span>
+      </div>
+
+      {/* Rows */}
+      {rows.length === 0 ? (
+        <div style={{textAlign:'center', padding:'24px 16px', color:'var(--text3)', fontFamily:'var(--mono)', fontSize:12}}>
+          📭 No history yet — run a scan to start recording.
+        </div>
+      ) : rows.map((h, i) => {
+        const isBull = h.side === 'bull'
+        const col = isBull ? '#00e676' : '#ff4757'
+        const bd  = isBull ? 'rgba(0,230,118,0.3)' : 'rgba(255,71,87,0.3)'
+        const bg  = isBull ? 'rgba(0,230,118,0.04)' : 'rgba(255,71,87,0.04)'
+        const tfCol = TF_COLORS[h.timeframe] || '#aaa'
+        return (
+          <div key={h.id ?? i} style={{
+            display:'flex', alignItems:'center', gap:8, padding:'9px 11px',
+            borderRadius:10, marginBottom:6, border:`1.5px solid ${bd}`, background:bg,
+          }}>
+            <span style={{fontSize:16, flexShrink:0}}>{h.scannerIcon || (isBull?'🟢':'🔴')}</span>
+            <div style={{flex:1, minWidth:0}}>
+              <div style={{display:'flex', alignItems:'center', gap:5, flexWrap:'wrap', marginBottom:2}}>
+                <span style={{fontWeight:900, fontSize:13, color:col, fontFamily:'var(--mono)'}}>
+                  {h.symbol.replace('USDT','')}<span style={{fontSize:9,fontWeight:400,color:'var(--text3)'}}>/USDT</span>
+                </span>
+                <span style={{fontSize:8, fontFamily:'var(--mono)', fontWeight:700, padding:'1px 5px',
+                  borderRadius:4, background:tfCol+'22', color:tfCol, border:`1px solid ${tfCol}55`}}>
+                  {(h.timeframe||'').toUpperCase()}
+                </span>
+                <span style={{fontSize:8, fontFamily:'var(--mono)', fontWeight:800, padding:'1px 5px',
+                  borderRadius:4, background:col+'18', color:col, border:`1px solid ${col}40`}}>
+                  {h.scannerName}
+                </span>
+                {h.gainPct != null && (
+                  <span style={{fontSize:8, fontFamily:'var(--mono)', fontWeight:800, padding:'1px 5px',
+                    borderRadius:4, background:'rgba(255,167,38,0.12)', color:'#ffa726', border:'1px solid rgba(255,167,38,0.3)'}}>
+                    {parseFloat(h.gainPct)>=0?'+':''}{h.gainPct}%
+                  </span>
+                )}
+              </div>
+              <div style={{fontSize:10, fontFamily:'var(--mono)', color:'var(--text3)'}}>
+                {fmtHistoryDate(h.time)}
+                {h.close  != null && <> · <span style={{color:'var(--text2)'}}>${typeof h.close==='number'?h.close.toFixed(4):h.close}</span></>}
+                {h.rsi14  != null && <> · <span style={{color:'#ffa726'}}>RSI {parseFloat(h.rsi14).toFixed(1)}</span></>}
+                {h.volume  >  0   && <> · <span style={{color:'var(--text3)'}}>
+                  {h.volume>=1e9?(h.volume/1e9).toFixed(1)+'B':h.volume>=1e6?(h.volume/1e6).toFixed(1)+'M':h.volume>=1e3?(h.volume/1e3).toFixed(0)+'K':h.volume}
+                </span></>}
+              </div>
+            </div>
+            <div style={{display:'flex', flexDirection:'column', alignItems:'center', gap:4, flexShrink:0}}>
+              <span style={{fontSize:12, color:col}}>{isBull?'▲':'▼'}</span>
+              <a href={tvUrl(h.symbol, h.timeframe)} target="_blank" rel="noopener noreferrer"
+                style={{
+                  display:'flex', alignItems:'center', justifyContent:'center',
+                  width:24, height:24, borderRadius:6,
+                  background:'rgba(33,150,243,0.12)', border:'1.5px solid rgba(33,150,243,0.4)',
+                  color:'#2196f3', textDecoration:'none', fontSize:12,
+                }}>📈</a>
+            </div>
+          </div>
+        )
+      })}
+    </div>
+  )
+}
+
 export default function SettingsTab({ settings, set, update, reset, user, onUserChange, cloudSynced, cloudSaving, onSaveNow, saveNowWithPatch, openCount=0 }) {
   const [resetMsg, setResetMsg] = React.useState('')
   const [resetConfirm, setResetConfirm] = React.useState(false)
@@ -717,12 +880,16 @@ export default function SettingsTab({ settings, set, update, reset, user, onUser
         <CustomPairsSection cfg={settings} set={set}/>
       </Accordion>
 
+      <Accordion title="Scan History" icon="🕓" badge="LOG" defaultOpen={false} accentColor="rgba(126,207,255,0.4)" openKey={openKey}>
+        <HistorySection />
+      </Accordion>
+
       <Accordion title="User Manual" icon="📖" badge="HELP" defaultOpen={false} accentColor="rgba(0,230,118,0.4)" openKey={openKey}>
         <ManualSection />
       </Accordion>
 
-      {/* Reset */}
-      <div style={{ marginTop:20,padding:'14px 16px',background:'var(--bg1)',border:'1.5px solid var(--border)',borderRadius:'var(--radius)' }}>
+
+
         <div style={{ display:'flex',alignItems:'center',justifyContent:'space-between' }}>
           <div>
             <div style={{ fontWeight:700,fontSize:14,color:'var(--text)',marginBottom:3 }}>Reset All Settings</div>

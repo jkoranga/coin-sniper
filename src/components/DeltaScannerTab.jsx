@@ -420,7 +420,7 @@ export default function DeltaScannerTab({
     const hit = cacheRef.current[key]
     if (hit && now < hit.expiresAt) return hit.candles
     const candles = await fetchDeltaCandles(symbol, tf, limit)
-    if (candles) cacheRef.current[key] = { candles, expiresAt: now + 60_000 }
+    if (candles) cacheRef.current[key] = { candles, expiresAt: now + 120_000 }
     return candles
   }
 
@@ -457,7 +457,13 @@ export default function DeltaScannerTab({
     scanningRef.current = true
     setScanning(true); setProgress(0); setErrors([])
 
-    const CONCURRENCY = 5
+    // Pre-warm cache: fetch top 30 symbols in parallel before main loop
+    const prefetchList = symList.slice(0, 30)
+    await Promise.allSettled(
+      prefetchList.map(s => fetchCached(s?.symbol || s, timeframe, 60))
+    )
+
+    const CONCURRENCY = 15
     const newAlerts = [], newErrors = []
     let i = 0, done = 0
 
@@ -513,7 +519,7 @@ export default function DeltaScannerTab({
         } catch { newErrors.push(sym) }
         done++
         setProgress(Math.round(done / symList.length * 100))
-        await new Promise(r => setTimeout(r, 80))
+        await new Promise(r => setTimeout(r, 20))
       }
     }
 
