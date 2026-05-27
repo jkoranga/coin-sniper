@@ -1303,6 +1303,7 @@ function PatternEditor({ pattern: rawPattern, onChange, onDelete, onMirrorPatter
   const [copyName, setCopyName] = useState('')
   const [copyNameAlert, setCopyNameAlert] = useState('')
   const copyInputRef = React.useRef(null)
+  const [previewPopup, setPreviewPopup] = useState(false)
   const mirroredDefaultName = pattern.side === 'bull'
     ? pattern.name.replace(/bull/gi, 'Bear').replace(/buy/gi, 'Sell').replace(/long/gi, 'Short') || `${pattern.name} Mirror`
     : pattern.name.replace(/bear/gi, 'Bull').replace(/sell/gi, 'Buy').replace(/short/gi, 'Long') || `${pattern.name} Mirror`
@@ -1646,7 +1647,7 @@ function PatternEditor({ pattern: rawPattern, onChange, onDelete, onMirrorPatter
         </span>
       </div>
 
-      {/* Action bar — mirror / copy / delete — shown below header, same row as locked hint */}
+      {/* Action bar — mirror / copy / 👁 preview / delete */}
       {!pattern.locked && (
         <div style={{
           display: 'flex', alignItems: 'center', gap: 8, padding: '6px 13px 8px',
@@ -1676,6 +1677,14 @@ function PatternEditor({ pattern: rawPattern, onChange, onDelete, onMirrorPatter
             color: 'rgb(255,200,0)', fontSize: 11, fontFamily: 'var(--mono)', fontWeight: 700,
           }}>⧉ Copy</button>
 
+          {/* 👁 Preview conditions */}
+          <button onClick={() => setPreviewPopup(true)} title="Preview all conditions" style={{
+            display: 'flex', alignItems: 'center', gap: 5,
+            padding: '4px 10px', borderRadius: 7, cursor: 'pointer',
+            border: `1px solid ${color}55`, background: `${color}10`,
+            color: color, fontSize: 11, fontFamily: 'var(--mono)', fontWeight: 700,
+          }}>👁 View</button>
+
           {/* Delete */}
           <div style={{ marginLeft: 'auto' }}>
             {confirmDelete ? (
@@ -1704,6 +1713,145 @@ function PatternEditor({ pattern: rawPattern, onChange, onDelete, onMirrorPatter
             )}
           </div>
         </div>
+      )}
+
+      {/* 👁 Preview popup — fixed centered modal */}
+      {previewPopup && (
+        <>
+          <div onClick={() => setPreviewPopup(false)} style={{
+            position: 'fixed', inset: 0, zIndex: 999, background: 'rgba(0,0,0,0.75)',
+            backdropFilter: 'blur(5px)',
+          }} />
+          <div style={{
+            position: 'fixed', top: '50%', left: '50%',
+            transform: 'translate(-50%, -50%)',
+            zIndex: 1000, width: 'min(360px, 94vw)',
+            maxHeight: '80vh', display: 'flex', flexDirection: 'column',
+            borderRadius: 16, overflow: 'hidden',
+            border: `2px solid ${color}99`,
+            boxShadow: `0 24px 60px rgba(0,0,0,0.85), 0 0 24px ${color}33`,
+            background: 'var(--bg1)',
+          }}>
+            {/* Header */}
+            <div style={{
+              display: 'flex', alignItems: 'center', gap: 10, padding: '14px 16px',
+              borderBottom: `1px solid ${color}30`,
+              background: `${color}08`, flexShrink: 0,
+            }}>
+              <span style={{ fontSize: 22, flexShrink: 0 }}>{pattern.icon}</span>
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ fontWeight: 900, fontSize: 15, color, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                  {pattern.name}
+                </div>
+                <div style={{ fontSize: 9, fontFamily: 'var(--mono)', color: 'var(--text3)', marginTop: 2 }}>
+                  {pattern.side.toUpperCase()} · {pattern.tfs.join(' ') || 'no TF'}
+                  {' · '}{pattern.conditions.filter(c => c.enabled).length} conditions
+                </div>
+              </div>
+              <button onClick={() => setPreviewPopup(false)} style={{
+                width: 28, height: 28, borderRadius: 7, flexShrink: 0,
+                background: 'var(--bg3)', border: '1px solid var(--border)',
+                color: 'var(--text3)', fontSize: 18, cursor: 'pointer',
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+              }}>✕</button>
+            </div>
+
+            {/* Conditions list */}
+            <div style={{ overflow: 'auto', WebkitOverflowScrolling: 'touch' }}>
+              {pattern.conditions.filter(c => c.enabled).length === 0 ? (
+                <div style={{ padding: '24px 16px', textAlign: 'center', fontSize: 12, fontFamily: 'var(--mono)', color: 'var(--text3)' }}>
+                  No enabled conditions.
+                </div>
+              ) : pattern.conditions.filter(c => c.enabled).map((c, i, arr) => {
+                const formula = condFormula(c)
+                const joinNext = i < arr.length - 1 ? (c.joinNext || 'AND') : null
+                const isGroup  = c.groupStart || c.groupEnd
+                return (
+                  <div key={c.id || i}>
+                    {/* Group open bracket */}
+                    {c.groupStart && (
+                      <div style={{ padding: '4px 16px 0', fontSize: 10, fontFamily: 'var(--mono)', color: `${color}88` }}>
+                        {'( group'}
+                      </div>
+                    )}
+
+                    {/* Condition row */}
+                    <div style={{
+                      display: 'flex', alignItems: 'flex-start', gap: 10,
+                      padding: '10px 16px',
+                      background: i % 2 === 0 ? 'rgba(0,0,0,0.1)' : 'transparent',
+                      borderBottom: `1px solid ${color}12`,
+                    }}>
+                      {/* Number badge */}
+                      <div style={{
+                        width: 22, height: 22, borderRadius: 6, flexShrink: 0, marginTop: 1,
+                        background: `${color}18`, border: `1.5px solid ${color}`,
+                        display: 'flex', alignItems: 'center', justifyContent: 'center',
+                        fontSize: 10, fontWeight: 900, color, fontFamily: 'var(--mono)',
+                      }}>{i + 1}</div>
+
+                      {/* Formula */}
+                      <div style={{ flex: 1 }}>
+                        <div style={{ fontSize: 12, fontFamily: 'var(--mono)', color: 'var(--text)', lineHeight: 1.5, wordBreak: 'break-all' }}>
+                          {formula}
+                        </div>
+                        {/* Extra details */}
+                        {c.slopeBack > 1 && (
+                          <div style={{ fontSize: 9, fontFamily: 'var(--mono)', color: 'var(--text3)', marginTop: 2 }}>
+                            slope look-back: {c.slopeBack} · skip: {c.slopeSkip || 0}
+                          </div>
+                        )}
+                        {c.rangeLen > 1 && (
+                          <div style={{ fontSize: 9, fontFamily: 'var(--mono)', color: 'var(--text3)', marginTop: 2 }}>
+                            range: {c.rangeMode || 'ALL'} of last {c.rangeLen} candles
+                          </div>
+                        )}
+                        {c.label && (
+                          <div style={{ fontSize: 9, fontFamily: 'var(--mono)', color: `${color}88`, marginTop: 2 }}>
+                            {c.label}
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Check */}
+                      <span style={{ color, fontSize: 16, flexShrink: 0, textShadow: `0 0 8px ${color}` }}>✓</span>
+                    </div>
+
+                    {/* Group close bracket */}
+                    {c.groupEnd && (
+                      <div style={{ padding: '0 16px 4px', fontSize: 10, fontFamily: 'var(--mono)', color: `${color}88` }}>
+                        {'group )'}
+                      </div>
+                    )}
+
+                    {/* AND / OR connector */}
+                    {joinNext && (
+                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '3px 0' }}>
+                        <span style={{
+                          fontSize: 9, fontFamily: 'var(--mono)', fontWeight: 900,
+                          padding: '2px 10px', borderRadius: 5,
+                          color: joinNext === 'OR' ? '#ff9800' : color,
+                          background: joinNext === 'OR' ? 'rgba(255,152,0,0.12)' : `${color}12`,
+                          border: `1px solid ${joinNext === 'OR' ? 'rgba(255,152,0,0.35)' : color + '35'}`,
+                          letterSpacing: '.08em',
+                        }}>{joinNext}</span>
+                      </div>
+                    )}
+                  </div>
+                )
+              })}
+            </div>
+
+            {/* Footer */}
+            <div style={{ padding: '10px 16px', borderTop: `1px solid ${color}20`, flexShrink: 0, background: 'rgba(0,0,0,0.12)' }}>
+              <button onClick={() => setPreviewPopup(false)} style={{
+                width: '100%', padding: '11px', borderRadius: 10, cursor: 'pointer',
+                border: `1px solid ${color}55`, background: `${color}10`,
+                color, fontFamily: 'var(--mono)', fontWeight: 800, fontSize: 13,
+              }}>Close</button>
+            </div>
+          </div>
+        </>
       )}
 
       {/* Body */}
