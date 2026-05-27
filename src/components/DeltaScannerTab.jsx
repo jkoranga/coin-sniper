@@ -5,7 +5,7 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react'
 import { fetchDeltaSymbols, fetchDeltaCandles, DELTA_FALLBACK_SYMBOLS as DELTA_FALLBACK_SYMBOLS_IMPORT } from '../utils/deltaScanner.js'
 import { compilePattern } from './PatternBuilder.jsx'
-import { historyAddAlerts } from '../App.jsx'
+import { historyAddAlerts } from '../utils/history.js'
 import { intervalToMs, sendTelegram, buildTelegramMsg, fmt, timeSince, fmtVol } from '../utils/scanner.js'
 
 const DC  = '#ff6b00'
