@@ -888,8 +888,8 @@ export default function SettingsTab({ settings, set, update, reset, user, onUser
         <ManualSection />
       </Accordion>
 
-
-
+      {/* Reset */}
+      <div style={{ marginTop:20,padding:'14px 16px',background:'var(--bg1)',border:'1.5px solid var(--border)',borderRadius:'var(--radius)' }}>
         <div style={{ display:'flex',alignItems:'center',justifyContent:'space-between' }}>
           <div>
             <div style={{ fontWeight:700,fontSize:14,color:'var(--text)',marginBottom:3 }}>Reset All Settings</div>
