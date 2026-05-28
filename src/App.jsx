@@ -491,7 +491,7 @@ function PatternsModal({ open, onClose, settings, update, onGoToBuilder }) {
           <div style={{fontWeight:800, fontSize:15, color:'var(--text)'}}>
             Patterns <span style={{fontSize:11,fontFamily:'var(--mono)',color:'var(--text3)',fontWeight:400}}>({patterns.length})</span>
           </div>
-          <div style={{display:'flex', gap:8, alignItems:'center'}}>
+          <div style={{display:'flex', gap:6, alignItems:'center'}}>
             <button onClick={()=>{onClose();onGoToBuilder()}} style={{
               padding:'6px 14px', borderRadius:8, cursor:'pointer',
               border:`1.5px solid ${ORANGE_BORDER}`, background:ORANGE_DIM,
@@ -500,6 +500,38 @@ function PatternsModal({ open, onClose, settings, update, onGoToBuilder }) {
             <button onClick={onClose} style={{background:'none',border:'none',cursor:'pointer',fontSize:22,color:'var(--text3)',lineHeight:1}}>✕</button>
           </div>
         </div>
+
+        {/* Enable All / Disable All row */}
+        {patterns.length > 0 && (
+          <div style={{display:'flex', alignItems:'center', gap:8, padding:'10px 16px 0', flexShrink:0}}>
+            <span style={{fontSize:10,fontFamily:'var(--mono)',color:'var(--text3)',flexShrink:0}}>
+              {patterns.filter(p=>p.enabled).length}/{patterns.length} ON
+            </span>
+            <div style={{flex:1, height:1, background:'var(--border)'}}/>
+            <button
+              onClick={() => update(prev => ({
+                customPatterns: (prev.customPatterns||[]).map(p => ({...p, enabled: true}))
+              }))}
+              style={{
+                padding:'4px 12px', borderRadius:7, cursor:'pointer',
+                fontSize:10, fontWeight:800, fontFamily:'var(--mono)',
+                border:'1.5px solid rgba(0,230,118,0.5)',
+                background:'rgba(0,230,118,0.1)', color:'#00e676',
+              }}
+            >Enable All</button>
+            <button
+              onClick={() => update(prev => ({
+                customPatterns: (prev.customPatterns||[]).map(p => ({...p, enabled: false}))
+              }))}
+              style={{
+                padding:'4px 12px', borderRadius:7, cursor:'pointer',
+                fontSize:10, fontWeight:800, fontFamily:'var(--mono)',
+                border:'1.5px solid rgba(255,60,80,0.4)',
+                background:'rgba(255,60,80,0.08)', color:'#ff4757',
+              }}
+            >Disable All</button>
+          </div>
+        )}
 
         {/* Divider */}
         <div style={{height:1, background:'var(--border)', margin:'10px 0 0', flexShrink:0}}/>
