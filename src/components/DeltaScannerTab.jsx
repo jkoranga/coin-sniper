@@ -420,7 +420,7 @@ export default function DeltaScannerTab({
     const hit = cacheRef.current[key]
     if (hit && now < hit.expiresAt) return hit.candles
     const candles = await fetchDeltaCandles(symbol, tf, limit)
-    if (candles) cacheRef.current[key] = { candles, expiresAt: now + 120_000 }
+    if (candles) cacheRef.current[key] = { candles, expiresAt: now + 180_000 }
     return candles
   }
 
@@ -463,7 +463,7 @@ export default function DeltaScannerTab({
       prefetchList.map(s => fetchCached(s?.symbol || s, timeframe, 60))
     )
 
-    const CONCURRENCY = 15
+    const CONCURRENCY = 30
     const newAlerts = [], newErrors = []
     let i = 0, done = 0
 
@@ -477,7 +477,7 @@ export default function DeltaScannerTab({
         const symVol = parseFloat(symObj?.volume ?? symObj?.turnover24h ?? 0)
         setProgressSym(sym)
         try {
-          const candles = await fetchCached(sym, timeframe, 60)
+          const candles = await fetchCached(sym, timeframe, 40)
           if (!candles || candles.length < 10) { done++; setProgress(Math.round(done/symList.length*100)); continue }
 
           // ── Collect all HTF timeframes needed across active patterns ──────
@@ -519,7 +519,7 @@ export default function DeltaScannerTab({
         } catch { newErrors.push(sym) }
         done++
         setProgress(Math.round(done / symList.length * 100))
-        await new Promise(r => setTimeout(r, 20))
+        await new Promise(r => setTimeout(r, 0))
       }
     }
 

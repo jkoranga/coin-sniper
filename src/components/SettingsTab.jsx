@@ -671,6 +671,24 @@ function ManualSection() {
 // ── History Section (inline in settings) ─────────────────────────────────────
 function HistorySection() {
   const [history,    setHistory]    = useState(() => historyLoad())
+  const [refreshKey, setRefreshKey] = useState(0)
+
+  // Refresh when localStorage changes (new alerts from scanner)
+  React.useEffect(() => {
+    function onStorage(e) {
+      if (e.key === 'cs_scan_history_v1' || e.key === null) {
+        setHistory(historyLoad())
+      }
+    }
+    window.addEventListener('storage', onStorage)
+    return () => window.removeEventListener('storage', onStorage)
+  }, [])
+
+  // Also poll every 5s while open (same-tab localStorage doesn't fire storage event)
+  React.useEffect(() => {
+    const t = setInterval(() => setHistory(historyLoad()), 5000)
+    return () => clearInterval(t)
+  }, [])
   const [tfFilter,   setTfFilter]   = useState('all')
   const [sortCol,    setSortCol]    = useState('time')
   const [sortDir,    setSortDir]    = useState('desc')
@@ -745,6 +763,11 @@ function HistorySection() {
             fontFamily:'var(--mono)', fontWeight:700,
             border:'1.5px solid rgba(0,230,118,0.4)', background:'rgba(0,230,118,0.08)', color:'#00e676',
           }}>↓ CSV</button>
+          <button onClick={() => setHistory(historyLoad())} style={{
+            padding:'4px 10px', borderRadius:7, cursor:'pointer', fontSize:10,
+            fontFamily:'var(--mono)', fontWeight:700,
+            border:'1.5px solid rgba(126,207,255,0.4)', background:'rgba(126,207,255,0.08)', color:'#7ecfff',
+          }}>↺ Refresh</button>
           <button onClick={clearHistory} style={{
             padding:'4px 10px', borderRadius:7, cursor:'pointer', fontSize:10,
             fontFamily:'var(--mono)', fontWeight:700,

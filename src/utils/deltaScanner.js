@@ -72,7 +72,7 @@ export async function fetchDeltaCandles(symbol, interval = '15m', limit = 60) {
 
   for (const url of URLS) {
     try {
-      const res = await fetch(url, { signal: AbortSignal.timeout(4000) })
+      const res = await fetch(url, { signal: AbortSignal.timeout(2500) })
       if (!res.ok) continue
       const data = await res.json()
 

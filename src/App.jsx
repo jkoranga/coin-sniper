@@ -456,7 +456,6 @@ function HistoryTab() {
 
 // ── Patterns modal (inline bottom sheet) — Patterns tab + History tab ─────────
 function PatternsModal({ open, onClose, settings, update, onGoToBuilder }) {
-  const [tab,    setTab]    = React.useState('patterns') // 'patterns' only — history moved to Settings
   const [openId, setOpenId] = React.useState(null)
 
   if (!open) return null
@@ -488,26 +487,16 @@ function PatternsModal({ open, onClose, settings, update, onGoToBuilder }) {
         <div style={{width:38,height:4,borderRadius:2,background:'var(--border2)',margin:'12px auto 0',flexShrink:0}}/>
 
         {/* Header */}
-        <div style={{display:'flex', alignItems:'center', justifyContent:'space-between', padding:'10px 16px 0', flexShrink:0}}>
-          {/* Two-tab switcher */}
-          <div style={{display:'flex', gap:4, background:'var(--bg2)', borderRadius:10, padding:3}}>
-            {[['patterns','Patterns'],['history','History']].map(([id,lbl])=>(
-              <button key={id} onClick={()=>setTab(id)} style={{
-                padding:'5px 16px', borderRadius:8, cursor:'pointer', fontSize:12, fontWeight:tab===id?800:500,
-                border:'none', transition:'all .15s',
-                background:tab===id?'var(--bg3)':'transparent',
-                color:tab===id?'var(--text)':'var(--text3)',
-              }}>{lbl}</button>
-            ))}
+        <div style={{display:'flex', alignItems:'center', justifyContent:'space-between', padding:'12px 16px 0', flexShrink:0}}>
+          <div style={{fontWeight:800, fontSize:15, color:'var(--text)'}}>
+            Patterns <span style={{fontSize:11,fontFamily:'var(--mono)',color:'var(--text3)',fontWeight:400}}>({patterns.length})</span>
           </div>
           <div style={{display:'flex', gap:8, alignItems:'center'}}>
-            {tab === 'patterns' && (
-              <button onClick={()=>{onClose();onGoToBuilder()}} style={{
-                padding:'6px 14px', borderRadius:8, cursor:'pointer',
-                border:`1.5px solid ${ORANGE_BORDER}`, background:ORANGE_DIM,
-                color:ORANGE, fontSize:11, fontWeight:800, fontFamily:'var(--mono)',
-              }}>+ New</button>
-            )}
+            <button onClick={()=>{onClose();onGoToBuilder()}} style={{
+              padding:'6px 14px', borderRadius:8, cursor:'pointer',
+              border:`1.5px solid ${ORANGE_BORDER}`, background:ORANGE_DIM,
+              color:ORANGE, fontSize:11, fontWeight:800, fontFamily:'var(--mono)',
+            }}>+ New</button>
             <button onClick={onClose} style={{background:'none',border:'none',cursor:'pointer',fontSize:22,color:'var(--text3)',lineHeight:1}}>✕</button>
           </div>
         </div>
@@ -518,9 +507,7 @@ function PatternsModal({ open, onClose, settings, update, onGoToBuilder }) {
         {/* Tab content */}
         <div style={{flex:1, overflow:'hidden', display:'flex', flexDirection:'column', minHeight:0}}>
 
-          {/* ── PATTERNS TAB ── */}
-          {tab === 'patterns' && (
-            <div style={{overflow:'auto', padding:'8px 12px 40px', WebkitOverflowScrolling:'touch'}}>
+          <div style={{overflow:'auto', padding:'8px 12px 40px', WebkitOverflowScrolling:'touch'}}>
               {patterns.length === 0 ? (
                 <div style={{textAlign:'center', padding:'36px 16px', color:'var(--text3)', fontSize:12, fontFamily:'var(--mono)', lineHeight:1.7}}>
                   No patterns yet.<br/>Tap &quot;+ New&quot; to build one.
@@ -611,12 +598,7 @@ function PatternsModal({ open, onClose, settings, update, onGoToBuilder }) {
                   </div>
                 )
               })}
-            </div>
-          )}
-
-          {/* ── HISTORY TAB ── */}
-          {tab === 'history' && <HistoryTab />}
-
+          </div>
         </div>
       </div>
     </>
