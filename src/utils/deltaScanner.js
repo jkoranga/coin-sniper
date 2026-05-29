@@ -148,7 +148,7 @@ function attachRSI(candles, period = 14) {
       avgLoss = (avgLoss * (period-1) + Math.max(0, -d)) / period
     }
     const rs = avgLoss === 0 ? 100 : avgGain / avgLoss
-    candles[i].rsi14 = 100 - 100 / (1 + rs)
+    candles[i].rsi = 100 - 100 / (1 + rs)
   }
 }
 
@@ -168,7 +168,7 @@ function attachDMI(candles, period = 14) {
     ndi = i < period ? ndi + c._ndm : (ndi*(period-1) + c._ndm) / period
     if (atr > 0) {
       const pp = pdi/atr*100, np = ndi/atr*100
-      c.dmi_plus = pp; c.dmi_minus = np
+      c.diPlus = pp; c.diMinus = np
       c.adx = (pp+np) > 0 ? Math.abs(pp-np)/(pp+np)*100 : 0
     }
   }

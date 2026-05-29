@@ -119,7 +119,7 @@ function AlertRow({ a, onDismiss, onTap, resultFilter }) {
         <div style={{fontSize:10, fontFamily:'var(--mono)', color:'var(--text3)'}}>
           {timeSince(a.time)}
           {a.details?.close && <> · <span style={{color:'var(--text2)'}}>${fmt(a.details.close)}</span></>}
-          {a.details?.rsi14 != null && <> · <span style={{color:'#ffa726'}}>RSI {a.details.rsi14.toFixed(1)}</span></>}
+          {a.details?.rsi != null && <> · <span style={{color:'#ffa726'}}>RSI {a.details.rsi.toFixed(1)}</span></>}
         </div>
       </div>
       <TvIcon symbol={a.symbol} timeframe={a.timeframe} sz={24}/>
@@ -174,13 +174,13 @@ function AlertCard({ a, onDismiss, onTap, resultFilter }) {
           </div>
         ))}
       </div>
-      {a.details?.rsi14 != null && (
+      {a.details?.rsi != null && (
         <div style={{display:'inline-flex', alignItems:'center', gap:5, padding:'4px 9px', borderRadius:6,
           background:'rgba(255,167,38,0.08)', border:'1px solid rgba(255,167,38,0.25)', marginBottom:6}}>
           <span style={{fontSize:9, color:'var(--amber)', fontWeight:700, fontFamily:'var(--mono)'}}>RSI-14</span>
           <span style={{fontSize:11, fontWeight:700, fontFamily:'var(--mono)',
-            color:a.details.rsi14 < 30 ? GR : a.details.rsi14 > 70 ? RD : 'var(--text)'}}>
-            {a.details.rsi14.toFixed(1)}
+            color:a.details.rsi < 30 ? GR : a.details.rsi > 70 ? RD : 'var(--text)'}}>
+            {a.details.rsi.toFixed(1)}
           </span>
         </div>
       )}
