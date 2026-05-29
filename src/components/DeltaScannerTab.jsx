@@ -8,6 +8,26 @@ import { compilePattern } from './PatternBuilder.jsx'
 import { historyAddAlerts } from '../utils/history.js'
 import { intervalToMs, sendTelegram, buildTelegramMsg, fmt, timeSince, fmtVol } from '../utils/scanner.js'
 
+// ── Session persistence helpers — survive back-navigation from TradingView ─────
+function ssKey(tf) { return `cs_delta_alerts_${tf}` }
+function ssLoad(tf) {
+  try {
+    const raw = sessionStorage.getItem(ssKey(tf))
+    if (!raw) return []
+    return JSON.parse(raw)
+  } catch { return [] }
+}
+function ssSave(tf, alerts) {
+  try {
+    // Keep up to 300 alerts; omit the compiled `run` candle arrays to save space
+    const slim = alerts.slice(0, 300).map(a => ({
+      ...a,
+      details: a.details ? { ...a.details, run: undefined } : a.details,
+    }))
+    sessionStorage.setItem(ssKey(tf), JSON.stringify(slim))
+  } catch { /* quota exceeded — silently skip */ }
+}
+
 const DC  = '#ff6b00'
 const DD  = 'rgba(255,107,0,0.12)'
 const DB  = 'rgba(255,107,0,0.4)'
@@ -355,7 +375,7 @@ export default function DeltaScannerTab({
   const [scanning,    setScanning]    = useState(false)
   const [progress,    setProgress]    = useState(0)
   const [progressSym, setProgressSym] = useState('')
-  const [alerts,      setAlerts]      = useState([])
+  const [alerts,      setAlerts]      = useState(() => ssLoad(timeframe))
   const [errors,      setErrors]      = useState([])
   const [lastScan,    setLastScan]    = useState(null)
   const [autoEnabled, setAutoEnabled] = useState(false)
@@ -380,6 +400,11 @@ export default function DeltaScannerTab({
   useEffect(() => {
     onAlertCount?.(timeframe, alerts.length)
   }, [alerts.length, timeframe, onAlertCount])
+
+  // Persist alerts to sessionStorage so back-navigation from TradingView restores results
+  useEffect(() => {
+    ssSave(timeframe, alerts)
+  }, [alerts, timeframe])
 
   // ── Load Delta symbols ───────────────────────────────────────────────────────
   const loadSymbols = useCallback(async () => {

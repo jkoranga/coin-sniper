@@ -10,6 +10,25 @@ import {
 import { compilePattern } from './PatternBuilder.jsx'
 import { historyAddAlerts } from '../App.jsx'
 
+// ── Session persistence helpers — survive back-navigation from TradingView ─────
+function ssKey(tf) { return `cs_tf_alerts_${tf}` }
+function ssLoad(tf) {
+  try {
+    const raw = sessionStorage.getItem(ssKey(tf))
+    if (!raw) return []
+    return JSON.parse(raw)
+  } catch { return [] }
+}
+function ssSave(tf, alerts) {
+  try {
+    const slim = alerts.slice(0, 500).map(a => ({
+      ...a,
+      details: a.details ? { ...a.details, run: undefined } : a.details,
+    }))
+    sessionStorage.setItem(ssKey(tf), JSON.stringify(slim))
+  } catch { /* quota exceeded */ }
+}
+
 // ── TradingView link ──────────────────────────────────────
 const TF_MAP = {'1m':'1','3m':'3','5m':'5','15m':'15','30m':'30','1h':'60','4h':'240','1d':'D','1D':'D'}
 function tvUrl(symbol, tf='15m') {
@@ -253,7 +272,7 @@ export default function TFScannerTab({ timeframe, tabColor, settings, update, sa
   const [scanning,      setScanning]     = useState(false)
   const [progress,      setProgress]     = useState(0)
   const [progressSym,   setProgressSym]  = useState('')
-  const [alerts,        setAlerts]       = useState([])
+  const [alerts,        setAlerts]       = useState(() => ssLoad(timeframe))
   const [lastScan,      setLastScan]     = useState(null)
   const [nextScanAt,    setNextScanAt]   = useState(null)
   const [errors,        setErrors]       = useState([])
@@ -378,6 +397,11 @@ export default function TFScannerTab({ timeframe, tabColor, settings, update, sa
   useEffect(() => {
     onAlertCount?.(timeframe, alerts.length)
   }, [alerts.length, timeframe, onAlertCount])
+
+  // Persist alerts to sessionStorage so back-navigation from TradingView restores results
+  useEffect(() => {
+    ssSave(timeframe, alerts)
+  }, [alerts, timeframe])
 
   // Report scanning progress to parent (for topbar progress bar)
   useEffect(() => {
