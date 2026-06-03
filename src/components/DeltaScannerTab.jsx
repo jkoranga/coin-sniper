@@ -8,26 +8,6 @@ import { compilePattern } from './PatternBuilder.jsx'
 import { historyAddAlerts } from '../utils/history.js'
 import { intervalToMs, sendTelegram, buildTelegramMsg, fmt, timeSince, fmtVol } from '../utils/scanner.js'
 
-// ── Session persistence helpers — survive back-navigation from TradingView ─────
-function ssKey(tf) { return `cs_delta_alerts_${tf}` }
-function ssLoad(tf) {
-  try {
-    const raw = sessionStorage.getItem(ssKey(tf))
-    if (!raw) return []
-    return JSON.parse(raw)
-  } catch { return [] }
-}
-function ssSave(tf, alerts) {
-  try {
-    // Keep up to 300 alerts; omit the compiled `run` candle arrays to save space
-    const slim = alerts.slice(0, 300).map(a => ({
-      ...a,
-      details: a.details ? { ...a.details, run: undefined } : a.details,
-    }))
-    sessionStorage.setItem(ssKey(tf), JSON.stringify(slim))
-  } catch { /* quota exceeded — silently skip */ }
-}
-
 const DC  = '#ff6b00'
 const DD  = 'rgba(255,107,0,0.12)'
 const DB  = 'rgba(255,107,0,0.4)'
@@ -112,14 +92,13 @@ function AlertRow({ a, onDismiss, onTap, resultFilter }) {
       <div style={{flex:1, minWidth:0}}>
         <div style={{display:'flex', alignItems:'center', gap:5, flexWrap:'wrap', marginBottom:2}}>
           <span style={{fontWeight:900, color:col, fontSize:13, fontFamily:'var(--mono)'}}>{base}<span style={{fontSize:9,fontWeight:400,color:'var(--text3)'}}>/USDT</span></span>
-          <span style={{fontSize:8, fontFamily:'var(--mono)', fontWeight:700, padding:'1px 5px', borderRadius:4, background:DD, color:DC, border:`1px solid ${DB}`}}>DELTA</span>
           <span style={{fontSize:8, fontFamily:'var(--mono)', fontWeight:700, padding:'1px 5px', borderRadius:4, background:`${col}15`, color:col, border:`1px solid ${col}40`}}>{a.timeframe}</span>
           <span style={{fontSize:8, fontFamily:'var(--mono)', fontWeight:800, padding:'2px 6px', borderRadius:4, background:`${col}20`, color:col, border:`1px solid ${col}50`}}>{a.scannerName}</span>
         </div>
         <div style={{fontSize:10, fontFamily:'var(--mono)', color:'var(--text3)'}}>
           {timeSince(a.time)}
           {a.details?.close && <> · <span style={{color:'var(--text2)'}}>${fmt(a.details.close)}</span></>}
-          {a.details?.rsi != null && <> · <span style={{color:'#ffa726'}}>RSI {a.details.rsi.toFixed(1)}</span></>}
+          {a.details?.rsi14 != null && <> · <span style={{color:'#ffa726'}}>RSI {a.details.rsi14.toFixed(1)}</span></>}
         </div>
       </div>
       <TvIcon symbol={a.symbol} timeframe={a.timeframe} sz={24}/>
@@ -174,13 +153,13 @@ function AlertCard({ a, onDismiss, onTap, resultFilter }) {
           </div>
         ))}
       </div>
-      {a.details?.rsi != null && (
+      {a.details?.rsi14 != null && (
         <div style={{display:'inline-flex', alignItems:'center', gap:5, padding:'4px 9px', borderRadius:6,
           background:'rgba(255,167,38,0.08)', border:'1px solid rgba(255,167,38,0.25)', marginBottom:6}}>
           <span style={{fontSize:9, color:'var(--amber)', fontWeight:700, fontFamily:'var(--mono)'}}>RSI-14</span>
           <span style={{fontSize:11, fontWeight:700, fontFamily:'var(--mono)',
-            color:a.details.rsi < 30 ? GR : a.details.rsi > 70 ? RD : 'var(--text)'}}>
-            {a.details.rsi.toFixed(1)}
+            color:a.details.rsi14 < 30 ? GR : a.details.rsi14 > 70 ? RD : 'var(--text)'}}>
+            {a.details.rsi14.toFixed(1)}
           </span>
         </div>
       )}
@@ -375,7 +354,7 @@ export default function DeltaScannerTab({
   const [scanning,    setScanning]    = useState(false)
   const [progress,    setProgress]    = useState(0)
   const [progressSym, setProgressSym] = useState('')
-  const [alerts,      setAlerts]      = useState(() => ssLoad(timeframe))
+  const [alerts,      setAlerts]      = useState([])
   const [errors,      setErrors]      = useState([])
   const [lastScan,    setLastScan]    = useState(null)
   const [autoEnabled, setAutoEnabled] = useState(false)
@@ -400,11 +379,6 @@ export default function DeltaScannerTab({
   useEffect(() => {
     onAlertCount?.(timeframe, alerts.length)
   }, [alerts.length, timeframe, onAlertCount])
-
-  // Persist alerts to sessionStorage so back-navigation from TradingView restores results
-  useEffect(() => {
-    ssSave(timeframe, alerts)
-  }, [alerts, timeframe])
 
   // ── Load Delta symbols ───────────────────────────────────────────────────────
   const loadSymbols = useCallback(async () => {

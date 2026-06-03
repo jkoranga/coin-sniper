@@ -916,19 +916,7 @@ function CondCard({ cond, idx, total, color, onChange, onRemove, onCopy, onMoveU
             <Lbl>LEFT — candle field</Lbl>
             <FSelect
               value={cond.lhsField} offset={cond.rangeCheck ? 0 : cond.lhsOffset}
-              onField={v => {
-                // RSI, ADX, +DI, -DI are 0-100 oscillators — comparing them against
-                // a price/EMA field (rhsMode='mult'/'field') makes no sense.
-                // Auto-switch to number mode with a sensible default.
-                const OSCILLATOR_FIELDS = new Set(['rsi', 'adx', 'diPlus', 'diMinus'])
-                if (OSCILLATOR_FIELDS.has(v) && !['number', 'slope'].includes(cond.rhsMode)) {
-                  const defaultNum = v === 'rsi' ? 50 : v === 'adx' ? 25 : 20
-                  onChange({ ...cond, lhsField: v, rhsMode: 'number', rhsNum: defaultNum })
-                } else {
-                  s('lhsField', v)
-                }
-              }}
-              onOffset={cond.rangeCheck ? null : v => s('lhsOffset', v)}
+              onField={v => s('lhsField', v)} onOffset={cond.rangeCheck ? null : v => s('lhsOffset', v)}
               color={color} hideOffset={!!cond.rangeCheck}
             />
           </div>
