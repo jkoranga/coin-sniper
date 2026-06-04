@@ -2649,6 +2649,12 @@ export default function PatternBuilderTab({ settings, update }) {
             <span style={{ fontSize: 9, fontFamily: 'var(--mono)', fontWeight: 800, letterSpacing: '.1em', color: 'var(--lime)', opacity: .8 }}>
               MY PATTERNS
             </span>
+            {patterns.filter(p => p.hiddenInBuilder).length > 0 && (
+              <span style={{ fontSize: 9, fontFamily: 'var(--mono)', fontWeight: 700, padding: '1px 6px', borderRadius: 5,
+                background: 'rgba(255,167,38,0.12)', color: '#ffa726', border: '1px solid rgba(255,167,38,0.3)' }}>
+                {patterns.filter(p => p.hiddenInBuilder).length} hidden
+              </span>
+            )}
             <div style={{ flex: 1, height: 1, background: 'var(--lime-dim)' }} />
           </div>
 
@@ -2699,7 +2705,14 @@ export default function PatternBuilderTab({ settings, update }) {
           )}
 
           <div style={{ display: 'flex', flexDirection: 'column', gap: 9, marginBottom: 10 }}>
-            {patterns.map((p, i) => {
+            {patterns.filter(p => !p.hiddenInBuilder).length === 0 && patterns.length > 0 && (
+              <div style={{ textAlign:'center', padding:'20px 16px', color:'var(--text3)', fontSize:12, fontFamily:'var(--mono)', lineHeight:1.7 }}>
+                All patterns are hidden.<br/>Use the P button to show them.
+              </div>
+            )}
+            {patterns.filter(p => !p.hiddenInBuilder).map((p, i, visibleList) => {
+              // Keep original index for operations
+              const origIdx = patterns.indexOf(p)
               const isOpen = openPatternId === p.id
               return (
               <div key={p.id} id={`pattern-card-${p.id}`} style={{ display: 'flex', alignItems: 'stretch', gap: 0 }}>
@@ -2733,16 +2746,16 @@ export default function PatternBuilderTab({ settings, update }) {
                     /* ▲ index ▼ */
                     <>
                       <button
-                        onClick={() => movePattern(i, -1)}
-                        disabled={i === 0}
+                        onClick={() => movePattern(origIdx, -1)}
+                        disabled={origIdx === 0}
                         title="Move up"
                         style={{
                           width: 24, height: 24, borderRadius: 6, padding: 0,
-                          border: `1px solid ${i === 0 ? 'rgba(255,255,255,0.08)' : 'rgba(255,255,255,0.18)'}`,
-                          background: i === 0 ? 'transparent' : 'rgba(255,255,255,0.05)',
-                          cursor: i === 0 ? 'default' : 'pointer',
+                          border: `1px solid ${origIdx === 0 ? 'rgba(255,255,255,0.08)' : 'rgba(255,255,255,0.18)'}`,
+                          background: origIdx === 0 ? 'transparent' : 'rgba(255,255,255,0.05)',
+                          cursor: origIdx === 0 ? 'default' : 'pointer',
                           display: 'flex', alignItems: 'center', justifyContent: 'center',
-                          opacity: i === 0 ? 0.2 : 1,
+                          opacity: origIdx === 0 ? 0.2 : 1,
                         }}
                       >
                         <span style={{ fontSize: 13, lineHeight: 1, color: 'var(--text2)', fontWeight: 700 }}>↑</span>
@@ -2751,19 +2764,19 @@ export default function PatternBuilderTab({ settings, update }) {
                       <span style={{
                         fontSize: 9, fontFamily: 'var(--mono)', fontWeight: 800,
                         color: 'var(--text3)', lineHeight: 1, userSelect: 'none',
-                      }}>{i + 1}</span>
+                      }}>{origIdx + 1}</span>
 
                       <button
-                        onClick={() => movePattern(i, +1)}
-                        disabled={i === patterns.length - 1}
+                        onClick={() => movePattern(origIdx, +1)}
+                        disabled={origIdx === patterns.length - 1}
                         title="Move down"
                         style={{
                           width: 24, height: 24, borderRadius: 6, padding: 0,
-                          border: `1px solid ${i === patterns.length - 1 ? 'rgba(255,255,255,0.08)' : 'rgba(255,255,255,0.18)'}`,
-                          background: i === patterns.length - 1 ? 'transparent' : 'rgba(255,255,255,0.05)',
-                          cursor: i === patterns.length - 1 ? 'default' : 'pointer',
+                          border: `1px solid ${origIdx === patterns.length - 1 ? 'rgba(255,255,255,0.08)' : 'rgba(255,255,255,0.18)'}`,
+                          background: origIdx === patterns.length - 1 ? 'transparent' : 'rgba(255,255,255,0.05)',
+                          cursor: origIdx === patterns.length - 1 ? 'default' : 'pointer',
                           display: 'flex', alignItems: 'center', justifyContent: 'center',
-                          opacity: i === patterns.length - 1 ? 0.2 : 1,
+                          opacity: origIdx === patterns.length - 1 ? 0.2 : 1,
                         }}
                       >
                         <span style={{ fontSize: 13, lineHeight: 1, color: 'var(--text2)', fontWeight: 700 }}>↓</span>
@@ -2777,7 +2790,7 @@ export default function PatternBuilderTab({ settings, update }) {
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <PatternEditor
                     key={p.id} pattern={p} defaultOpen={p.id === newId || p.id === openPatternId}
-                    onChange={np => upd(i, np)} onDelete={() => del(i)}
+                    onChange={np => upd(origIdx, np)} onDelete={() => del(origIdx)}
                     onMirrorPattern={(name) => mirrorPattern(i, name)}
                     onCopyPattern={(name) => copyPattern(i, name)}
                     allPatternNames={patterns.map(x => x.name)}
