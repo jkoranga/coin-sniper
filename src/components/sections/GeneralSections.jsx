@@ -44,7 +44,7 @@ export function TimeframeSection({ cfg, set }) {
 
         <SettingRow label="Scan Interval" sub="How often auto-scan repeats">
           <div style={{ display: 'flex', gap: 4 }}>
-            {[['1m','1m'],['5m','5m'],['15m','15m'],['1h','1h']].map(([v, l]) => (
+            {[['15s','15s'],['30s','30s'],['1m','1m'],['5m','5m'],['15m','15m'],['1h','1h']].map(([v, l]) => (
               <button key={v} onClick={() => set('scanInterval', v)} style={{
                 padding: '5px 10px', borderRadius: 6,
                 border: `1px solid ${cfg.scanInterval === v ? 'var(--green2)' : 'var(--border)'}`,

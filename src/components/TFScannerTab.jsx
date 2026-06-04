@@ -546,6 +546,8 @@ export default function TFScannerTab({ timeframe, tabColor, settings, update, sa
       setLoopCount(c=>c+1)
       // Clear candle cache so each loop fetches fresh candles (prevents instant cache-hit loops)
       candleCacheRef.current = {}
+      // Clear previous results so fresh results are visible immediately on next loop
+      setAlerts([])
       setTimeout(()=>runScan(symOverride), 1000)
     }
   }, [timeframe]) // eslint-disable-line
@@ -576,21 +578,30 @@ export default function TFScannerTab({ timeframe, tabColor, settings, update, sa
 
   // Auto-scan interval
   useEffect(() => {
-    if (!enabled||loopMode) { clearInterval(timerRef.current); setNextScanAt(null); return }
-    const ms = intervalToMs(settingsRef.current.scanInterval||'1m')
-    // Run a fresh scan immediately when auto is armed (e.g. on TF tab tap),
-    // then start the repeating interval. Timer only starts after that scan finishes.
+    if (!enabled||loopMode) { clearTimeout(timerRef.current); setNextScanAt(null); return }
     let cancelled = false
+
+    // Recursive setTimeout chain: next scan only schedules AFTER current scan finishes.
+    // This prevents instant re-trigger when 500+ coins take longer than the interval.
+    const scheduleNext = () => {
+      if (cancelled) return
+      const ms = intervalToMs(settingsRef.current.scanInterval||'1m')
+      setNextScanAt(Date.now()+ms)
+      timerRef.current = setTimeout(async () => {
+        if (cancelled) return
+        await runScan()
+        scheduleNext()
+      }, ms)
+    }
+
     const kickoff = async () => {
       await runScan()
-      if (cancelled) return
-      setNextScanAt(Date.now()+ms)
-      timerRef.current = setInterval(() => { runScan(); setNextScanAt(Date.now()+ms) }, ms)
+      scheduleNext()
     }
     kickoff()
     return () => {
       cancelled = true
-      clearInterval(timerRef.current)
+      clearTimeout(timerRef.current)
       setNextScanAt(null)
     }
   }, [enabled, loopMode, settings.scanInterval]) // eslint-disable-line
@@ -604,7 +615,7 @@ export default function TFScannerTab({ timeframe, tabColor, settings, update, sa
   function stopScan() {
     loopRef.current=false; abortRef.current?.abort()
     setScanning(false); setEnabled(false); setLoopMode(false)
-    setNextScanAt(null); clearInterval(timerRef.current)
+    setNextScanAt(null); clearTimeout(timerRef.current)
     scanningRef.current = false
   }
 
