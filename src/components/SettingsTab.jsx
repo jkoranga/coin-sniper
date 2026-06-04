@@ -284,7 +284,7 @@ function ScanSettingsSection({ settings, update, saveNowWithPatch }) {
           <small>How often auto-scan repeats</small>
         </div>
         <div style={{display:'flex',gap:4,flexWrap:'wrap',justifyContent:'flex-end'}}>
-          {['1m','5m','15m','30m','1h'].map(si=>(
+          {['15s','30s','1m','5m','15m','30m','1h'].map(si=>(
             <button key={si} className={`btn-small ${settings.scanInterval===si?'active':''}`}
               onClick={()=>set('scanInterval',si)}
               style={settings.scanInterval===si?{borderColor:'var(--green2)',color:'var(--green)',background:'var(--green-dim)'}:{}}>
