@@ -852,6 +852,141 @@ function HistorySection() {
   )
 }
 
+// ── Font Settings Section ─────────────────────────────────────────────────────
+function FontSection({ cfg, set }) {
+  const scale  = cfg.fontScale  ?? 1
+  const bold   = cfg.fontBold   ?? false
+  const family = cfg.fontFamily ?? 'default'
+
+  const SCALES = [
+    { id: 0.85, label: 'XS' },
+    { id: 0.92, label: 'S'  },
+    { id: 1,    label: 'M'  },
+    { id: 1.08, label: 'L'  },
+    { id: 1.16, label: 'XL' },
+    { id: 1.25, label: 'XXL'},
+  ]
+  const FONTS = [
+    { id: 'default', label: 'Space Grotesk', preview: 'Aa' },
+    { id: 'system',  label: 'System UI',     preview: 'Aa' },
+    { id: 'mono',    label: 'Monospace',      preview: 'Aa' },
+    { id: 'rounded', label: 'Rounded',        preview: 'Aa' },
+  ]
+  const FONT_PREVIEW = {
+    default: "'Space Grotesk',system-ui,sans-serif",
+    system:  "system-ui,-apple-system,sans-serif",
+    mono:    "'Space Mono',monospace",
+    rounded: "'Nunito','Space Grotesk',system-ui,sans-serif",
+  }
+
+  return (
+    <div style={{ display:'flex', flexDirection:'column', gap:16 }}>
+
+      {/* Live preview */}
+      <div style={{
+        padding:'14px 16px', borderRadius:10,
+        background:'var(--bg2)', border:'1px solid var(--border)',
+      }}>
+        <div style={{
+          fontSize:`calc(15px * ${scale})`,
+          fontWeight: bold ? 700 : 400,
+          fontFamily: FONT_PREVIEW[family],
+          color:'var(--text)', marginBottom:4,
+        }}>Coins Sniper Preview</div>
+        <div style={{
+          fontSize:`calc(11px * ${scale})`,
+          fontWeight: bold ? 600 : 400,
+          fontFamily: FONT_PREVIEW[family],
+          color:'var(--text3)',
+        }}>BTCUSDT · 15M · EMA Cross Signal</div>
+      </div>
+
+      {/* Font size */}
+      <div>
+        <div style={{ fontSize:11, fontFamily:'var(--mono)', color:'var(--text3)', marginBottom:8, letterSpacing:'.06em' }}>FONT SIZE</div>
+        <div style={{ display:'flex', gap:6 }}>
+          {SCALES.map(s => (
+            <button key={s.id} onClick={() => set('fontScale', s.id)} style={{
+              flex:1, padding:'8px 4px', borderRadius:8, cursor:'pointer',
+              border:`1.5px solid ${Math.abs(scale - s.id) < 0.01 ? '#7ecfff' : 'var(--border)'}`,
+              background: Math.abs(scale - s.id) < 0.01 ? 'rgba(126,207,255,0.12)' : 'var(--bg2)',
+              color: Math.abs(scale - s.id) < 0.01 ? '#7ecfff' : 'var(--text3)',
+              fontWeight: Math.abs(scale - s.id) < 0.01 ? 800 : 400,
+              fontSize: 12, fontFamily:'var(--mono)',
+            }}>{s.label}</button>
+          ))}
+        </div>
+        {/* Slider */}
+        <input
+          type="range" min={0.75} max={1.35} step={0.01}
+          value={scale}
+          onChange={e => set('fontScale', parseFloat(e.target.value))}
+          style={{ width:'100%', marginTop:10, accentColor:'#7ecfff' }}
+        />
+        <div style={{ display:'flex', justifyContent:'space-between', fontSize:9, fontFamily:'var(--mono)', color:'var(--text3)', marginTop:2 }}>
+          <span>Small</span>
+          <span>{Math.round(scale * 100)}%</span>
+          <span>Large</span>
+        </div>
+      </div>
+
+      {/* Font weight */}
+      <div>
+        <div style={{ fontSize:11, fontFamily:'var(--mono)', color:'var(--text3)', marginBottom:8, letterSpacing:'.06em' }}>FONT WEIGHT</div>
+        <div style={{ display:'flex', gap:8 }}>
+          {[
+            { id: false, label: 'Regular', weight: 400 },
+            { id: true,  label: 'Bold',    weight: 700 },
+          ].map(w => (
+            <button key={String(w.id)} onClick={() => set('fontBold', w.id)} style={{
+              flex:1, padding:'10px', borderRadius:9, cursor:'pointer',
+              border:`1.5px solid ${bold === w.id ? '#7ecfff' : 'var(--border)'}`,
+              background: bold === w.id ? 'rgba(126,207,255,0.12)' : 'var(--bg2)',
+              color: bold === w.id ? '#7ecfff' : 'var(--text3)',
+              fontSize: 14, fontWeight: w.weight,
+            }}>{w.label}</button>
+          ))}
+        </div>
+      </div>
+
+      {/* Font family */}
+      <div>
+        <div style={{ fontSize:11, fontFamily:'var(--mono)', color:'var(--text3)', marginBottom:8, letterSpacing:'.06em' }}>FONT FAMILY</div>
+        <div style={{ display:'flex', flexDirection:'column', gap:6 }}>
+          {FONTS.map(f => (
+            <button key={f.id} onClick={() => set('fontFamily', f.id)} style={{
+              display:'flex', alignItems:'center', justifyContent:'space-between',
+              padding:'10px 14px', borderRadius:9, cursor:'pointer', textAlign:'left',
+              border:`1.5px solid ${family === f.id ? '#7ecfff' : 'var(--border)'}`,
+              background: family === f.id ? 'rgba(126,207,255,0.10)' : 'var(--bg2)',
+            }}>
+              <span style={{
+                fontSize: 14, fontFamily: FONT_PREVIEW[f.id],
+                color: family === f.id ? '#7ecfff' : 'var(--text2)',
+                fontWeight: family === f.id ? 700 : 400,
+              }}>{f.label}</span>
+              <span style={{
+                fontSize: 20, fontFamily: FONT_PREVIEW[f.id],
+                color: family === f.id ? '#7ecfff' : 'var(--text3)',
+                fontWeight: 700,
+              }}>{f.preview}</span>
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* Reset fonts */}
+      <button onClick={() => {
+        set('fontScale', 1); set('fontBold', false); set('fontFamily', 'default')
+      }} style={{
+        padding:'9px', borderRadius:8, cursor:'pointer', fontSize:12,
+        border:'1px solid var(--border)', background:'var(--bg2)',
+        color:'var(--text3)', fontFamily:'var(--mono)', fontWeight:600,
+      }}>↺ Reset to Default</button>
+    </div>
+  )
+}
+
 export default function SettingsTab({ settings, set, update, reset, user, onUserChange, cloudSynced, cloudSaving, onSaveNow, saveNowWithPatch, openCount=0 }) {
   const [resetMsg, setResetMsg] = React.useState('')
   const [resetConfirm, setResetConfirm] = React.useState(false)
@@ -893,6 +1028,10 @@ export default function SettingsTab({ settings, set, update, reset, user, onUser
 
       <Accordion title="Appearance" icon="◑" defaultOpen={false} openKey={openKey}>
         <AppearanceSection cfg={settings} set={set}/>
+      </Accordion>
+
+      <Accordion title="Font Settings" icon="Aa" defaultOpen={false} accentColor="rgba(126,207,255,0.4)" openKey={openKey}>
+        <FontSection cfg={settings} set={set}/>
       </Accordion>
 
       <Accordion title="Signal Strength Filters" icon="◉" defaultOpen={false} accentColor="rgba(0,184,217,0.4)" openKey={openKey}>

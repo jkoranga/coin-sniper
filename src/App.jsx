@@ -694,6 +694,21 @@ export default function App() {
     document.documentElement.setAttribute('data-theme', settings.darkMode === false ? 'light' : 'dark')
   }, [settings.darkMode])
 
+  useEffect(() => {
+    const scale  = settings.fontScale  ?? 1
+    const bold   = settings.fontBold   ?? false
+    const family = settings.fontFamily ?? 'default'
+    const fontMap = {
+      default: "'Space Grotesk',system-ui,sans-serif",
+      mono:    "'Space Mono',monospace",
+      system:  "system-ui,-apple-system,sans-serif",
+      rounded: "'Nunito','Space Grotesk',system-ui,sans-serif",
+    }
+    document.documentElement.style.setProperty('--font-scale',       String(scale))
+    document.documentElement.style.setProperty('--font-weight-base', bold ? '600' : '400')
+    document.documentElement.style.setProperty('--font',             fontMap[family] || fontMap.default)
+  }, [settings.fontScale, settings.fontBold, settings.fontFamily])
+
   function set(path, value) {
     const parts = path.split('.')
     if (parts.length === 1) { update({ [path]: value }); return }

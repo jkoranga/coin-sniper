@@ -36,13 +36,15 @@
 :root {
   --radius:10px;
   --font:'Space Grotesk',system-ui,sans-serif;
+  --font-scale: 1;
+  --font-weight-base: 400;
   --mono:'Space Mono','Courier New',monospace;
   --sidebar-w:248px;
 }
 
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
 html{font-size:16px;-webkit-tap-highlight-color:transparent;touch-action:manipulation}
-body,#root{height:100%;min-height:100dvh;background:var(--bg);color:var(--text);font-family:var(--font);font-size:15px;line-height:1.55;overflow:hidden}
+body,#root{height:100%;min-height:100dvh;background:var(--bg);color:var(--text);font-family:var(--font);font-size:calc(15px * var(--font-scale));font-weight:var(--font-weight-base);line-height:1.55;overflow:hidden}
 
 ::-webkit-scrollbar{width:3px;height:3px}
 ::-webkit-scrollbar-track{background:transparent}
