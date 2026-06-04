@@ -539,16 +539,33 @@ export default function DeltaScannerTab({
     }
 
     // Loop continue
-    if (loopRef.current) { setLoopCount(c => c + 1); setTimeout(() => runScan(symOverride), 300) }
+    if (loopRef.current) {
+      setLoopCount(c => c + 1)
+      // Clear candle cache so each loop fetches fresh candles (prevents instant cache-hit loops)
+      cacheRef.current = {}
+      setTimeout(() => runScan(symOverride), 1000)
+    }
   }, [activePatterns, symbols, timeframe, dedupInt]) // eslint-disable-line
 
   // ── Auto scan interval ───────────────────────────────────────────────────────
   useEffect(() => {
     if (!autoEnabled || loopMode) { clearInterval(timerRef.current); setNextScanAt(null); return }
     const ms = intervalToMs(settings.scanInterval || '1m')
-    setNextScanAt(Date.now() + ms)
-    timerRef.current = setInterval(() => { runScan(); setNextScanAt(Date.now() + ms) }, ms)
-    return () => { clearInterval(timerRef.current); setNextScanAt(null) }
+    // Run a fresh scan immediately when auto is armed (e.g. on TF tab tap),
+    // then start the repeating interval. Timer only starts after that scan finishes.
+    let cancelled = false
+    const kickoff = async () => {
+      await runScan()
+      if (cancelled) return
+      setNextScanAt(Date.now() + ms)
+      timerRef.current = setInterval(() => { runScan(); setNextScanAt(Date.now() + ms) }, ms)
+    }
+    kickoff()
+    return () => {
+      cancelled = true
+      clearInterval(timerRef.current)
+      setNextScanAt(null)
+    }
   }, [autoEnabled, loopMode, settings.scanInterval]) // eslint-disable-line
 
   // ── Stop on tab deactivate ───────────────────────────────────────────────────
@@ -567,7 +584,7 @@ export default function DeltaScannerTab({
       const t = setTimeout(() => {
         if (!scanningRef.current) {
           setAutoEnabled(true)
-          runScan()
+          // useEffect kickoff will run the initial scan + arm the interval
         }
       }, 300)
       return () => clearTimeout(t)
@@ -590,7 +607,7 @@ export default function DeltaScannerTab({
 
   function toggleAuto() {
     if (autoEnabled) { stopScan() }
-    else { setAutoEnabled(true); runScan() }
+    else { setAutoEnabled(true) }
   }
 
   function toggleSort(col) {

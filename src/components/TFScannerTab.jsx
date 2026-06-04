@@ -542,7 +542,12 @@ export default function TFScannerTab({ timeframe, tabColor, settings, update, sa
     setLastScan(Date.now())
     scanningRef.current = false
     setScanning(false); setProgressSym('')
-    if (loopRef.current) { setLoopCount(c=>c+1); setTimeout(()=>runScan(symOverride),300) }
+    if (loopRef.current) {
+      setLoopCount(c=>c+1)
+      // Clear candle cache so each loop fetches fresh candles (prevents instant cache-hit loops)
+      candleCacheRef.current = {}
+      setTimeout(()=>runScan(symOverride), 1000)
+    }
   }, [timeframe]) // eslint-disable-line
 
   // ── Auto-scan on tab activation: run when user switches to this TF ─────────
@@ -573,10 +578,21 @@ export default function TFScannerTab({ timeframe, tabColor, settings, update, sa
   useEffect(() => {
     if (!enabled||loopMode) { clearInterval(timerRef.current); setNextScanAt(null); return }
     const ms = intervalToMs(settingsRef.current.scanInterval||'1m')
-    // First interval fires after ms (initial scan already happened at mount)
-    setNextScanAt(Date.now()+ms)
-    timerRef.current = setInterval(() => { runScan(); setNextScanAt(Date.now()+ms) }, ms)
-    return () => { clearInterval(timerRef.current); setNextScanAt(null) }
+    // Run a fresh scan immediately when auto is armed (e.g. on TF tab tap),
+    // then start the repeating interval. Timer only starts after that scan finishes.
+    let cancelled = false
+    const kickoff = async () => {
+      await runScan()
+      if (cancelled) return
+      setNextScanAt(Date.now()+ms)
+      timerRef.current = setInterval(() => { runScan(); setNextScanAt(Date.now()+ms) }, ms)
+    }
+    kickoff()
+    return () => {
+      cancelled = true
+      clearInterval(timerRef.current)
+      setNextScanAt(null)
+    }
   }, [enabled, loopMode, settings.scanInterval]) // eslint-disable-line
 
   function toggleLoop(v) {
@@ -712,9 +728,8 @@ export default function TFScannerTab({ timeframe, tabColor, settings, update, sa
                   // already in auto → turn off
                   stopScan()
                 } else {
-                  // not active → run scan AND arm auto together
+                  // Arm auto — useEffect kickoff will immediately run a fresh scan then start interval
                   setEnabled(true)
-                  runScan()
                 }
               }}
               disabled={scanning && !enabled && !loopMode}
