@@ -2190,6 +2190,7 @@ export default function PatternBuilderTab({ settings, update }) {
       side: src.side === 'bull' ? 'bear' : 'bull',
       conditions: src.conditions.map(c => mirrorCond(c)),
       createdAt: Date.now(),
+      hiddenInBuilder: false,
     }
     const ps = [...patterns]
     ps.splice(i + 1, 0, mirrored)
@@ -2205,6 +2206,7 @@ export default function PatternBuilderTab({ settings, update }) {
       name: customName,
       conditions: src.conditions.map(c => ({ ...c, id: uid() })),
       createdAt: Date.now(),
+      hiddenInBuilder: false,
     }
     const ps = [...patterns]
     ps.splice(i + 1, 0, copy)
@@ -2791,8 +2793,8 @@ export default function PatternBuilderTab({ settings, update }) {
                   <PatternEditor
                     key={p.id} pattern={p} defaultOpen={p.id === newId || p.id === openPatternId}
                     onChange={np => upd(origIdx, np)} onDelete={() => del(origIdx)}
-                    onMirrorPattern={(name) => mirrorPattern(i, name)}
-                    onCopyPattern={(name) => copyPattern(i, name)}
+                    onMirrorPattern={(name) => mirrorPattern(origIdx, name)}
+                    onCopyPattern={(name) => copyPattern(origIdx, name)}
                     allPatternNames={patterns.map(x => x.name)}
                     onOpenChange={(isNowOpen) => setOpenPatternId(isNowOpen ? p.id : null)}
                     outerStyle={{
