@@ -135,8 +135,15 @@ export function useSettings(firebaseUser) {
   // whether to do that (login does, tab-focus does not — to avoid a write
   // storm when many tabs are open).
   const mergeCloud = useCallback((prev, cloud) => {
-    const { _savedAt, ...clean } = cloud
-    const merged = { ...prev, ...clean }
+    const { _savedAt: cloudSavedAt, ...clean } = cloud
+    const localSavedAt = prev._savedAt || 0
+
+    // If local was saved more recently than cloud, keep local values for
+    // all non-pattern settings (scanInterval, volumeFilter, symbolSet, etc.)
+    // This prevents cloud overwriting a change the user just made before
+    // Firebase had time to sync it.
+    const base = localSavedAt > (cloudSavedAt || 0) ? { ...clean, ...prev } : { ...prev, ...clean }
+    const merged = { ...base }
 
     // customPatterns: keep local only when it is strictly newer.
     const localAt = prev._customPatternsAt  || 0
@@ -144,6 +151,9 @@ export function useSettings(firebaseUser) {
     if (localAt > cloudAt) {
       merged.customPatterns    = prev.customPatterns
       merged._customPatternsAt = localAt
+    } else {
+      merged.customPatterns    = clean.customPatterns ?? prev.customPatterns
+      merged._customPatternsAt = cloudAt || localAt
     }
 
     // Normalize patterns from either source — stamp missing condition ids
@@ -155,6 +165,9 @@ export function useSettings(firebaseUser) {
     if (localTrAt > cloudTrAt) {
       merged.deletedPatterns    = prev.deletedPatterns
       merged._deletedPatternsAt = localTrAt
+    } else {
+      merged.deletedPatterns    = clean.deletedPatterns ?? prev.deletedPatterns
+      merged._deletedPatternsAt = cloudTrAt || localTrAt
     }
 
     return merged
@@ -202,11 +215,8 @@ export function useSettings(firebaseUser) {
         if (!cloud) return
         setSettings(prev => {
           const merged = mergeCloud(prev, cloud)
-          // Only trigger a re-render if something actually changed
-          const changed =
-            merged.customPatterns    !== prev.customPatterns ||
-            merged.deletedPatterns   !== prev.deletedPatterns ||
-            merged._customPatternsAt !== prev._customPatternsAt
+          // Check ALL fields so scanInterval, volumeFilter, symbolSet etc. sync too
+          const changed = Object.keys(merged).some(k => merged[k] !== prev[k])
           if (!changed) return prev
           settingsRef.current = merged
           return merged
@@ -226,10 +236,11 @@ export function useSettings(firebaseUser) {
   // For critical keys (patterns, scanners, etc.) — saves to Firebase immediately.
   // For non-critical — debounces 2 seconds.
   const update = useCallback((patch) => {
-    // Compute next state
+    // Compute next state — stamp _savedAt so mergeCloud can compare recency
+    const now = Date.now()
     const next = typeof patch === 'function'
-      ? patch(settingsRef.current)
-      : { ...settingsRef.current, ...patch }
+      ? { ...patch(settingsRef.current), _savedAt: now }
+      : { ...settingsRef.current, ...patch, _savedAt: now }
 
     // Update ref immediately so subsequent calls in the same tick see latest state
     settingsRef.current = next

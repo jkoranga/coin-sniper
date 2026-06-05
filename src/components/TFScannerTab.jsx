@@ -518,6 +518,7 @@ export default function TFScannerTab({ timeframe, tabColor, settings, update, sa
       return
     }
     scanningRef.current = true
+    setAlerts([])  // clear stale results so UI shows fresh scan from scratch
     setScanning(true); setProgress(0); setErrors([])
     abortRef.current = new AbortController()
     const cfg = settingsRef.current
@@ -544,10 +545,7 @@ export default function TFScannerTab({ timeframe, tabColor, settings, update, sa
     setScanning(false); setProgressSym('')
     if (loopRef.current) {
       setLoopCount(c=>c+1)
-      // Clear candle cache so each loop fetches fresh candles (prevents instant cache-hit loops)
       candleCacheRef.current = {}
-      // Clear previous results so fresh results are visible immediately on next loop
-      setAlerts([])
       setTimeout(()=>runScan(symOverride), 1000)
     }
   }, [timeframe]) // eslint-disable-line

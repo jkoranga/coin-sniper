@@ -454,6 +454,7 @@ export default function DeltaScannerTab({
 
     abortRef.current = new AbortController()
     scanningRef.current = true
+    setAlerts([])  // clear stale results so UI shows fresh scan from scratch
     setScanning(true); setProgress(0); setErrors([])
 
     // Pre-warm cache: fetch top 30 symbols in parallel before main loop
@@ -541,10 +542,7 @@ export default function DeltaScannerTab({
     // Loop continue
     if (loopRef.current) {
       setLoopCount(c => c + 1)
-      // Clear candle cache so each loop fetches fresh candles (prevents instant cache-hit loops)
       cacheRef.current = {}
-      // Clear previous results so fresh results are visible immediately on next loop
-      setAlerts([])
       setTimeout(() => runScan(symOverride), 1000)
     }
   }, [activePatterns, symbols, timeframe, dedupInt]) // eslint-disable-line
