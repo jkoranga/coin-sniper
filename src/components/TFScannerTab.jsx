@@ -496,7 +496,6 @@ export default function TFScannerTab({ timeframe, tabColor, settings, update, sa
               }
               newAlerts.push(a)
               historyAddAlerts([a])
-              setAlerts(prev => [a, ...prev].slice(0, 500))
             }
           }
         } catch { newErrors.push(sym) }
@@ -518,7 +517,6 @@ export default function TFScannerTab({ timeframe, tabColor, settings, update, sa
       return
     }
     scanningRef.current = true
-    setAlerts([])  // clear stale results so UI shows fresh scan from scratch
     setScanning(true); setProgress(0); setErrors([])
     abortRef.current = new AbortController()
     const cfg = settingsRef.current
@@ -541,12 +539,18 @@ export default function TFScannerTab({ timeframe, tabColor, settings, update, sa
     }
     if (newErrors.length) setErrors(newErrors)
     setLastScan(Date.now())
+    // Atomically replace results — old results stayed visible during the entire scan,
+    // now swap in the fresh batch all at once
+    setAlerts(newAlerts.slice(0, 500))
     scanningRef.current = false
-    setScanning(false); setProgressSym('')
+    setProgressSym('')
     if (loopRef.current) {
       setLoopCount(c=>c+1)
       candleCacheRef.current = {}
-      setTimeout(()=>runScan(symOverride), 1000)
+      setScanning(false)
+      setTimeout(()=>runScan(symOverride), 500)
+    } else {
+      setScanning(false)
     }
   }, [timeframe]) // eslint-disable-line
 
@@ -607,7 +611,7 @@ export default function TFScannerTab({ timeframe, tabColor, settings, update, sa
   function toggleLoop(v) {
     setLoopMode(v)
     if (v) { loopRef.current=true; setEnabled(false); setLoopCount(0); runScan() }
-    else { loopRef.current=false; abortRef.current?.abort(); setScanning(false) }
+    else { loopRef.current=false; abortRef.current?.abort(); scanningRef.current=false; setScanning(false); setProgressSym('') }
   }
 
   function stopScan() {

@@ -454,7 +454,6 @@ export default function DeltaScannerTab({
 
     abortRef.current = new AbortController()
     scanningRef.current = true
-    setAlerts([])  // clear stale results so UI shows fresh scan from scratch
     setScanning(true); setProgress(0); setErrors([])
 
     // Pre-warm cache: fetch top 30 symbols in parallel before main loop
@@ -513,7 +512,6 @@ export default function DeltaScannerTab({
               }
               newAlerts.push(a)
               historyAddAlerts([a])
-              setAlerts(prev => [a, ...prev].slice(0, 300))
             }
           }
         } catch { newErrors.push(sym) }
@@ -527,8 +525,10 @@ export default function DeltaScannerTab({
 
     setLastScan(Date.now())
     setProgress(-1); setProgressSym('')
-    scanningRef.current = false; setScanning(false)
+    scanningRef.current = false
     if (newErrors.length) setErrors(newErrors)
+    // Atomically replace results — old results stayed visible during entire scan
+    setAlerts(newAlerts.slice(0, 300))
 
     // Telegram
     if (newAlerts.length > 0 && cfg.tgOn && cfg.tgToken && cfg.tgChatId) {
@@ -543,7 +543,10 @@ export default function DeltaScannerTab({
     if (loopRef.current) {
       setLoopCount(c => c + 1)
       cacheRef.current = {}
-      setTimeout(() => runScan(symOverride), 1000)
+      setScanning(false)
+      setTimeout(() => runScan(symOverride), 500)
+    } else {
+      setScanning(false)
     }
   }, [activePatterns, symbols, timeframe, dedupInt]) // eslint-disable-line
 
