@@ -434,151 +434,162 @@ export default function DeltaScannerTab({
   }
 
   // ── Core scan ────────────────────────────────────────────────────────────────
+  // ── Core scan engine ─────────────────────────────────────────────────────────
+  // runScan is stored in a ref so auto/loop effects never recreate on every render.
+  // All state reads go through refs (settingsRef, etc.) to avoid stale closures.
   const runScan = useCallback(async (symOverride) => {
     if (scanningRef.current) return
     if (activePatterns.length === 0) { setNoPatWarn(true); return }
 
-    const cfg = settingsRef.current
-    const currentScanMode = cfg[`delta_scanMode_${timeframe}`] ?? 'all'
-    const customPairs = cfg.customPairs || []
+    const cfg      = settingsRef.current
+    const scanMode = cfg[`delta_scanMode_${timeframe}`] ?? 'all'
 
     let symList
     if (symOverride) {
       symList = symOverride
-    } else if (currentScanMode === 'custom') {
-      symList = [...new Set(customPairs)].map(s => ({symbol:s}))
+    } else if (scanMode === 'custom') {
+      symList = [...new Set(cfg.customPairs || [])].map(s => ({ symbol: s }))
     } else {
       symList = symbols
     }
     if (!symList || symList.length === 0) return
 
-    abortRef.current = new AbortController()
+    // ── Start ────────────────────────────────────────────────────────────────
+    abortRef.current  = new AbortController()
     scanningRef.current = true
-    setScanning(true); setProgress(0); setErrors([])
-
-    // Pre-warm cache: fetch top 30 symbols in parallel before main loop
-    const prefetchList = symList.slice(0, 30)
-    await Promise.allSettled(
-      prefetchList.map(s => fetchCached(s?.symbol || s, timeframe, 60))
-    )
+    setScanning(true)
+    setProgress(0)
+    setErrors([])
+    // In loop mode: clear old alerts at start so fresh results stream in cleanly
+    // In auto mode: keep old alerts visible during scan — new ones accumulate on top
+    if (loopRef.current) setAlerts([])
 
     const CONCURRENCY = 30
-    const newAlerts = [], newErrors = []
-    let i = 0, done = 0
+    const newAlerts   = []
+    const newErrors   = []
+    let cursor = 0, done = 0
 
     async function worker() {
       while (true) {
         if (abortRef.current.signal.aborted) return
-        const idx = i++
+        const idx = cursor++
         if (idx >= symList.length) return
+
         const symObj = symList[idx]
-        const sym = symObj?.symbol || symObj
-        const symVol = parseFloat(symObj?.volume ?? symObj?.turnover24h ?? 0)
+        const sym    = symObj?.symbol || symObj
+        const symVol = parseFloat(symObj?.volume ?? 0)
         setProgressSym(sym)
+
         try {
           const candles = await fetchCached(sym, timeframe, 40)
           if (!candles || candles.length < 10) { done++; setProgress(Math.round(done/symList.length*100)); continue }
 
-          // ── Collect all HTF timeframes needed across active patterns ──────
-          const htfTfsNeeded = new Set()
-          for (const sc of activePatterns) {
-            for (const cond of (sc.conditions || [])) {
-              if (cond.htfTf && cond.enabled !== false) htfTfsNeeded.add(cond.htfTf)
-            }
-          }
-          // Pre-fetch each unique HTF TF once per symbol
-          const htfCandlesMap = {}
-          for (const tf of htfTfsNeeded) {
-            if (tf !== timeframe) {
-              try {
-                const htfArr = await fetchCached(sym, tf, 120)
-                if (htfArr && htfArr.length >= 2) htfCandlesMap[tf] = htfArr
-              } catch { /* condition gracefully returns null */ }
-            } else {
-              htfCandlesMap[tf] = candles
-            }
+          // HTF candles needed by any condition
+          const htfNeeded = new Set()
+          for (const sc of activePatterns)
+            for (const cond of (sc.conditions || []))
+              if (cond.htfTf && cond.enabled !== false) htfNeeded.add(cond.htfTf)
+
+          const htfMap = {}
+          for (const tf of htfNeeded) {
+            if (tf === timeframe) { htfMap[tf] = candles; continue }
+            try {
+              const c = await fetchCached(sym, tf, 120)
+              if (c && c.length >= 2) htfMap[tf] = c
+            } catch {}
           }
 
           for (const sc of activePatterns) {
-            if (abortRef.current.signal.aborted) continue
+            if (abortRef.current.signal.aborted) break
             if (isDupe(sym, sc.id)) continue
-            const result = sc.logic(candles, htfCandlesMap)
-            if (result) {
-              const a = {
-                id: ++idRef.current, exchange:'delta', symbol:sym, timeframe,
-                time: Date.now(), scannerId:sc.id, scannerName:sc.name,
-                scannerIcon:sc.icon, side:sc.side, details:result,
-                volume: symVol,
-              }
-              newAlerts.push(a)
-              historyAddAlerts([a])
+            const result = sc.logic(candles, htfMap)
+            if (!result) continue
+
+            const a = {
+              id: ++idRef.current, exchange: 'delta', symbol: sym, timeframe,
+              time: Date.now(), scannerId: sc.id, scannerName: sc.name,
+              scannerIcon: sc.icon, side: sc.side, details: result, volume: symVol,
             }
+            newAlerts.push(a)
+            // Stream each result immediately — no waiting for full scan
+            setAlerts(prev => [a, ...prev].slice(0, 300))
+            historyAddAlerts([a])
           }
         } catch { newErrors.push(sym) }
+
         done++
         setProgress(Math.round(done / symList.length * 100))
-        await new Promise(r => setTimeout(r, 0))
+        await new Promise(r => setTimeout(r, 0)) // yield to browser
       }
     }
 
     await Promise.all(Array.from({ length: CONCURRENCY }, () => worker()))
 
+    // ── Scan complete ─────────────────────────────────────────────────────────
     setLastScan(Date.now())
-    setProgress(-1); setProgressSym('')
+    setProgress(-1)
+    setProgressSym('')
     scanningRef.current = false
+    setScanning(false)
     if (newErrors.length) setErrors(newErrors)
-    // Atomically replace results — old results stayed visible during entire scan
-    setAlerts(newAlerts.slice(0, 300))
 
-    // Telegram
-    if (newAlerts.length > 0 && cfg.tgOn && cfg.tgToken && cfg.tgChatId) {
+    // Telegram notifications
+    const tgCfg = settingsRef.current
+    if (newAlerts.length > 0 && tgCfg.tgOn && tgCfg.tgToken && tgCfg.tgChatId) {
       for (const a of newAlerts.slice(0, 5)) {
-        sendTelegram(cfg.tgToken, cfg.tgChatId,
+        sendTelegram(tgCfg.tgToken, tgCfg.tgChatId,
           `🔶 ${a.scannerIcon} ${a.scannerName}\n${a.symbol} · ${a.timeframe}`
         ).catch(() => {})
       }
     }
 
-    // Loop continue
+    // Loop: schedule next cycle immediately after completion
     if (loopRef.current) {
       setLoopCount(c => c + 1)
-      cacheRef.current = {}
-      setScanning(false)
-      setTimeout(() => runScan(symOverride), 500)
-    } else {
-      setScanning(false)
+      // Small 300ms breath between loop cycles, then immediately restart
+      setTimeout(() => { if (loopRef.current) runScanRef.current(symOverride) }, 300)
     }
   }, [activePatterns, symbols, timeframe, dedupInt]) // eslint-disable-line
 
+  // Keep runScan ref always current so effects/timers never call stale version
+  const runScanRef = useRef(runScan)
+  useEffect(() => { runScanRef.current = runScan }, [runScan])
+
   // ── Auto scan interval ───────────────────────────────────────────────────────
+  // Pattern: scan immediately → wait interval → scan → wait → repeat
+  // Uses runScanRef so this effect never re-fires when scan function changes.
   useEffect(() => {
-    if (!autoEnabled || loopMode) { clearTimeout(timerRef.current); setNextScanAt(null); return }
+    if (!autoEnabled || loopMode) {
+      clearTimeout(timerRef.current)
+      setNextScanAt(null)
+      return
+    }
     let cancelled = false
 
-    // Recursive setTimeout chain: next scan only schedules AFTER current scan finishes.
-    // This prevents instant re-trigger when 500+ coins take longer than the interval.
     const scheduleNext = () => {
       if (cancelled) return
-      const ms = intervalToMs(settings.scanInterval || '1m')
+      const ms = intervalToMs(settingsRef.current.scanInterval || '1m')
       setNextScanAt(Date.now() + ms)
       timerRef.current = setTimeout(async () => {
         if (cancelled) return
-        await runScan()
+        setNextScanAt(null)
+        await runScanRef.current()
         scheduleNext()
       }, ms)
     }
 
-    const kickoff = async () => {
-      await runScan()
+    ;(async () => {
+      if (cancelled) return
+      await runScanRef.current()
       scheduleNext()
-    }
-    kickoff()
+    })()
+
     return () => {
       cancelled = true
       clearTimeout(timerRef.current)
       setNextScanAt(null)
     }
-  }, [autoEnabled, loopMode, settings.scanInterval]) // eslint-disable-line
+  }, [autoEnabled, loopMode]) // eslint-disable-line
 
   // ── Stop on tab deactivate ───────────────────────────────────────────────────
   useEffect(() => {
