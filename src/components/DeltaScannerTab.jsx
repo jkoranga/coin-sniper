@@ -337,12 +337,12 @@ export default function DeltaScannerTab({
   // Per-tab settings keys
   const tfKey       = k => `delta_${k}_${tfProp}`
   const scanMode    = settings[tfKey('scanMode')]     ?? 'all'
-  const dedupInt    = settings[tfKey('dedupInt')]     ?? '3m'
+  const dedupInt    = settings[tfKey('dedupInt')]     ?? settings.dedupInterval ?? '3m'
   const resultFilter= settings[tfKey('resultFilter')] ?? 'all'
-  const volumeFilter= settings[tfKey('volumeFilter')] ?? '1m'
-  const sortBy      = settings[tfKey('sortBy')]       ?? 'time'
-  const sortDir     = settings[tfKey('sortDir')]      ?? 'desc'
-  const viewMode    = settings[tfKey('viewMode')]     ?? 'list'
+  const volumeFilter= settings[tfKey('volumeFilter')] ?? settings.volumeFilter ?? '1m'
+  const sortBy      = settings[tfKey('sortBy')]       ?? settings.defaultSort       ?? 'time'
+  const sortDir     = settings[tfKey('sortDir')]      ?? settings.defaultSortDir    ?? 'desc'
+  const viewMode    = settings[tfKey('viewMode')]     ?? settings.defaultViewMode   ?? 'list'
   const setTfSetting = (k, v) => update({ [tfKey(k)]: v })
 
   // Ephemeral state
@@ -419,7 +419,9 @@ export default function DeltaScannerTab({
     const hit = cacheRef.current[key]
     if (hit && now < hit.expiresAt) return hit.candles
     const candles = await fetchDeltaCandles(symbol, tf, limit)
-    if (candles) cacheRef.current[key] = { candles, expiresAt: now + 180_000 }
+    const ttlMap = {'1m':60_000,'2m':120_000,'3m':180_000,'5m':300_000,'10m':600_000}
+    const ttl = ttlMap[settingsRef.current.cacheTtl || '3m'] || 180_000
+    if (candles) cacheRef.current[key] = { candles, expiresAt: now + ttl }
     return candles
   }
 
@@ -464,7 +466,7 @@ export default function DeltaScannerTab({
     // In auto mode: keep old alerts visible during scan — new ones accumulate on top
     if (loopRef.current) setAlerts([])
 
-    const CONCURRENCY = 30
+    const CONCURRENCY = cfg.concurrency || 30
     const newAlerts   = []
     const newErrors   = []
     let cursor = 0, done = 0

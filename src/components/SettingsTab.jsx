@@ -244,29 +244,33 @@ function ScannerDefCard({ scanner, expanded, onTap, enabled, onToggle, selectedT
 
 // ── Scan Settings section ─────────────────────────────────
 function ScanSettingsSection({ settings, update, saveNowWithPatch }) {
-  function set(key, val) {
-    update({ [key]: val })
-  }
+  function set(key, val) { update({ [key]: val }) }
 
-  const DEDUP_OPTIONS = [['1m','1m'],['3m','3m'],['5m','5m'],['15m','15m'],['30m','30m'],['1h','1h'],['4h','4h'],['1d','Daily']]
+  const DEDUP_OPTIONS = ['1m','3m','5m','15m','30m','1h','4h','1d']
   const VOLUME_FILTERS = [
-    {id:'all',label:'All'},
-    {id:'500k',label:'>500K'},
-    {id:'1m',label:'>1M'},
-    {id:'5m',label:'>5M'},
-    {id:'10m',label:'>10M'},
+    {id:'all',  label:'All Vol'},
+    {id:'500k', label:'>500K'},
+    {id:'1m',   label:'>1M'},
+    {id:'5m',   label:'>5M'},
+    {id:'10m',  label:'>10M'},
+  ]
+  const SORT_OPTIONS = [
+    {id:'time',   label:'Time'},
+    {id:'symbol', label:'A-Z'},
+    {id:'gain',   label:'Gain'},
+    {id:'volume', label:'Vol'},
   ]
 
   return (
     <div>
-      {/* Symbol set */}
+      {/* Symbol Set */}
       <div className="setting-row">
         <div className="row-label">
           <span>Symbol Set</span>
-          <small>Default for all TF scanners</small>
+          <small>How many coins to scan per run</small>
         </div>
         <div style={{display:'flex',gap:4,flexWrap:'wrap',justifyContent:'flex-end'}}>
-          {[['top30','30'],['top100','100'],['top200','200'],['top500','500'],['all','All']].map(([s,l])=>(
+          {[['top30','Top 30'],['top100','Top 100'],['top200','Top 200'],['top500','Top 500'],['all','All']].map(([s,l])=>(
             <button key={s} className={`btn-small ${settings.symbolSet===s?'active':''}`}
               onClick={()=>set('symbolSet',s)}
               style={settings.symbolSet===s?{borderColor:'var(--accent)',color:'var(--accent)',background:'var(--accent-dim)'}:{}}>
@@ -276,14 +280,14 @@ function ScanSettingsSection({ settings, update, saveNowWithPatch }) {
         </div>
       </div>
 
-      {/* Scan interval */}
+      {/* Scan Interval */}
       <div className="setting-row">
         <div className="row-label">
-          <span>Scan Interval</span>
-          <small>How often auto-scan repeats</small>
+          <span>Auto Scan Interval</span>
+          <small>Wait time between auto-scan cycles</small>
         </div>
         <div style={{display:'flex',gap:4,flexWrap:'wrap',justifyContent:'flex-end'}}>
-          {['15s','30s','1m','5m','15m','30m','1h'].map(si=>(
+          {['15s','30s','1m','3m','5m','15m','30m','1h'].map(si=>(
             <button key={si} className={`btn-small ${settings.scanInterval===si?'active':''}`}
               onClick={()=>set('scanInterval',si)}
               style={settings.scanInterval===si?{borderColor:'var(--green2)',color:'var(--green)',background:'var(--green-dim)'}:{}}>
@@ -293,11 +297,28 @@ function ScanSettingsSection({ settings, update, saveNowWithPatch }) {
         </div>
       </div>
 
-      {/* Volume default */}
-      <div className="setting-row" style={{borderBottom:'none',paddingBottom:0}}>
+      {/* Dedup Interval */}
+      <div className="setting-row">
+        <div className="row-label">
+          <span>Dedup Interval</span>
+          <small>Suppress same coin+pattern within this window</small>
+        </div>
+        <div style={{display:'flex',gap:4,flexWrap:'wrap',justifyContent:'flex-end'}}>
+          {DEDUP_OPTIONS.map(d=>(
+            <button key={d} className={`btn-small ${settings.dedupInterval===d?'active':''}`}
+              onClick={()=>set('dedupInterval',d)}
+              style={settings.dedupInterval===d?{borderColor:'var(--amber)',color:'var(--amber)',background:'rgba(255,167,38,0.1)'}:{}}>
+              {d}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* Volume Filter */}
+      <div className="setting-row">
         <div className="row-label">
           <span>Default Volume Filter</span>
-          <small>Applied to all TF tabs</small>
+          <small>Minimum 24h volume to show in results</small>
         </div>
         <div style={{display:'flex',gap:4,flexWrap:'wrap',justifyContent:'flex-end'}}>
           {VOLUME_FILTERS.map(f=>(
@@ -305,6 +326,104 @@ function ScanSettingsSection({ settings, update, saveNowWithPatch }) {
               onClick={()=>set('volumeFilter',f.id)}
               style={settings.volumeFilter===f.id?{borderColor:'var(--purple)',color:'var(--purple)',background:'var(--purple-dim)'}:{}}>
               {f.label}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* Default Sort */}
+      <div className="setting-row">
+        <div className="row-label">
+          <span>Default Sort</span>
+          <small>How results are ordered in the list</small>
+        </div>
+        <div style={{display:'flex',gap:4,flexWrap:'wrap',justifyContent:'flex-end'}}>
+          {SORT_OPTIONS.map(s=>(
+            <button key={s.id} className={`btn-small ${settings.defaultSort===s.id?'active':''}`}
+              onClick={()=>set('defaultSort',s.id)}
+              style={settings.defaultSort===s.id?{borderColor:'var(--cyan)',color:'var(--cyan)',background:'rgba(0,212,255,0.1)'}:{}}>
+              {s.label}
+            </button>
+          ))}
+          {/* Sort direction */}
+          <button className={`btn-small ${settings.defaultSortDir==='asc'?'active':''}`}
+            onClick={()=>set('defaultSortDir', settings.defaultSortDir==='asc'?'desc':'asc')}
+            style={settings.defaultSortDir==='asc'
+              ?{borderColor:'var(--cyan)',color:'var(--cyan)',background:'rgba(0,212,255,0.1)'}
+              :{}}
+            title="Toggle sort direction">
+            {settings.defaultSortDir==='asc'?'↑ Asc':'↓ Desc'}
+          </button>
+        </div>
+      </div>
+
+      {/* Default View Mode */}
+      <div className="setting-row">
+        <div className="row-label">
+          <span>Default View</span>
+          <small>List or card view for scan results</small>
+        </div>
+        <div style={{display:'flex',gap:4}}>
+          {[['list','≡ List'],['cards','⊞ Cards']].map(([v,l])=>(
+            <button key={v} className={`btn-small ${settings.defaultViewMode===v?'active':''}`}
+              onClick={()=>set('defaultViewMode',v)}
+              style={settings.defaultViewMode===v?{borderColor:'var(--accent)',color:'var(--accent)',background:'var(--accent-dim)'}:{}}>
+              {l}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* Default Result Filter */}
+      <div className="setting-row">
+        <div className="row-label">
+          <span>Default Signal Filter</span>
+          <small>Show all, only bull, or only bear signals</small>
+        </div>
+        <div style={{display:'flex',gap:4}}>
+          {[['all','All'],['bull','🟢 Bull'],['bear','🔴 Bear']].map(([v,l])=>(
+            <button key={v} className={`btn-small ${settings.defaultResultFilter===v?'active':''}`}
+              onClick={()=>set('defaultResultFilter',v)}
+              style={settings.defaultResultFilter===v
+                ?{borderColor: v==='bull'?'var(--green2)':v==='bear'?'var(--red2)':'var(--accent)',
+                   color:v==='bull'?'var(--green)':v==='bear'?'var(--red)':'var(--accent)',
+                   background:v==='bull'?'var(--green-dim)':v==='bear'?'var(--red-dim)':'var(--accent-dim)'}
+                :{}}>
+              {l}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* Concurrency */}
+      <div className="setting-row">
+        <div className="row-label">
+          <span>Scan Concurrency</span>
+          <small>Parallel symbol fetches — higher = faster but more memory</small>
+        </div>
+        <div style={{display:'flex',gap:4,flexWrap:'wrap',justifyContent:'flex-end'}}>
+          {[['10','10'],['20','20'],['30','30 (default)'],['50','50'],['100','100']].map(([v,l])=>(
+            <button key={v} className={`btn-small ${String(settings.concurrency||30)===v?'active':''}`}
+              onClick={()=>set('concurrency', parseInt(v))}
+              style={String(settings.concurrency||30)===v?{borderColor:'var(--lime)',color:'var(--lime)',background:'var(--lime-dim)'}:{}}>
+              {l}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* Cache TTL */}
+      <div className="setting-row" style={{borderBottom:'none',paddingBottom:0}}>
+        <div className="row-label">
+          <span>Candle Cache TTL</span>
+          <small>How long fetched candles are reused before re-fetching</small>
+        </div>
+        <div style={{display:'flex',gap:4,flexWrap:'wrap',justifyContent:'flex-end'}}>
+          {[['1m','1m'],['2m','2m'],['3m','3m (default)'],['5m','5m'],['10m','10m']].map(([v,l])=>(
+            <button key={v} className={`btn-small ${(settings.cacheTtl||'3m')===v?'active':''}`}
+              onClick={()=>set('cacheTtl',v)}
+              style={(settings.cacheTtl||'3m')===v?{borderColor:'var(--blue)',color:'var(--blue)',background:'rgba(74,144,255,0.1)'}:{}}>
+              {l}
             </button>
           ))}
         </div>
