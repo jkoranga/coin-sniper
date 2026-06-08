@@ -2651,10 +2651,10 @@ export default function PatternBuilderTab({ settings, update }) {
             <span style={{ fontSize: 9, fontFamily: 'var(--mono)', fontWeight: 800, letterSpacing: '.1em', color: 'var(--lime)', opacity: .8 }}>
               MY PATTERNS
             </span>
-            {patterns.filter(p => p.hiddenInBuilder).length > 0 && (
+            {patterns.filter(p => p.locked).length > 0 && (
               <span style={{ fontSize: 9, fontFamily: 'var(--mono)', fontWeight: 700, padding: '1px 6px', borderRadius: 5,
                 background: 'rgba(255,167,38,0.12)', color: '#ffa726', border: '1px solid rgba(255,167,38,0.3)' }}>
-                {patterns.filter(p => p.hiddenInBuilder).length} hidden
+                {patterns.filter(p => p.locked).length} locked (hidden)
               </span>
             )}
             <div style={{ flex: 1, height: 1, background: 'var(--lime-dim)' }} />
@@ -2707,12 +2707,12 @@ export default function PatternBuilderTab({ settings, update }) {
           )}
 
           <div style={{ display: 'flex', flexDirection: 'column', gap: 9, marginBottom: 10 }}>
-            {patterns.filter(p => !p.hiddenInBuilder).length === 0 && patterns.length > 0 && (
+            {patterns.filter(p => !p.locked).length === 0 && patterns.length > 0 && (
               <div style={{ textAlign:'center', padding:'20px 16px', color:'var(--text3)', fontSize:12, fontFamily:'var(--mono)', lineHeight:1.7 }}>
-                All patterns are hidden.<br/>Use the P button to show them.
+                All patterns are locked and hidden from editing.<br/>Unlock via the P button or tap each pattern.
               </div>
             )}
-            {patterns.filter(p => !p.hiddenInBuilder).map((p, i, visibleList) => {
+            {patterns.filter(p => !p.locked).map((p, i, visibleList) => {
               // Keep original index for operations
               const origIdx = patterns.indexOf(p)
               const isOpen = openPatternId === p.id

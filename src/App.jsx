@@ -546,12 +546,13 @@ function PatternsModal({ open, onClose, settings, update, onGoToBuilder }) {
                 </div>
               ) : patterns.map(p => {
                 const isBull  = p.side === 'bull'
-                const pColor  = isBull ? '#00e676' : '#ff4757'
-                const pGlow   = isBull ? 'rgba(0,230,118,0.22)' : 'rgba(255,60,80,0.22)'
-                const pBorder = isBull ? 'rgba(0,230,118,0.55)' : 'rgba(255,60,80,0.55)'
-                const pDim    = isBull ? 'rgba(0,230,118,0.07)' : 'rgba(255,60,80,0.07)'
-                const pFade   = isBull ? 'rgba(0,230,118,0.15)' : 'rgba(255,60,80,0.15)'
-                const pBorderDim = isBull ? 'rgba(0,230,118,0.28)' : 'rgba(255,71,87,0.28)'
+                const isLocked = p.locked
+                const pColor  = isLocked ? 'rgb(255,200,0)' : isBull ? '#00e676' : '#ff4757'
+                const pGlow   = isLocked ? 'rgba(255,200,0,0.25)' : isBull ? 'rgba(0,230,118,0.22)' : 'rgba(255,60,80,0.22)'
+                const pBorder = isLocked ? 'rgba(255,200,0,0.65)' : isBull ? 'rgba(0,230,118,0.55)' : 'rgba(255,60,80,0.55)'
+                const pDim    = isLocked ? 'rgba(255,200,0,0.06)' : isBull ? 'rgba(0,230,118,0.07)' : 'rgba(255,60,80,0.07)'
+                const pFade   = isLocked ? 'rgba(255,200,0,0.12)' : isBull ? 'rgba(0,230,118,0.15)' : 'rgba(255,60,80,0.15)'
+                const pBorderDim = isLocked ? 'rgba(255,200,0,0.3)' : isBull ? 'rgba(0,230,118,0.28)' : 'rgba(255,71,87,0.28)'
                 const allConds = (p.conditions||[]).filter(c=>c.enabled)
                 const isOpen  = openId === p.id
                 return (
@@ -566,38 +567,36 @@ function PatternsModal({ open, onClose, settings, update, onGoToBuilder }) {
                       style={{display:'flex', alignItems:'center', gap:10, padding:'11px 13px', cursor:'pointer'}}>
                       <span style={{fontSize:20, flexShrink:0}}>{p.icon || (isBull?'🟢':'🔴')}</span>
                       <div style={{flex:1, minWidth:0}}>
-                        <div style={{fontWeight:800, fontSize:14, color: p.enabled ? pColor : 'var(--text3)',
-                          whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis'}}>{p.name}</div>
+                        <div style={{display:'flex', alignItems:'center', gap:5, minWidth:0}}>
+                          <div style={{fontWeight:800, fontSize:14, color: pColor,
+                            whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis', flex:1, minWidth:0}}>{p.name}</div>
+                          {isLocked && (
+                            <span style={{fontSize:11, flexShrink:0, padding:'1px 6px', borderRadius:5,
+                              background:'rgba(255,200,0,0.15)', border:'1px solid rgba(255,200,0,0.5)',
+                              color:'rgb(255,200,0)', fontFamily:'var(--mono)', fontSize:9, fontWeight:800}}>🔒 LOCKED</span>
+                          )}
+                        </div>
                         <div style={{fontSize:9, fontFamily:'var(--mono)', color:'var(--text3)', marginTop:2,
                           whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis'}}>
                           {isBull?'BULL':'BEAR'} · {(p.tfs||[]).join(' ') || 'no TF'} · {allConds.length} cond{allConds.length!==1?'s':''}
+                          {isLocked && <span style={{color:'rgba(255,200,0,0.7)'}}> · scanning always</span>}
                         </div>
                       </div>
-                      {/* Hide from builder toggle */}
-                      <button
-                        onClick={e => { e.stopPropagation(); update(prev => ({
-                          customPatterns:(prev.customPatterns||[]).map(x=>x.id===p.id?{...x,hiddenInBuilder:!x.hiddenInBuilder}:x)
-                        }))}}
-                        title={p.hiddenInBuilder ? 'Hidden in Builder — tap to show' : 'Visible in Builder — tap to hide'}
-                        style={{
-                          width:30, height:30, borderRadius:8, cursor:'pointer', flexShrink:0,
-                          display:'flex', alignItems:'center', justifyContent:'center',
-                          border:`1.5px solid ${p.hiddenInBuilder ? 'rgba(255,167,38,0.6)' : 'rgba(126,207,255,0.4)'}`,
-                          background: p.hiddenInBuilder ? 'rgba(255,167,38,0.12)' : 'rgba(126,207,255,0.08)',
-                          fontSize:14,
-                        }}
-                      >{p.hiddenInBuilder ? '🙈' : '👁'}</button>
-
-                      {/* Scan ON/OFF toggle */}
-                      <div onClick={e => { e.stopPropagation(); update(prev => ({
-                          customPatterns:(prev.customPatterns||[]).map(x=>x.id===p.id?{...x,enabled:!x.enabled}:x)
-                        }))}} style={{
-                        width:40, height:22, borderRadius:11, cursor:'pointer', flexShrink:0, position:'relative',
-                        background: p.enabled ? pColor : 'var(--bg3)',
-                        border:`2px solid ${p.enabled ? pBorder : 'var(--border)'}`,
-                        boxShadow: p.enabled ? `0 0 8px ${pGlow}` : 'none', transition:'all .2s',
+                      {/* Scan ON/OFF toggle — locked patterns always ON */}
+                      <div onClick={e => {
+                          e.stopPropagation()
+                          if (isLocked) return // locked = always active, can't disable
+                          update(prev => ({
+                            customPatterns:(prev.customPatterns||[]).map(x=>x.id===p.id?{...x,enabled:!x.enabled}:x)
+                          }))
+                        }} style={{
+                        width:40, height:22, borderRadius:11, cursor: isLocked ? 'not-allowed' : 'pointer', flexShrink:0, position:'relative',
+                        background: (p.enabled || isLocked) ? pColor : 'var(--bg3)',
+                        border:`2px solid ${(p.enabled || isLocked) ? pBorder : 'var(--border)'}`,
+                        boxShadow: (p.enabled || isLocked) ? `0 0 8px ${pGlow}` : 'none', transition:'all .2s',
+                        opacity: isLocked ? 0.7 : 1,
                       }}>
-                        <div style={{position:'absolute', top:2, left:p.enabled?18:2, width:14, height:14,
+                        <div style={{position:'absolute', top:2, left:(p.enabled||isLocked)?18:2, width:14, height:14,
                           borderRadius:'50%', background:'#fff', transition:'left .2s', boxShadow:'0 1px 3px rgba(0,0,0,0.4)'}}/>
                       </div>
                       <span style={{color:'var(--text3)', fontSize:11, flexShrink:0, marginLeft:2}}>{isOpen ? '▲' : '▼'}</span>
