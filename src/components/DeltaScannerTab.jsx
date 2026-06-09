@@ -181,40 +181,147 @@ function AlertCard({ a, onDismiss, onTap, resultFilter }) {
   )
 }
 
-// ── Mini candle chart ─────────────────────────────────────────────────────────
+// ── Mini candle chart with EMA overlay + RSI panel ────────────────────────────
 function MiniCandleChart({ candles }) {
   if (!candles || candles.length < 2) return null
-  const W = 320, H = 90, PAD = 6
+
+  const W = 340, CH = 120, RH = 44, PAD = 6, GAP = 8
+  const TH = CH + GAP + RH  // total height
+
+  // ── Candle chart ────────────────────────────────────────────────────────────
   const minP = Math.min(...candles.map(c => c.low))
   const maxP = Math.max(...candles.map(c => c.high))
   const rng  = maxP - minP || 1
-  const toY  = p => PAD + (1 - (p - minP) / rng) * (H - PAD * 2)
+  const toY  = p => PAD + (1 - (p - minP) / rng) * (CH - PAD * 2)
   const cw   = Math.floor((W - PAD * 2) / candles.length)
-  const bw   = Math.max(2, cw - 3)
+  const bw   = Math.max(2, cw - 2)
+  const cx   = (i) => PAD + i * cw + cw / 2
+
+  // Price labels
+  const priceFmt = (v) => v >= 1000 ? v.toLocaleString('en-US',{maximumFractionDigits:0})
+    : v >= 1 ? v.toFixed(2) : v.toPrecision(3)
+
+  // ── RSI panel ───────────────────────────────────────────────────────────────
+  const RY0 = CH + GAP  // top of RSI panel
+  const rsiVals = candles.map(c => c.rsi14).filter(v => v != null)
+  const hasRsi  = rsiVals.length >= 2
+  const toRY = (v) => RY0 + PAD/2 + (1 - (v - 0) / 100) * (RH - PAD)
+
+  // EMA paths helper
+  const emaPath = (key, color, sw = 1.2, op = 0.9) => {
+    const pts = candles.map((c,i) => c[key] != null ? `${cx(i)},${toY(c[key])}` : null)
+    const segments = []
+    let seg = []
+    for (const p of pts) {
+      if (p) { seg.push(p) }
+      else if (seg.length > 1) { segments.push(seg); seg = [] }
+    }
+    if (seg.length > 1) segments.push(seg)
+    return segments.map((s,i) => (
+      <polyline key={i} points={s.join(' ')}
+        fill="none" stroke={color} strokeWidth={sw} opacity={op} strokeLinejoin="round"/>
+    ))
+  }
+
+  const last = candles[candles.length - 1]
+
   return (
-    <svg width="100%" viewBox={`0 0 ${W} ${H}`} style={{ display:'block', borderRadius:8, background:'rgba(0,0,0,0.25)' }}>
-      {candles.map((c, i) => {
-        const bull = c.close >= c.open
-        const col  = bull ? '#00e676' : '#ff4757'
-        const x    = PAD + i * cw + (cw - bw) / 2
-        const bTop = toY(Math.max(c.open, c.close))
-        const bBot = toY(Math.min(c.open, c.close))
-        const bH   = Math.max(1, bBot - bTop)
-        const cx   = x + bw / 2
-        return (
-          <g key={i}>
-            <line x1={cx} y1={toY(c.high)} x2={cx} y2={toY(c.low)} stroke={col} strokeWidth={1} opacity={0.65}/>
-            <rect x={x} y={bTop} width={bw} height={bH} fill={col} rx={1}/>
+    <div style={{borderRadius:10, overflow:'hidden', background:'rgba(0,0,0,0.3)'}}>
+      <svg width="100%" viewBox={`0 0 ${W} ${TH}`} style={{display:'block'}}>
+        {/* ── Candle chart background ── */}
+        <rect x={0} y={0} width={W} height={CH} fill="rgba(0,0,0,0.0)"/>
+
+        {/* Grid lines */}
+        {[0.25, 0.5, 0.75].map(f => (
+          <line key={f} x1={PAD} y1={PAD + f*(CH-PAD*2)} x2={W-PAD} y2={PAD + f*(CH-PAD*2)}
+            stroke="rgba(255,255,255,0.05)" strokeWidth={1}/>
+        ))}
+
+        {/* Price labels right side */}
+        {[0, 0.5, 1].map(f => {
+          const price = maxP - f * rng
+          return (
+            <text key={f} x={W - 2} y={PAD + f*(CH-PAD*2) + 3}
+              fontSize={7} fill="rgba(255,255,255,0.25)" textAnchor="end" fontFamily="monospace">
+              {priceFmt(price)}
+            </text>
+          )
+        })}
+
+        {/* EMA lines */}
+        {last?.ema9  && emaPath('ema9',  '#4dabf7', 1.2, 0.85)}
+        {last?.ema20 && emaPath('ema20', '#ff6b00', 1.5, 0.90)}
+
+        {/* Candles */}
+        {candles.map((c, i) => {
+          const bull = c.close >= c.open
+          const col  = bull ? '#00e676' : '#ff4757'
+          const x    = PAD + i * cw + (cw - bw) / 2
+          const bTop = toY(Math.max(c.open, c.close))
+          const bBot = toY(Math.min(c.open, c.close))
+          const bH   = Math.max(1, bBot - bTop)
+          return (
+            <g key={i}>
+              <line x1={cx(i)} y1={toY(c.high)} x2={cx(i)} y2={toY(c.low)}
+                stroke={col} strokeWidth={1} opacity={0.6}/>
+              <rect x={x} y={bTop} width={bw} height={bH} fill={col} rx={1}/>
+            </g>
+          )
+        })}
+
+        {/* EMA legend */}
+        {(last?.ema9 || last?.ema20) && (
+          <g>
+            {last?.ema9 && <>
+              <line x1={PAD} y1={CH-10} x2={PAD+12} y2={CH-10} stroke="#4dabf7" strokeWidth={1.5}/>
+              <text x={PAD+15} y={CH-7} fontSize={7} fill="#4dabf7" fontFamily="monospace">EMA9</text>
+            </>}
+            {last?.ema20 && <>
+              <line x1={PAD+38} y1={CH-10} x2={PAD+50} y2={CH-10} stroke="#ff6b00" strokeWidth={1.5}/>
+              <text x={PAD+53} y={CH-7} fontSize={7} fill="#ff6b00" fontFamily="monospace">EMA20</text>
+            </>}
           </g>
-        )
-      })}
-      {candles[0]?.ema20 && (
-        <polyline
-          points={candles.map((c,i) => `${PAD+i*cw+cw/2},${toY(c.ema20)}`).join(' ')}
-          fill="none" stroke="#ff6b00" strokeWidth={1.5} opacity={0.85} strokeLinejoin="round"
-        />
-      )}
-    </svg>
+        )}
+
+        {/* ── RSI panel ── */}
+        {hasRsi && (
+          <>
+            {/* Panel background */}
+            <rect x={0} y={RY0} width={W} height={RH} fill="rgba(0,0,0,0.2)"/>
+            <line x1={0} y1={RY0} x2={W} y2={RY0} stroke="rgba(255,255,255,0.08)" strokeWidth={1}/>
+
+            {/* RSI zones */}
+            {/* Overbought 70 */}
+            <line x1={PAD} y1={toRY(70)} x2={W-PAD} y2={toRY(70)}
+              stroke="rgba(255,71,87,0.3)" strokeWidth={0.8} strokeDasharray="3,3"/>
+            {/* Oversold 30 */}
+            <line x1={PAD} y1={toRY(30)} x2={W-PAD} y2={toRY(30)}
+              stroke="rgba(0,230,118,0.3)" strokeWidth={0.8} strokeDasharray="3,3"/>
+            {/* Mid 50 */}
+            <line x1={PAD} y1={toRY(50)} x2={W-PAD} y2={toRY(50)}
+              stroke="rgba(255,255,255,0.08)" strokeWidth={0.8}/>
+
+            {/* RSI labels */}
+            <text x={W-2} y={toRY(70)+3} fontSize={6} fill="rgba(255,71,87,0.5)" textAnchor="end" fontFamily="monospace">70</text>
+            <text x={W-2} y={toRY(30)+3} fontSize={6} fill="rgba(0,230,118,0.5)" textAnchor="end" fontFamily="monospace">30</text>
+            <text x={PAD}  y={RY0+8}    fontSize={6} fill="rgba(255,255,255,0.3)" fontFamily="monospace">RSI</text>
+
+            {/* RSI line */}
+            <polyline
+              points={candles.map((c,i) => c.rsi14 != null ? `${cx(i)},${toRY(c.rsi14)}` : null).filter(Boolean).join(' ')}
+              fill="none" stroke="#b388ff" strokeWidth={1.5} strokeLinejoin="round" opacity={0.9}/>
+
+            {/* Current RSI value */}
+            {last?.rsi14 != null && (
+              <text x={W-PAD-2} y={RY0+8} fontSize={7} textAnchor="end" fontFamily="monospace"
+                fill={last.rsi14 > 70 ? '#ff4757' : last.rsi14 < 30 ? '#00e676' : '#b388ff'}>
+                {last.rsi14.toFixed(1)}
+              </text>
+            )}
+          </>
+        )}
+      </svg>
+    </div>
   )
 }
 

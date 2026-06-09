@@ -125,6 +125,8 @@ const MIRROR_FIELD = {
   'low':       'high',
   'lowerWick': 'upperWick',
   'upperWick': 'lowerWick',
+  'isGreen':   'isRed',
+  'isRed':     'isGreen',
 }
 
 function mirrorCond(cond) {
@@ -142,7 +144,7 @@ function mirrorCond(cond) {
   const SIZE_FIELDS = new Set([
     'body','bodyPct','range','rangePct',
     'upperWick','lowerWick','wickPct',
-    'isGreen','isRed','volume',
+    'volume',
   ])
   const isSizeField = SIZE_FIELDS.has(cond.lhsField)
 
