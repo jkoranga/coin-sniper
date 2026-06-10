@@ -41,6 +41,7 @@ export const DEFAULTS = {
   // Timestamps: track when critical fields were last saved locally
   _customPatternsAt:  0,
   _deletedPatternsAt: 0,
+  _scanSettingsAt:    0,
 }
 
 // Fields that must be saved to cloud immediately (no debounce)
@@ -65,9 +66,13 @@ function hasCriticalKey(patch) {
   if (typeof patch !== 'object' || patch === null) return false
   return Object.keys(patch).some(k =>
     CRITICAL_KEYS.has(k) ||
-    // Per-TF scannerEnabled keys like "scannerEnabled_15m"
+    // Per-TF scan setting keys like "scanMode_15m", "dedupInterval_15m", etc.
     k.startsWith('scannerEnabled_') ||
-    k.startsWith('patternTfs_')
+    k.startsWith('patternTfs_') ||
+    k.startsWith('scanMode_') ||
+    k.startsWith('dedupInterval_') ||
+    k.startsWith('resultFilter_') ||
+    k.startsWith('volumeFilter_')
   )
 }
 
@@ -140,10 +145,32 @@ export function useSettings(firebaseUser) {
 
     // If local was saved more recently than cloud, keep local values for
     // all non-pattern settings (scanInterval, volumeFilter, symbolSet, etc.)
-    // This prevents cloud overwriting a change the user just made before
-    // Firebase had time to sync it.
     const base = localSavedAt > (cloudSavedAt || 0) ? { ...clean, ...prev } : { ...prev, ...clean }
     const merged = { ...base }
+
+    // ── Per-field protection for scan settings ─────────────────────────────
+    // _scanSettingsAt stamps every scan-setting change independently of
+    // _savedAt so cloud can never overwrite a locally newer scan config.
+    const localScanAt = prev._scanSettingsAt || 0
+    const cloudScanAt = clean._scanSettingsAt || 0
+    if (localScanAt > cloudScanAt) {
+      const SCAN_FIELDS = [
+        'timeframe','scanInterval','symbolSet','customPairs',
+        'scanMode','dedupInterval','volumeFilter','resultFilter',
+        'patternsMode','autoScan','viewMode','scannerEnabled',
+      ]
+      SCAN_FIELDS.forEach(k => { merged[k] = prev[k] })
+      // Also keep TF-scoped scan keys (scanMode_15m, dedupInterval_15m, etc.)
+      Object.keys(prev).forEach(k => {
+        if (
+          k.startsWith('scanMode_') || k.startsWith('dedupInterval_') ||
+          k.startsWith('resultFilter_') || k.startsWith('volumeFilter_') ||
+          k.startsWith('scannerEnabled_')
+        ) { merged[k] = prev[k] }
+      })
+      merged._scanSettingsAt = localScanAt
+    }
+    // ──────────────────────────────────────────────────────────────────────
 
     // customPatterns: keep local only when it is strictly newer.
     const localAt = prev._customPatternsAt  || 0
@@ -235,12 +262,31 @@ export function useSettings(firebaseUser) {
   // ── update(): the single entry point for all setting changes ──
   // For critical keys (patterns, scanners, etc.) — saves to Firebase immediately.
   // For non-critical — debounces 2 seconds.
+  // Scan-setting keys — any change to these stamps _scanSettingsAt
+  const SCAN_SETTING_KEYS = new Set([
+    'timeframe','scanInterval','symbolSet','customPairs',
+    'scanMode','dedupInterval','volumeFilter','resultFilter',
+    'patternsMode','autoScan','viewMode','scannerEnabled',
+  ])
+  function hasScanKey(patch) {
+    if (typeof patch !== 'object' || patch === null) return false
+    return Object.keys(patch).some(k =>
+      SCAN_SETTING_KEYS.has(k) ||
+      k.startsWith('scanMode_') || k.startsWith('dedupInterval_') ||
+      k.startsWith('resultFilter_') || k.startsWith('volumeFilter_') ||
+      k.startsWith('scannerEnabled_')
+    )
+  }
+
   const update = useCallback((patch) => {
     // Compute next state — stamp _savedAt so mergeCloud can compare recency
     const now = Date.now()
-    const next = typeof patch === 'function'
+    const base = typeof patch === 'function'
       ? { ...patch(settingsRef.current), _savedAt: now }
       : { ...settingsRef.current, ...patch, _savedAt: now }
+    // Stamp _scanSettingsAt whenever a scan setting changes
+    const isScanPatch = typeof patch === 'function' ? false : hasScanKey(patch)
+    const next = isScanPatch ? { ...base, _scanSettingsAt: now } : base
 
     // Update ref immediately so subsequent calls in the same tick see latest state
     settingsRef.current = next
