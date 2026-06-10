@@ -582,21 +582,20 @@ function PatternsModal({ open, onClose, settings, update, onGoToBuilder }) {
                           {isLocked && <span style={{color:'rgba(255,200,0,0.7)'}}> · scanning always</span>}
                         </div>
                       </div>
-                      {/* Unlock button — only shown for locked patterns */}
-                      {isLocked && (
-                        <div onClick={e => {
+                      {/* Lock/Unlock toggle — 1 tap locks, 1 tap unlocks */}
+                      <div onClick={e => {
                           e.stopPropagation()
                           update(prev => ({
-                            customPatterns:(prev.customPatterns||[]).map(x=>x.id===p.id?{...x,locked:false}:x)
+                            customPatterns:(prev.customPatterns||[]).map(x=>x.id===p.id?{...x,locked:!x.locked}:x)
                           }))
-                        }} title="Unlock pattern" style={{
+                        }} title={isLocked ? 'Unlock pattern' : 'Lock pattern'} style={{
                           width:30, height:22, borderRadius:7, cursor:'pointer', flexShrink:0,
                           display:'flex', alignItems:'center', justifyContent:'center',
-                          background:'rgba(255,200,0,0.12)',
-                          border:'1.5px solid rgba(255,200,0,0.5)',
-                          fontSize:13, lineHeight:1,
-                        }}>🔓</div>
-                      )}
+                          background: isLocked ? 'rgba(255,200,0,0.15)' : 'rgba(180,180,180,0.07)',
+                          border: `1.5px solid ${isLocked ? 'rgba(255,200,0,0.6)' : 'rgba(180,180,180,0.25)'}`,
+                          fontSize:13, lineHeight:1, transition:'all .2s',
+                          boxShadow: isLocked ? '0 0 7px rgba(255,200,0,0.3)' : 'none',
+                        }}>{isLocked ? '🔒' : '🔓'}</div>
                       {/* Scan ON/OFF toggle — locked patterns always ON */}
                       <div onClick={e => {
                           e.stopPropagation()
