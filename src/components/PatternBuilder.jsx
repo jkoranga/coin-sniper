@@ -145,6 +145,7 @@ function mirrorCond(cond) {
     'body','bodyPct','range','rangePct',
     'upperWick','lowerWick','wickPct',
     'volume',
+    'isGreen','isRed',  // binary 0/1 flags — never negate on mirror
   ])
   const isSizeField = SIZE_FIELDS.has(cond.lhsField)
 
