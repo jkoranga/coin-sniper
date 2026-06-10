@@ -2664,14 +2664,14 @@ export default function PatternBuilderTab({ settings, update }) {
           </div>
 
           {/* ── Horizontal name strip — tap to jump to pattern ── */}
-          {patterns.length > 1 && (
+          {patterns.filter(p => !p.locked).length > 1 && (
             <div style={{
               display: 'flex', gap: 5, overflowX: 'auto', flexWrap: 'nowrap',
               marginBottom: 10, paddingBottom: 4,
               scrollbarWidth: 'none', WebkitOverflowScrolling: 'touch',
               marginLeft: -10, marginRight: -10, paddingLeft: 10, paddingRight: 10,
             }}>
-              {patterns.map(p => {
+              {patterns.filter(p => !p.locked).map(p => {
                 const isBull = p.side === 'bull'
                 const col = isBull ? 'var(--green)' : 'var(--red)'
                 const bd  = isBull ? 'rgba(0,230,118,0.4)' : 'rgba(255,60,80,0.4)'
