@@ -687,6 +687,8 @@ export default function App() {
   const [prevTab,        setPrevTab]        = useState(() => ssGetTab())
   const [userTappedTabs, setUserTappedTabs] = useState(() => ssGetTapped())
   const [showExitWarning,setShowExitWarning]= useState(false)
+  const [isOnline,       setIsOnline]       = useState(() => navigator.onLine)
+  const [backOnline,     setBackOnline]     = useState(false)
 
   const HOME_TAB    = '15m'
   const activeTabRef = React.useRef(activeTab)
@@ -708,6 +710,23 @@ export default function App() {
     }
     window.addEventListener('popstate', handlePop)
     return () => window.removeEventListener('popstate', handlePop)
+  }, [])
+
+  // ── Network connection detection ────────────────────────────────────────
+  useEffect(() => {
+    let backTimer = null
+    function handleOffline() { setIsOnline(false); setBackOnline(false); clearTimeout(backTimer) }
+    function handleOnline()  {
+      setIsOnline(true); setBackOnline(true)
+      backTimer = setTimeout(() => setBackOnline(false), 3000)
+    }
+    window.addEventListener('offline', handleOffline)
+    window.addEventListener('online',  handleOnline)
+    return () => {
+      window.removeEventListener('offline', handleOffline)
+      window.removeEventListener('online',  handleOnline)
+      clearTimeout(backTimer)
+    }
   }, [])
 
   const { settings, update, reset, cloudSynced, cloudSaving, saveNow, saveNowWithPatch, isFirstVisit } = useSettings(user)
@@ -782,6 +801,43 @@ export default function App() {
 
   return (
     <div className="app-shell-v2">
+
+      {/* ── Network status banner ───────────────────────────────────────── */}
+      {(!isOnline || backOnline) && (() => {
+        const offline = !isOnline
+        return (
+          <div style={{
+            position: 'fixed', bottom: 72, left: '50%', transform: 'translateX(-50%)',
+            zIndex: 9999, pointerEvents: offline ? 'auto' : 'none',
+            display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8,
+            animation: 'fadeSlideUp .3s ease',
+          }}>
+            <div style={{
+              display: 'flex', alignItems: 'center', gap: 10,
+              padding: '10px 18px', borderRadius: 14,
+              background: offline ? 'rgba(20,20,20,0.97)' : 'rgba(20,20,20,0.95)',
+              border: `1.5px solid ${offline ? '#ff4444' : '#00c896'}`,
+              boxShadow: `0 4px 24px ${offline ? 'rgba(255,68,68,0.35)' : 'rgba(0,200,150,0.3)'}`,
+              color: offline ? '#ff6666' : '#00e6a8',
+              fontFamily: 'var(--mono)', fontSize: 13, fontWeight: 700,
+              letterSpacing: '0.03em', whiteSpace: 'nowrap',
+              minWidth: 220,
+            }}>
+              <span style={{ fontSize: 18 }}>{offline ? '📶' : '✅'}</span>
+              <span>{offline ? 'No Internet Connection' : 'Back Online'}</span>
+              {offline && (
+                <button onClick={() => window.location.reload()} style={{
+                  marginLeft: 10, padding: '4px 12px', borderRadius: 8, cursor: 'pointer',
+                  background: 'rgba(255,68,68,0.18)', border: '1.5px solid #ff4444',
+                  color: '#ff9999', fontFamily: 'var(--mono)', fontSize: 11, fontWeight: 700,
+                  letterSpacing: '0.04em',
+                }}>↺ RETRY</button>
+              )}
+            </div>
+          </div>
+        )
+      })()}
+
       {showLoginModal && (
         <LoginModal onClose={() => setShowLoginModal(false)} onUserChange={u => { setUser(u); setShowLoginModal(false) }} />
       )}
