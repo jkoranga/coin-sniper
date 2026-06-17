@@ -643,7 +643,7 @@ export default function TFScannerTab({ timeframe, tabColor, settings, update, sa
         if (sortBy==='volume')  cmp=(x.ticker?.volume||0)-(y.ticker?.volume||0)
         return sortDir==='desc'?-cmp:cmp
       })
-  }, [alerts, sortBy, sortDir, volMin])
+  }, [alerts, sortBy, sortDir, volMin, selPatterns])
 
   const bullCount = alerts.filter(a=>a.side==='bull').length
   const bearCount = alerts.filter(a=>a.side==='bear').length

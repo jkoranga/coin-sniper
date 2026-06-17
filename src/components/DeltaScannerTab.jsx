@@ -764,7 +764,7 @@ export default function DeltaScannerTab({
       if (sortBy === 'volume')  c = (x.volume ?? 0) - (y.volume ?? 0)
       return sortDir === 'desc' ? -c : c
     })
-  , [alerts, sortBy, sortDir, volMin])
+  , [alerts, sortBy, sortDir, volMin, selPatterns])
 
   const bull = filteredAlerts.filter(a => a.side === 'bull').length
   const bear = filteredAlerts.filter(a => a.side === 'bear').length
