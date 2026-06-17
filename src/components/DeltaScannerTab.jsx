@@ -753,10 +753,11 @@ export default function DeltaScannerTab({
     .filter(a => volMin === 0 || (a.volume ?? 0) >= volMin)
     .sort((x, y) => {
       let c = 0
-      if (sortBy === 'time')   c = x.time - y.time
-      if (sortBy === 'symbol') c = x.symbol.localeCompare(y.symbol)
-      if (sortBy === 'gain')   c = (parseFloat(x.details?.gainPct) || 0) - (parseFloat(y.details?.gainPct) || 0)
-      if (sortBy === 'volume') c = (x.volume ?? 0) - (y.volume ?? 0)
+      if (sortBy === 'time')    c = x.time - y.time
+      if (sortBy === 'symbol')  c = x.symbol.localeCompare(y.symbol)
+      if (sortBy === 'pattern') c = (x.scannerName||'').localeCompare(y.scannerName||'')
+      if (sortBy === 'gain')    c = (parseFloat(x.details?.gainPct) || 0) - (parseFloat(y.details?.gainPct) || 0)
+      if (sortBy === 'volume')  c = (x.volume ?? 0) - (y.volume ?? 0)
       return sortDir === 'desc' ? -c : c
     })
   , [alerts, sortBy, sortDir, volMin])
@@ -1057,7 +1058,7 @@ export default function DeltaScannerTab({
 
         {/* Sort */}
         <span style={{fontSize:10, color:'var(--text3)', flexShrink:0, fontFamily:'var(--mono)'}}>↕</span>
-        {[['time','Time'],['symbol','Sym'],['gain','Gain'],['volume','Vol']].map(([col,lbl])=>(
+        {[['time','Time'],['symbol','Sym'],['pattern','Pat'],['gain','Gain'],['volume','Vol']].map(([col,lbl])=>(
           <button key={col} onClick={() => toggleSort(col)} style={{
             padding:'5px 9px', borderRadius:7, cursor:'pointer', fontSize:10,
             fontFamily:'var(--mono)', flexShrink:0, whiteSpace:'nowrap',

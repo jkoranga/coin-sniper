@@ -907,7 +907,7 @@ export default function TFScannerTab({ timeframe, tabColor, settings, update, sa
             ))}
             <div style={{ width:1,height:16,background:'var(--border)',flexShrink:0,margin:'0 3px' }}/>
             <span style={{ fontSize:10,fontFamily:'var(--mono)',color:'var(--text3)',flexShrink:0 }}>↕</span>
-            {[['time','Time'],['symbol','Sym'],['gain','Gain'],['volume','Vol']].map(([col,label])=>(
+            {[['time','Time'],['symbol','Sym'],['pattern','Pat'],['gain','Gain'],['volume','Vol']].map(([col,label])=>(
               <button key={col} className={`sort-btn ${sortBy===col?'active':''}`} onClick={()=>toggleSort(col)} style={{ flexShrink:0,whiteSpace:'nowrap' }}>
                 {label}{sortBy===col?(sortDir==='desc'?' ↓':' ↑'):''}
               </button>
