@@ -532,6 +532,37 @@ function PatternsModal({ open, onClose, settings, update, onGoToBuilder }) {
             >Disable All</button>
           </div>
         )}
+        {/* Lock All / Unlock All row */}
+        {patterns.length > 0 && (
+          <div style={{display:'flex', alignItems:'center', gap:8, padding:'6px 16px 0', flexShrink:0}}>
+            <span style={{fontSize:10,fontFamily:'var(--mono)',color:'var(--text3)',flexShrink:0}}>
+              {patterns.filter(p=>p.locked).length}/{patterns.length} locked
+            </span>
+            <div style={{flex:1, height:1, background:'var(--border)'}}/>
+            <button
+              onClick={() => update(prev => ({
+                customPatterns: (prev.customPatterns||[]).map(p => ({...p, locked: true}))
+              }))}
+              style={{
+                padding:'4px 12px', borderRadius:7, cursor:'pointer',
+                fontSize:10, fontWeight:800, fontFamily:'var(--mono)',
+                border:'1.5px solid rgba(255,200,0,0.5)',
+                background:'rgba(255,200,0,0.1)', color:'#ffc800',
+              }}
+            >Lock All</button>
+            <button
+              onClick={() => update(prev => ({
+                customPatterns: (prev.customPatterns||[]).map(p => ({...p, locked: false}))
+              }))}
+              style={{
+                padding:'4px 12px', borderRadius:7, cursor:'pointer',
+                fontSize:10, fontWeight:800, fontFamily:'var(--mono)',
+                border:'1.5px solid rgba(180,180,180,0.35)',
+                background:'rgba(180,180,180,0.07)', color:'#aaa',
+              }}
+            >Unlock All</button>
+          </div>
+        )}
 
         {/* Divider */}
         <div style={{height:1, background:'var(--border)', margin:'10px 0 0', flexShrink:0}}/>
@@ -582,7 +613,7 @@ function PatternsModal({ open, onClose, settings, update, onGoToBuilder }) {
                           {isLocked && <span style={{color:'rgba(255,200,0,0.7)'}}> · scanning always</span>}
                         </div>
                       </div>
-                      {/* Lock/Unlock toggle — 1 tap locks, 1 tap unlocks */}
+                      {/* Lock/Unlock toggle */}
                       <div onClick={e => {
                           e.stopPropagation()
                           update(prev => ({
@@ -712,21 +743,14 @@ export default function App() {
     return () => window.removeEventListener('popstate', handlePop)
   }, [])
 
-  // ── Network connection detection ────────────────────────────────────────
+  // Network detection
   useEffect(() => {
-    let backTimer = null
-    function handleOffline() { setIsOnline(false); setBackOnline(false); clearTimeout(backTimer) }
-    function handleOnline()  {
-      setIsOnline(true); setBackOnline(true)
-      backTimer = setTimeout(() => setBackOnline(false), 3000)
-    }
-    window.addEventListener('offline', handleOffline)
-    window.addEventListener('online',  handleOnline)
-    return () => {
-      window.removeEventListener('offline', handleOffline)
-      window.removeEventListener('online',  handleOnline)
-      clearTimeout(backTimer)
-    }
+    let t = null
+    const off = () => { setIsOnline(false); setBackOnline(false); clearTimeout(t) }
+    const on  = () => { setIsOnline(true); setBackOnline(true); t = setTimeout(() => setBackOnline(false), 3000) }
+    window.addEventListener('offline', off)
+    window.addEventListener('online',  on)
+    return () => { window.removeEventListener('offline', off); window.removeEventListener('online', on); clearTimeout(t) }
   }, [])
 
   const { settings, update, reset, cloudSynced, cloudSaving, saveNow, saveNowWithPatch, isFirstVisit } = useSettings(user)
@@ -801,37 +825,33 @@ export default function App() {
 
   return (
     <div className="app-shell-v2">
-
-      {/* ── Network status banner ───────────────────────────────────────── */}
+      {/* Network status banner */}
       {(!isOnline || backOnline) && (() => {
-        const offline = !isOnline
+        const off = !isOnline
         return (
           <div style={{
-            position: 'fixed', bottom: 72, left: '50%', transform: 'translateX(-50%)',
-            zIndex: 9999, pointerEvents: offline ? 'auto' : 'none',
-            display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8,
-            animation: 'fadeSlideUp .3s ease',
+            position:'fixed', bottom:72, left:'50%', transform:'translateX(-50%)',
+            zIndex:9999, pointerEvents: off ? 'auto' : 'none',
+            display:'flex', flexDirection:'column', alignItems:'center',
+            animation:'fadeSlideUp .3s ease',
           }}>
             <div style={{
-              display: 'flex', alignItems: 'center', gap: 10,
-              padding: '10px 18px', borderRadius: 14,
-              background: offline ? 'rgba(20,20,20,0.97)' : 'rgba(20,20,20,0.95)',
-              border: `1.5px solid ${offline ? '#ff4444' : '#00c896'}`,
-              boxShadow: `0 4px 24px ${offline ? 'rgba(255,68,68,0.35)' : 'rgba(0,200,150,0.3)'}`,
-              color: offline ? '#ff6666' : '#00e6a8',
-              fontFamily: 'var(--mono)', fontSize: 13, fontWeight: 700,
-              letterSpacing: '0.03em', whiteSpace: 'nowrap',
-              minWidth: 220,
+              display:'flex', alignItems:'center', gap:10,
+              padding:'10px 18px', borderRadius:14,
+              background: off ? 'rgba(20,20,20,0.97)' : 'rgba(20,20,20,0.95)',
+              border: `1.5px solid ${off ? '#ff4444' : '#00c896'}`,
+              boxShadow: `0 4px 24px ${off ? 'rgba(255,68,68,0.35)' : 'rgba(0,200,150,0.3)'}`,
+              color: off ? '#ff6666' : '#00e6a8',
+              fontFamily:'var(--mono)', fontSize:13, fontWeight:700,
+              letterSpacing:'0.03em', whiteSpace:'nowrap', minWidth:220,
             }}>
-              <span style={{ fontSize: 18 }}>{offline ? '📶' : '✅'}</span>
-              <span>{offline ? 'No Internet Connection' : 'Back Online'}</span>
-              {offline && (
-                <button onClick={() => window.location.reload()} style={{
-                  marginLeft: 10, padding: '4px 12px', borderRadius: 8, cursor: 'pointer',
-                  background: 'rgba(255,68,68,0.18)', border: '1.5px solid #ff4444',
-                  color: '#ff9999', fontFamily: 'var(--mono)', fontSize: 11, fontWeight: 700,
-                  letterSpacing: '0.04em',
-                }}>↺ RETRY</button>
+              <span style={{fontSize:18}}>{off ? 'No Internet Connection' : 'Back Online'}</span>
+              {off && (
+                <button onClick={() => window.history.back()} style={{
+                  marginLeft:10, padding:'4px 12px', borderRadius:8, cursor:'pointer',
+                  background:'rgba(255,68,68,0.18)', border:'1.5px solid #ff4444',
+                  color:'#ff9999', fontFamily:'var(--mono)', fontSize:11, fontWeight:700,
+                }}>Back</button>
               )}
             </div>
           </div>
