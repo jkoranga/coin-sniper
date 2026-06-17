@@ -98,7 +98,12 @@ function load() {
     if (!raw) return { settings: DEFAULTS, isFirstVisit: true }
     const parsed = JSON.parse(raw)
     if (parsed.customPatterns) parsed.customPatterns = normalizeLoadedPatterns(parsed.customPatterns)
-    return { settings: { ...DEFAULTS, ...parsed }, isFirstVisit: false }
+    const merged = { ...DEFAULTS, ...parsed }
+    // Stamp _scanSettingsAt = now so this browser's local scan settings
+    // are always treated as "current session" — prevents onSnapshot from
+    // overwriting them with stale cloud data on page refresh.
+    merged._scanSettingsAt = Date.now()
+    return { settings: merged, isFirstVisit: false }
   } catch { return { settings: DEFAULTS, isFirstVisit: true } }
 }
 
@@ -214,6 +219,10 @@ export function useSettings(firebaseUser) {
       // This corrects any stale cloud state and ensures the cloud always
       // reflects the authoritative merged result.
       saveSettingsToCloud(uid, settingsRef.current).then(() => setCloudSynced(true))
+      // Also write scan settings to dedicated doc so onSnapshot on THIS browser
+      // gets a timestamp >= what we just set as _scanSettingsAt in load(),
+      // preventing a stale cloud push from overwriting local settings.
+      saveScanSettings(uid, settingsRef.current)
     })
   }, [firebaseUser, saveNow, mergeCloud])
 
@@ -253,11 +262,20 @@ export function useSettings(firebaseUser) {
   useEffect(() => {
     const uid = firebaseUser?.uid
     if (!uid) return
+    // Record when we started the subscription so we can ignore the
+    // immediate "echo" snapshot that Firestore fires on subscription open.
+    const subStartAt = Date.now()
+
     const unsub = subscribeScanSettings(uid, (cloudScan) => {
       const cloudAt = cloudScan._savedAt || 0
+      // Ignore the initial snapshot echo fired right after subscribe —
+      // it always contains the old cloud state and would overwrite
+      // settings the user already has loaded locally on this page.
+      const elapsed = Date.now() - subStartAt
+      if (elapsed < 3000) return // skip first echo (fires within ~200ms)
       setSettings(prev => {
         const localAt = prev._scanSettingsAt || 0
-        // Only apply if cloud is strictly newer than what we last saved locally
+        // Only apply if cloud snapshot is strictly newer than local
         if (cloudAt <= localAt) return prev
         const next = { ...prev }
         Object.keys(cloudScan).forEach(k => {
