@@ -16,7 +16,8 @@ import {
   getFirestore,
   doc,
   getDoc,
-  setDoc
+  setDoc,
+  onSnapshot,
 } from 'firebase/firestore'
 
 // ── Config ────────────────────────────────────────────────
@@ -92,4 +93,41 @@ export async function loadSettingsFromCloud(uid) {
     console.warn('[Signal Engine] loadSettings failed:', e.message)
     return null
   }
+}
+
+// ── Scan Settings (separate doc — real-time sync) ────────────────────────────
+const SCAN_FIELDS = [
+  'timeframe','scanInterval','symbolSet','customPairs',
+  'scanMode','dedupInterval','volumeFilter','resultFilter',
+  'patternsMode','autoScan','viewMode','scannerEnabled',
+]
+// Also includes TF-scoped keys: scanMode_15m, dedupInterval_1h, etc.
+
+export function isScanField(key) {
+  return SCAN_FIELDS.includes(key) ||
+    key.startsWith('scanMode_') || key.startsWith('dedupInterval_') ||
+    key.startsWith('resultFilter_') || key.startsWith('volumeFilter_') ||
+    key.startsWith('scannerEnabled_')
+}
+
+export async function saveScanSettings(uid, allSettings) {
+  if (!uid) return false
+  try {
+    const ref  = doc(db, 'users', uid, 'settings', 'scan-config')
+    const data = { _savedAt: Date.now() }
+    Object.keys(allSettings).forEach(k => { if (isScanField(k)) data[k] = allSettings[k] })
+    await setDoc(ref, data)
+    return true
+  } catch (e) {
+    console.warn('[CoinSniper] saveScanSettings failed:', e.message)
+    return false
+  }
+}
+
+export function subscribeScanSettings(uid, onChange) {
+  if (!uid) return () => {}
+  const ref = doc(db, 'users', uid, 'settings', 'scan-config')
+  return onSnapshot(ref, snap => {
+    if (snap.exists()) onChange(snap.data())
+  }, err => console.warn('[CoinSniper] scan-settings snapshot error:', err.message))
 }

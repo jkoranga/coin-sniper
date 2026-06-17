@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
-import { saveSettingsToCloud, loadSettingsFromCloud } from '../firebase.js'
+import { saveSettingsToCloud, loadSettingsFromCloud, saveScanSettings, subscribeScanSettings, isScanField } from '../firebase.js'
 
 const STORAGE_KEY = 'cfa_settings_v4'
 
@@ -246,6 +246,31 @@ export function useSettings(firebaseUser) {
     return () => document.removeEventListener('visibilitychange', handleVisibilityChange)
   }, [firebaseUser, mergeCloud])
 
+  // ── Real-time scan settings listener ──────────────────────────────────────
+  // subscribeScanSettings uses onSnapshot so any change in another browser/tab
+  // arrives here instantly without polling. Cloud always wins for scan settings
+  // (highest _savedAt wins) because they have no local pending work like patterns do.
+  useEffect(() => {
+    const uid = firebaseUser?.uid
+    if (!uid) return
+    const unsub = subscribeScanSettings(uid, (cloudScan) => {
+      const cloudAt = cloudScan._savedAt || 0
+      setSettings(prev => {
+        const localAt = prev._scanSettingsAt || 0
+        // Only apply if cloud is strictly newer than what we last saved locally
+        if (cloudAt <= localAt) return prev
+        const next = { ...prev }
+        Object.keys(cloudScan).forEach(k => {
+          if (k !== '_savedAt' && isScanField(k)) next[k] = cloudScan[k]
+        })
+        next._scanSettingsAt = cloudAt
+        settingsRef.current = next
+        return next
+      })
+    })
+    return unsub
+  }, [firebaseUser])
+
   useEffect(() => {
     if (!firebaseUser) { prevUidRef.current = null; setCloudSynced(false) }
   }, [firebaseUser])
@@ -254,19 +279,9 @@ export function useSettings(firebaseUser) {
   // For critical keys (patterns, scanners, etc.) — saves to Firebase immediately.
   // For non-critical — debounces 2 seconds.
 
-  const SCAN_SETTING_KEYS = new Set([
-    'timeframe','scanInterval','symbolSet','customPairs',
-    'scanMode','dedupInterval','volumeFilter','resultFilter',
-    'patternsMode','autoScan','viewMode','scannerEnabled',
-  ])
   function hasScanKey(p) {
     if (typeof p !== 'object' || p === null) return false
-    return Object.keys(p).some(k =>
-      SCAN_SETTING_KEYS.has(k) ||
-      k.startsWith('scanMode_') || k.startsWith('dedupInterval_') ||
-      k.startsWith('resultFilter_') || k.startsWith('volumeFilter_') ||
-      k.startsWith('scannerEnabled_')
-    )
+    return Object.keys(p).some(k => isScanField(k))
   }
   const update = useCallback((patch) => {
     // Compute next state — stamp _savedAt so mergeCloud can compare recency
@@ -291,6 +306,10 @@ export function useSettings(firebaseUser) {
       ? true  // function patches always treated as critical (e.g. complex updates)
       : hasCriticalKey(patch)
 
+    if (isScanPatch) {
+      // Scan settings → save to dedicated doc immediately for real-time cross-browser sync
+      saveScanSettings(uid, next)
+    }
     if (isCritical) {
       clearTimeout(saveTimeoutRef.current)
       setCloudSaving(true)
