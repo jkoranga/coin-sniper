@@ -259,6 +259,7 @@ export default function TFScannerTab({ timeframe, tabColor, settings, update, sa
   const [errors,        setErrors]       = useState([])
   const [sortBy,        setSortBy]       = useState('time')
   const [sortDir,       setSortDir]      = useState('desc')
+  const [selPatterns,   setSelPatterns]  = useState(new Set()) // selected pattern name filter
   const [viewMode,      setViewMode]     = useState('list')
   const [selectedAlert, setSelectedAlert] = useState(null)
   const [allSymbols,    setAllSymbols]   = useState([])
@@ -629,7 +630,10 @@ export default function TFScannerTab({ timeframe, tabColor, settings, update, sa
   const volMin = VOLUME_FILTERS.find(f=>f.id===volumeFilter)?.min ?? 0
 
   const filteredAlerts = useMemo(() => {
-    return [...alerts].filter(a => (a.ticker?.volume ?? 0) >= volMin)
+    return [...alerts].filter(a =>
+      (a.ticker?.volume ?? 0) >= volMin &&
+      (selPatterns.size === 0 || selPatterns.has(a.scannerName))
+    )
       .sort((x,y) => {
         let cmp=0
         if (sortBy==='time')    cmp=x.time-y.time
@@ -893,6 +897,46 @@ export default function TFScannerTab({ timeframe, tabColor, settings, update, sa
               ))}
             </div>
           </div>
+          {/* Pattern filter chips — shown when >1 distinct pattern in results */}
+          {(() => {
+            const names = [...new Set(alerts.map(a => a.scannerName))].sort()
+            if (names.length < 2) return null
+            return (
+              <div style={{ display:'flex', alignItems:'center', gap:5, overflowX:'auto', flexWrap:'nowrap',
+                paddingBottom:4, WebkitOverflowScrolling:'touch', scrollbarWidth:'none',
+                marginBottom:2,
+              }}>
+                <span style={{ fontSize:9, fontFamily:'var(--mono)', color:'var(--text3)', flexShrink:0, letterSpacing:'0.05em' }}>PAT</span>
+                {/* All button */}
+                <button
+                  onClick={() => setSelPatterns(new Set())}
+                  className="btn-small"
+                  style={{ flexShrink:0, whiteSpace:'nowrap',
+                    ...(selPatterns.size === 0 ? { borderColor:'var(--accent)', color:'var(--accent)', background:'var(--accent-dim)', fontWeight:700 } : {})
+                  }}
+                >All</button>
+                {names.map(name => {
+                  const active = selPatterns.has(name)
+                  const count  = alerts.filter(a => a.scannerName === name).length
+                  return (
+                    <button key={name}
+                      onClick={() => setSelPatterns(prev => {
+                        const next = new Set(prev)
+                        if (next.has(name)) next.delete(name)
+                        else next.add(name)
+                        return next
+                      })}
+                      className="btn-small"
+                      style={{ flexShrink:0, whiteSpace:'nowrap', maxWidth:110, overflow:'hidden', textOverflow:'ellipsis',
+                        ...(active ? { borderColor:'var(--accent)', color:'var(--accent)', background:'var(--accent-dim)', fontWeight:700 } : {})
+                      }}
+                    >{name} <span style={{ opacity:0.6 }}>({count})</span></button>
+                  )
+                })}
+              </div>
+            )
+          })()}
+
           {/* Filter + sort row — single horizontal scrollable line */}
           <div style={{ display:'flex',alignItems:'center',gap:4,overflowX:'auto',flexWrap:'nowrap',
             paddingBottom:4,WebkitOverflowScrolling:'touch',scrollbarWidth:'none',msOverflowStyle:'none' }}>

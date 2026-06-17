@@ -471,6 +471,7 @@ export default function DeltaScannerTab({
   const [singleSym,   setSingleSym]   = useState('')
   const [selected,    setSelected]    = useState(null)
   const [noPatWarn,   setNoPatWarn]   = useState(false)
+  const [selPatterns,  setSelPatterns]  = useState(new Set()) // selected pattern name filter
 
   const abortRef    = useRef(null)
   const loopRef     = useRef(false)
@@ -750,7 +751,10 @@ export default function DeltaScannerTab({
   const volMin = VOLUME_FILTERS.find(f => f.id === volumeFilter)?.min ?? 0
 
   const filteredAlerts = useMemo(() => [...alerts]
-    .filter(a => volMin === 0 || (a.volume ?? 0) >= volMin)
+    .filter(a =>
+      (volMin === 0 || (a.volume ?? 0) >= volMin) &&
+      (selPatterns.size === 0 || selPatterns.has(a.scannerName))
+    )
     .sort((x, y) => {
       let c = 0
       if (sortBy === 'time')    c = x.time - y.time
@@ -1020,6 +1024,52 @@ export default function DeltaScannerTab({
           <span onClick={() => setErrors([])} style={{cursor:'pointer', textDecoration:'underline', flexShrink:0, marginLeft:8}}>dismiss</span>
         </div>
       )}
+
+      {/* Pattern selection chips — shown when >1 distinct pattern in results */}
+      {(() => {
+        const names = [...new Set(alerts.map(a => a.scannerName))].sort()
+        if (names.length < 2) return null
+        return (
+          <div style={{ display:'flex', alignItems:'center', gap:5, overflowX:'auto', flexWrap:'nowrap',
+            paddingBottom:4, WebkitOverflowScrolling:'touch', scrollbarWidth:'none',
+            marginBottom:4, marginLeft:-12, marginRight:-12, paddingLeft:12, paddingRight:12,
+          }}>
+            <span style={{ fontSize:9, fontFamily:'var(--mono)', color:'var(--text3)', flexShrink:0, letterSpacing:'0.05em' }}>PAT</span>
+            <button
+              onClick={() => setSelPatterns(new Set())}
+              style={{ padding:'5px 10px', borderRadius:7, cursor:'pointer', fontSize:10,
+                fontFamily:'var(--mono)', flexShrink:0, whiteSpace:'nowrap',
+                fontWeight: selPatterns.size===0 ? 800 : 400,
+                border:`1px solid ${selPatterns.size===0 ? 'var(--accent)' : 'var(--border)'}`,
+                background: selPatterns.size===0 ? 'var(--accent-dim)' : 'var(--bg2)',
+                color: selPatterns.size===0 ? 'var(--accent)' : 'var(--text3)',
+              }}
+            >All</button>
+            {names.map(name => {
+              const active = selPatterns.has(name)
+              const count  = alerts.filter(a => a.scannerName === name).length
+              return (
+                <button key={name}
+                  onClick={() => setSelPatterns(prev => {
+                    const next = new Set(prev)
+                    if (next.has(name)) next.delete(name)
+                    else next.add(name)
+                    return next
+                  })}
+                  style={{ padding:'5px 10px', borderRadius:7, cursor:'pointer', fontSize:10,
+                    fontFamily:'var(--mono)', flexShrink:0, whiteSpace:'nowrap',
+                    maxWidth:120, overflow:'hidden', textOverflow:'ellipsis',
+                    fontWeight: active ? 800 : 400,
+                    border:`1px solid ${active ? 'var(--accent)' : 'var(--border)'}`,
+                    background: active ? 'var(--accent-dim)' : 'var(--bg2)',
+                    color: active ? 'var(--accent)' : 'var(--text3)',
+                  }}
+                >{name} <span style={{opacity:0.6}}>({count})</span></button>
+              )
+            })}
+          </div>
+        )
+      })()}
 
       {/* ── Sort / Filter bar — always visible above results ── */}
       <div style={{
