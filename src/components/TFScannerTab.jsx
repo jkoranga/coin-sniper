@@ -540,8 +540,7 @@ export default function TFScannerTab({ timeframe, tabColor, settings, update, sa
     }
     if (newErrors.length) setErrors(newErrors)
     setLastScan(Date.now())
-    // Atomically replace results — old results stayed visible during the entire scan,
-    // now swap in the fresh batch all at once
+    // Replace results — fresh batch replaces previous (both loop and auto behave identically)
     setAlerts(newAlerts.slice(0, 500))
     scanningRef.current = false
     setProgressSym('')
@@ -549,7 +548,8 @@ export default function TFScannerTab({ timeframe, tabColor, settings, update, sa
       setLoopCount(c=>c+1)
       candleCacheRef.current = {}
       setScanning(false)
-      setTimeout(()=>runScan(symOverride), 500)
+      setAlerts([]) // clear results before next loop so display is fresh
+      setTimeout(()=>runScan(symOverride), 5000) // 5s gap between loop iterations
     } else {
       setScanning(false)
     }

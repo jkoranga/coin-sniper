@@ -102,7 +102,10 @@ function load() {
     // Stamp _scanSettingsAt = now so this browser's local scan settings
     // are always treated as "current session" — prevents onSnapshot from
     // overwriting them with stale cloud data on page refresh.
-    merged._scanSettingsAt = Date.now()
+    merged._scanSettingsAt   = Date.now()
+    // Also stamp deletedPatterns so mergeCloud never overwrites local trash on re-login
+    merged._deletedPatternsAt = merged._deletedPatternsAt || Date.now()
+    merged._customPatternsAt  = merged._customPatternsAt  || Date.now()
     return { settings: merged, isFirstVisit: false }
   } catch { return { settings: DEFAULTS, isFirstVisit: true } }
 }
