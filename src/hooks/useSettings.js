@@ -14,7 +14,7 @@ const DEFAULT_30_PAIRS = [
 
 export const DEFAULTS = {
   timeframe:    '15m',
-  scanInterval: '1m',
+  scanInterval: '30s',
   darkMode:     true,
   symbolSet:    'all',
   customPairs:  DEFAULT_30_PAIRS,
@@ -35,6 +35,8 @@ export const DEFAULTS = {
   wickTouchPct:  1.5,
   scoreFilterEnabled: false,
   scoreMin:           5,
+  defaultSort:    'volume',
+  defaultSortDir: 'desc',
   // Pattern lists — always present so Firestore full-overwrites never miss them
   customPatterns:  [],
   deletedPatterns: [],
@@ -54,6 +56,7 @@ const CRITICAL_KEYS = new Set([
   // Scan settings (Settings tab)
   'symbolSet', 'scanInterval', 'dedupInterval', 'volumeFilter',
   'resultFilter', 'scanMode', 'patternsMode',
+  'defaultSort', 'defaultSortDir',
   // Alert / notification settings
   'soundEnabled', 'tgOn', 'tgToken', 'tgChatId',
   // Appearance
@@ -102,10 +105,13 @@ function load() {
     // Stamp _scanSettingsAt = now so this browser's local scan settings
     // are always treated as "current session" — prevents onSnapshot from
     // overwriting them with stale cloud data on page refresh.
-    merged._scanSettingsAt   = Date.now()
-    // Also stamp deletedPatterns so mergeCloud never overwrites local trash on re-login
-    merged._deletedPatternsAt = merged._deletedPatternsAt || Date.now()
-    merged._customPatternsAt  = merged._customPatternsAt  || Date.now()
+    merged._scanSettingsAt = Date.now()
+    // NOTE: deliberately do NOT stamp _deletedPatternsAt / _customPatternsAt here.
+    // Doing so would make a fresh/empty local trash array look "newer" than real
+    // cloud data, causing mergeCloud to wrongly prefer the empty local array and
+    // wipe out the user's actual trash/patterns on login. Leave these at whatever
+    // value localStorage had (0 if this device has never saved anything) so cloud
+    // (with a real, non-zero timestamp) correctly wins when this device is fresh.
     return { settings: merged, isFirstVisit: false }
   } catch { return { settings: DEFAULTS, isFirstVisit: true } }
 }
@@ -171,10 +177,13 @@ export function useSettings(firebaseUser) {
       merged._scanSettingsAt = localScanAt
     }
 
-    // customPatterns: keep local only when it is strictly newer.
+    // customPatterns: keep local only when it is strictly newer — same
+    // empty-array defensive guard as trash above.
     const localAt = prev._customPatternsAt  || 0
     const cloudAt = clean._customPatternsAt || 0
-    if (localAt > cloudAt) {
+    const localPatEmpty = !prev.customPatterns || prev.customPatterns.length === 0
+    const cloudHasPat   = Array.isArray(clean.customPatterns) && clean.customPatterns.length > 0
+    if (localAt > cloudAt && !(localPatEmpty && cloudHasPat)) {
       merged.customPatterns    = prev.customPatterns
       merged._customPatternsAt = localAt
     } else {
@@ -185,10 +194,13 @@ export function useSettings(firebaseUser) {
     // Normalize patterns from either source — stamp missing condition ids
     merged.customPatterns = normalizeLoadedPatterns(merged.customPatterns)
 
-    // Same for trash
+    // Same for trash — additionally: never let an empty local array beat
+    // cloud data just because of a timestamp edge case (defensive guard).
     const localTrAt = prev._deletedPatternsAt  || 0
     const cloudTrAt = clean._deletedPatternsAt || 0
-    if (localTrAt > cloudTrAt) {
+    const localTrashEmpty = !prev.deletedPatterns || prev.deletedPatterns.length === 0
+    const cloudHasTrash   = Array.isArray(clean.deletedPatterns) && clean.deletedPatterns.length > 0
+    if (localTrAt > cloudTrAt && !(localTrashEmpty && cloudHasTrash)) {
       merged.deletedPatterns    = prev.deletedPatterns
       merged._deletedPatternsAt = localTrAt
     } else {

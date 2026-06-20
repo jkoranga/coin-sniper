@@ -257,8 +257,8 @@ export default function TFScannerTab({ timeframe, tabColor, settings, update, sa
   const [lastScan,      setLastScan]     = useState(null)
   const [nextScanAt,    setNextScanAt]   = useState(null)
   const [errors,        setErrors]       = useState([])
-  const [sortBy,        setSortBy]       = useState('time')
-  const [sortDir,       setSortDir]      = useState('desc')
+  const sortBy  = settings[tfKey('sortBy')]  ?? settings.defaultSort    ?? 'time'
+  const sortDir = settings[tfKey('sortDir')] ?? settings.defaultSortDir ?? 'desc'
   const [selPatterns,   setSelPatterns]  = useState(new Set()) // selected pattern name filter
   const [viewMode,      setViewMode]     = useState('list')
   const [selectedAlert, setSelectedAlert] = useState(null)
@@ -623,8 +623,8 @@ export default function TFScannerTab({ timeframe, tabColor, settings, update, sa
   }
 
   function toggleSort(col) {
-    if (sortBy===col) setSortDir(d=>d==='asc'?'desc':'asc')
-    else { setSortBy(col); setSortDir('desc') }
+    if (sortBy===col) setTfSetting('sortDir', sortDir==='asc'?'desc':'asc')
+    else { setTfSetting('sortBy', col); setTfSetting('sortDir', 'desc') }
   }
 
   const volMin = VOLUME_FILTERS.find(f=>f.id===volumeFilter)?.min ?? 0
