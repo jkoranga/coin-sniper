@@ -678,7 +678,7 @@ export default function DeltaScannerTab({
 
     const scheduleNext = () => {
       if (cancelled) return
-      const ms = intervalToMs(settingsRef.current.scanInterval || '1m')
+      const ms = intervalToMs(settingsRef.current.scanInterval || '30s')
       setNextScanAt(Date.now() + ms)
       timerRef.current = setTimeout(async () => {
         if (cancelled) return

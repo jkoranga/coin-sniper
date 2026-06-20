@@ -439,7 +439,7 @@ export default function TFScannerTab({ timeframe, tabColor, settings, update, sa
     const now = Date.now()
     const exp = seenRef.current[key]
     if (exp && now < exp) return true
-    const ttl = Math.max(intervalToMs(dedupInterval), intervalToMs(settingsRef.current.scanInterval||'1m'))
+    const ttl = Math.max(intervalToMs(dedupInterval), intervalToMs(settingsRef.current.scanInterval||'30s'))
     seenRef.current[key] = now + ttl
     return false
   }
@@ -588,7 +588,7 @@ export default function TFScannerTab({ timeframe, tabColor, settings, update, sa
     // This prevents instant re-trigger when 500+ coins take longer than the interval.
     const scheduleNext = () => {
       if (cancelled) return
-      const ms = intervalToMs(settingsRef.current.scanInterval||'1m')
+      const ms = intervalToMs(settingsRef.current.scanInterval||'30s')
       setNextScanAt(Date.now()+ms)
       timerRef.current = setTimeout(async () => {
         if (cancelled) return
