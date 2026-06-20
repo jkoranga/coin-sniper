@@ -753,7 +753,7 @@ export default function App() {
     return () => { window.removeEventListener('offline', off); window.removeEventListener('online', on); clearTimeout(t) }
   }, [])
 
-  const { settings, update, reset, cloudSynced, cloudSaving, saveNow, saveNowWithPatch, isFirstVisit } = useSettings(user)
+  const { settings, update, reset, clearSortOverrides, cloudSynced, cloudSaving, saveNow, saveNowWithPatch, isFirstVisit } = useSettings(user)
 
   useEffect(() => {
     if (!checkConfigured()) { setAuthReady(true); return }
@@ -998,6 +998,7 @@ export default function App() {
         {activeTab === 'settings' && (
           <ErrorBoundary>
             <SettingsTab settings={settings} set={set} update={update} reset={reset}
+              clearSortOverrides={clearSortOverrides}
               user={user} onUserChange={setUser} cloudSynced={cloudSynced}
               cloudSaving={cloudSaving} onSaveNow={saveNow} saveNowWithPatch={saveNowWithPatch}
               openCount={settingsOpenCount} />

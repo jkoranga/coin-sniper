@@ -2,7 +2,7 @@ import React, { useState, useMemo } from 'react'
 import { Toggle } from './UI.jsx'
 import { ALL_SCANNERS, TF_META, TF_ORDER } from '../utils/scanners.js'
 import { sendTelegram } from '../utils/scanner.js'
-import { AppearanceSection, AlertsSection } from './sections/GeneralSections.jsx'
+import { AppearanceSection, AlertsSection, DefaultSortSection } from './sections/GeneralSections.jsx'
 import { SignalStrengthSection } from './sections/FilterSections.jsx'
 import CustomPairsSection from './sections/CustomPairsSection.jsx'
 import AccountSection from './sections/AccountSection.jsx'
@@ -1105,7 +1105,7 @@ function FontSection({ cfg, set }) {
   )
 }
 
-export default function SettingsTab({ settings, set, update, reset, user, onUserChange, cloudSynced, cloudSaving, onSaveNow, saveNowWithPatch, openCount=0 }) {
+export default function SettingsTab({ settings, set, update, reset, clearSortOverrides, user, onUserChange, cloudSynced, cloudSaving, onSaveNow, saveNowWithPatch, openCount=0 }) {
   const [resetMsg, setResetMsg] = React.useState('')
   const [resetConfirm, setResetConfirm] = React.useState(false)
   const openKey = openCount
@@ -1138,6 +1138,10 @@ export default function SettingsTab({ settings, set, update, reset, user, onUser
 
       <Accordion title="Scan Settings" icon="⬡" badge="GLOBAL" defaultOpen={false} accentColor="var(--accent)" openKey={openKey}>
         <ScanSettingsSection settings={settings} update={update} saveNowWithPatch={saveNowWithPatch}/>
+      </Accordion>
+
+      <Accordion title="Result Sort" icon="↕" defaultOpen={false} accentColor="var(--accent)" openKey={openKey}>
+        <DefaultSortSection cfg={settings} set={set} clearSortOverrides={clearSortOverrides}/>
       </Accordion>
 
       <Accordion title="Alerts & Notifications" icon="◈" defaultOpen={false} accentColor="rgba(255,167,38,0.5)" openKey={openKey}>

@@ -60,6 +60,57 @@ export function TimeframeSection({ cfg, set }) {
   )
 }
 
+// ── Default Result Sort ─────────────────────────────────────────────────────
+export function DefaultSortSection({ cfg, set, clearSortOverrides }) {
+  const SORT_OPTS = [['time','Time'],['symbol','Symbol'],['pattern','Pattern'],['gain','Gain'],['volume','Volume']]
+  return (
+    <div>
+      <SectionHeader title="Result Sort" sub="Default sort applied to fresh scan results" />
+      <SectionCard>
+        <SettingRow label="Sort By" sub="Column used to order results by default">
+          <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
+            {SORT_OPTS.map(([v, l]) => (
+              <button key={v} onClick={() => set('defaultSort', v)} style={{
+                padding: '5px 10px', borderRadius: 6,
+                border: `1px solid ${cfg.defaultSort === v ? 'var(--accent)' : 'var(--border)'}`,
+                background: cfg.defaultSort === v ? 'var(--accent-dim)' : 'var(--bg2)',
+                color: cfg.defaultSort === v ? 'var(--accent)' : 'var(--text3)',
+                fontFamily: 'var(--mono)', fontSize: 11, fontWeight: cfg.defaultSort === v ? 700 : 400, cursor: 'pointer',
+              }}>{l}</button>
+            ))}
+          </div>
+        </SettingRow>
+
+        <SettingRow label="Sort Direction" sub="Order applied with the column above">
+          <div style={{ display: 'flex', gap: 4 }}>
+            {[['desc','High → Low'],['asc','Low → High']].map(([v, l]) => (
+              <button key={v} onClick={() => set('defaultSortDir', v)} style={{
+                padding: '5px 10px', borderRadius: 6,
+                border: `1px solid ${cfg.defaultSortDir === v ? 'var(--accent)' : 'var(--border)'}`,
+                background: cfg.defaultSortDir === v ? 'var(--accent-dim)' : 'var(--bg2)',
+                color: cfg.defaultSortDir === v ? 'var(--accent)' : 'var(--text3)',
+                fontFamily: 'var(--mono)', fontSize: 11, fontWeight: cfg.defaultSortDir === v ? 700 : 400, cursor: 'pointer',
+              }}>{l}</button>
+            ))}
+          </div>
+        </SettingRow>
+
+        <div style={{ marginTop: 4 }}>
+          <button onClick={clearSortOverrides} style={{
+            width: '100%', padding: '10px', borderRadius: 8, cursor: 'pointer',
+            border: '1.5px solid rgba(255,200,0,0.5)', background: 'rgba(255,200,0,0.08)',
+            color: '#ffc800', fontFamily: 'var(--mono)', fontSize: 11, fontWeight: 700,
+          }}>Reset Sort On All Timeframes</button>
+          <div style={{ fontSize: 9, fontFamily: 'var(--mono)', color: 'var(--text3)', marginTop: 6 }}>
+            Once you tap a sort column in a scanner tab, that tab remembers your choice and
+            stops following the default above. Use this to clear those per-tab overrides.
+          </div>
+        </div>
+      </SectionCard>
+    </div>
+  )
+}
+
 // ── Alerts & Notifications ────────────────────────────────────────────────────
 function TgTestBtn({ token, chatId, onSave }) {
   const [st, setSt] = useState('idle')

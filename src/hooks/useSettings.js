@@ -395,5 +395,17 @@ export function useSettings(firebaseUser) {
     setSettings(next)
   }, [])
 
-  return { settings, update, updateNested, reset, cloudSynced, cloudSaving, saveNow, saveNowWithPatch, isFirstVisit: isFirstVisit.current }
+  // Clear all per-timeframe sort overrides (sortBy_15m, sortDir_15m, etc.)
+  // so defaultSort/defaultSortDir from Settings take effect again everywhere.
+  const clearSortOverrides = useCallback(() => {
+    update(prev => {
+      const next = { ...prev }
+      Object.keys(next).forEach(k => {
+        if (k.startsWith('sortBy_') || k.startsWith('sortDir_')) delete next[k]
+      })
+      return next
+    })
+  }, [update])
+
+  return { settings, update, updateNested, reset, clearSortOverrides, cloudSynced, cloudSaving, saveNow, saveNowWithPatch, isFirstVisit: isFirstVisit.current }
 }
