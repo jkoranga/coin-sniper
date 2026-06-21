@@ -6,6 +6,8 @@ import {
   getAuth,
   GoogleAuthProvider,
   signInWithPopup,
+  signInWithRedirect,
+  getRedirectResult,
   signInWithEmailAndPassword,
   createUserWithEmailAndPassword,
   updateProfile,
@@ -39,10 +41,47 @@ export const isConfigured = true
 export function checkConfigured() { return true }
 
 // ── Auth ──────────────────────────────────────────────────
+
+// Detect Android WebView / in-app browser wrappers (TWA, Capacitor, Cordova,
+// app-converter shells, Instagram/Facebook in-app browser, etc). Google
+// blocks signInWithPopup inside these — it silently fails or shows a blank
+// screen with "popup closed by user" even on a real tap. Redirect-based
+// sign-in works everywhere because it navigates the whole page instead of
+// opening a JS popup window.
+function isInAppOrWebView() {
+  const ua = navigator.userAgent || ''
+  // Android WebView signature: "; wv)" in the UA string
+  const isAndroidWebView = /Android/.test(ua) && /; wv\)/.test(ua)
+  // Common in-app browsers that also block popups
+  const isInAppBrowser = /FBAN|FBAV|Instagram|Line\/|MicroMessenger/.test(ua)
+  // Capacitor/Cordova native shells
+  const isNativeShell = !!(window.Capacitor || window.cordova)
+  return isAndroidWebView || isInAppBrowser || isNativeShell
+}
+
 export async function loginWithGoogle() {
   const provider = new GoogleAuthProvider()
+  if (isInAppOrWebView()) {
+    // Redirect flow: navigates away to Google, then back to this page.
+    // Result is NOT returned here — call getGoogleRedirectResult() on
+    // app mount to pick it up after the page reloads.
+    await signInWithRedirect(auth, provider)
+    return null
+  }
   const result = await signInWithPopup(auth, provider)
   return result.user
+}
+
+// Call this once on app startup (before/alongside onAuthStateChanged) to
+// catch the result of a signInWithRedirect that completed on page reload.
+export async function getGoogleRedirectResult() {
+  try {
+    const result = await getRedirectResult(auth)
+    return result?.user || null
+  } catch (e) {
+    console.warn('[CoinSniper] getRedirectResult failed:', e.message)
+    return null
+  }
 }
 
 export async function loginWithEmail(email, password) {

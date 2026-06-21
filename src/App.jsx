@@ -3,7 +3,7 @@ import { useSettings } from './hooks/useSettings.js'
 import DeltaScannerTab from './components/DeltaScannerTab.jsx'
 import SettingsTab from './components/SettingsTab.jsx'
 import PatternBuilderTab from './components/PatternBuilder.jsx'
-import { onAuthChanged, checkConfigured } from './firebase.js'
+import { onAuthChanged, checkConfigured, getGoogleRedirectResult } from './firebase.js'
 import { historyLoad, historySave, historyAddAlerts, fmtHistoryDate, exportHistoryCSV, tvUrl, TF_COLORS, HISTORY_CAP } from './utils/history.js'
 
 const ORANGE       = '#ff6b00'
@@ -75,7 +75,11 @@ function LoginModal({ onClose, onUserChange }) {
       const { loginWithGoogle, checkConfigured } = await import('./firebase.js')
       if (!checkConfigured()) { setErr('Firebase not configured.'); return }
       const u = await loginWithGoogle()
-      onUserChange(u); onClose()
+      // u is null when signInWithRedirect was used (WebView/app build) —
+      // the page is navigating away to Google right now, so there's nothing
+      // more to do here. onAuthChanged/getGoogleRedirectResult in App.jsx
+      // will pick up the logged-in user once the page comes back.
+      if (u) { onUserChange(u); onClose() }
     } catch(e) { setErr(e.message) }
     finally { setLoading(false) }
   }
@@ -758,6 +762,11 @@ export default function App() {
   useEffect(() => {
     if (!checkConfigured()) { setAuthReady(true); return }
     let unsub
+    // Catch the result of signInWithRedirect (used inside Android WebView /
+    // app-wrapper builds where signInWithPopup is blocked). onAuthChanged
+    // below will also fire once Firebase resolves this internally, but we
+    // call it explicitly first to surface any redirect-specific errors.
+    getGoogleRedirectResult().then(u => { if (u) setUser(u) }).catch(() => {})
     onAuthChanged(u => { setUser(u); setAuthReady(true) }).then(fn => { unsub = fn })
     return () => unsub?.()
   }, [])
