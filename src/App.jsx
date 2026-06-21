@@ -788,11 +788,21 @@ export default function App() {
     document.documentElement.style.setProperty('--font-scale',       String(scale))
     document.documentElement.style.setProperty('--font-weight-base', bold ? '600' : '400')
     document.documentElement.style.setProperty('--font',             fontMap[family] || fontMap.default)
-    // zoom scales EVERY element (text, icons, padding, buttons) uniformly —
-    // --font-scale alone only affected body text since most components use
-    // hardcoded pixel fontSize values that don't reference the CSS variable.
-    const shell = document.querySelector('.app-shell-v2')
-    if (shell) shell.style.zoom = String(scale)
+    // Zoom only the scrollable content area — NOT the whole app shell.
+    // Zooming the shell (which has a fixed 100dvh flex layout with the
+    // topbar/bottom-nav as fixed-height siblings) made those bars visually
+    // shift/overflow because their pixel heights no longer matched the
+    // zoomed viewport math. Scoping zoom to just the content keeps the
+    // top and bottom bars pinned exactly where they belong.
+    const content = document.querySelector('.content-scroll-v2')
+    if (content) content.style.zoom = String(scale)
+    // Topbar/bottom-nav scale modestly via font-size instead, so their text
+    // and icons still grow a bit with the setting without affecting layout height.
+    const topbar = document.querySelector('.topbar-v2')
+    const bottomNav = document.querySelector('.bottom-nav-v2')
+    const barScale = 1 + (scale - 1) * 0.4 // dampened — bars grow slower than content
+    if (topbar)    topbar.style.fontSize    = `calc(1em * ${barScale})`
+    if (bottomNav) bottomNav.style.fontSize = `calc(1em * ${barScale})`
   }, [settings.fontScale, settings.fontBold, settings.fontFamily])
 
   function set(path, value) {
