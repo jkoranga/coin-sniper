@@ -631,21 +631,19 @@ function PatternsModal({ open, onClose, settings, update, onGoToBuilder }) {
                           fontSize:13, lineHeight:1, transition:'all .2s',
                           boxShadow: isLocked ? '0 0 7px rgba(255,200,0,0.3)' : 'none',
                         }}>{isLocked ? '🔒' : '🔓'}</div>
-                      {/* Scan ON/OFF toggle — locked patterns always ON */}
+                      {/* Scan ON/OFF toggle — independent of lock state */}
                       <div onClick={e => {
                           e.stopPropagation()
-                          if (isLocked) return // locked = always active, can't disable
                           update(prev => ({
                             customPatterns:(prev.customPatterns||[]).map(x=>x.id===p.id?{...x,enabled:!x.enabled}:x)
                           }))
                         }} style={{
-                        width:40, height:22, borderRadius:11, cursor: isLocked ? 'not-allowed' : 'pointer', flexShrink:0, position:'relative',
-                        background: (p.enabled || isLocked) ? pColor : 'var(--bg3)',
-                        border:`2px solid ${(p.enabled || isLocked) ? pBorder : 'var(--border)'}`,
-                        boxShadow: (p.enabled || isLocked) ? `0 0 8px ${pGlow}` : 'none', transition:'all .2s',
-                        opacity: isLocked ? 0.7 : 1,
+                        width:40, height:22, borderRadius:11, cursor:'pointer', flexShrink:0, position:'relative',
+                        background: p.enabled ? pColor : 'var(--bg3)',
+                        border:`2px solid ${p.enabled ? pBorder : 'var(--border)'}`,
+                        boxShadow: p.enabled ? `0 0 8px ${pGlow}` : 'none', transition:'all .2s',
                       }}>
-                        <div style={{position:'absolute', top:2, left:(p.enabled||isLocked)?18:2, width:14, height:14,
+                        <div style={{position:'absolute', top:2, left:p.enabled?18:2, width:14, height:14,
                           borderRadius:'50%', background:'#fff', transition:'left .2s', boxShadow:'0 1px 3px rgba(0,0,0,0.4)'}}/>
                       </div>
                       <span style={{color:'var(--text3)', fontSize:11, flexShrink:0, marginLeft:2}}>{isOpen ? '▲' : '▼'}</span>

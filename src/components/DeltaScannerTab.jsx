@@ -511,7 +511,7 @@ export default function DeltaScannerTab({
     const modeFilter = scanMode === 'bull' || scanMode === 'bear' ? scanMode : null
     return (settings.customPatterns || [])
       .filter(p =>
-        (p.enabled || p.locked) && // locked patterns always scan
+        p.enabled && // lock/unlock only controls Pattern Builder visibility, never scan eligibility
         Array.isArray(p.tfs) && p.tfs.includes(timeframe) &&
         p.conditions.some(c => c.enabled) &&
         (!modeFilter || p.side === modeFilter)
