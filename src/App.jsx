@@ -788,6 +788,11 @@ export default function App() {
     document.documentElement.style.setProperty('--font-scale',       String(scale))
     document.documentElement.style.setProperty('--font-weight-base', bold ? '600' : '400')
     document.documentElement.style.setProperty('--font',             fontMap[family] || fontMap.default)
+    // zoom scales EVERY element (text, icons, padding, buttons) uniformly —
+    // --font-scale alone only affected body text since most components use
+    // hardcoded pixel fontSize values that don't reference the CSS variable.
+    const shell = document.querySelector('.app-shell-v2')
+    if (shell) shell.style.zoom = String(scale)
   }, [settings.fontScale, settings.fontBold, settings.fontFamily])
 
   function set(path, value) {

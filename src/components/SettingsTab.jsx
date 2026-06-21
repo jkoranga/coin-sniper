@@ -3,7 +3,6 @@ import { Toggle } from './UI.jsx'
 import { ALL_SCANNERS, TF_META, TF_ORDER } from '../utils/scanners.js'
 import { sendTelegram } from '../utils/scanner.js'
 import { AppearanceSection, AlertsSection, DefaultSortSection } from './sections/GeneralSections.jsx'
-import { SignalStrengthSection } from './sections/FilterSections.jsx'
 import CustomPairsSection from './sections/CustomPairsSection.jsx'
 import AccountSection from './sections/AccountSection.jsx'
 import { historyLoad, historySave, fmtHistoryDate, exportHistoryCSV, tvUrl, TF_COLORS, HISTORY_CAP } from '../utils/history.js'
@@ -254,12 +253,6 @@ function ScanSettingsSection({ settings, update, saveNowWithPatch }) {
     {id:'5m',   label:'>5M'},
     {id:'10m',  label:'>10M'},
   ]
-  const SORT_OPTIONS = [
-    {id:'time',   label:'Time'},
-    {id:'symbol', label:'A-Z'},
-    {id:'gain',   label:'Gain'},
-    {id:'volume', label:'Vol'},
-  ]
 
   return (
     <div>
@@ -328,32 +321,6 @@ function ScanSettingsSection({ settings, update, saveNowWithPatch }) {
               {f.label}
             </button>
           ))}
-        </div>
-      </div>
-
-      {/* Default Sort */}
-      <div className="setting-row">
-        <div className="row-label">
-          <span>Default Sort</span>
-          <small>How results are ordered in the list</small>
-        </div>
-        <div style={{display:'flex',gap:4,flexWrap:'wrap',justifyContent:'flex-end'}}>
-          {SORT_OPTIONS.map(s=>(
-            <button key={s.id} className={`btn-small ${settings.defaultSort===s.id?'active':''}`}
-              onClick={()=>set('defaultSort',s.id)}
-              style={settings.defaultSort===s.id?{borderColor:'var(--cyan)',color:'var(--cyan)',background:'rgba(0,212,255,0.1)'}:{}}>
-              {s.label}
-            </button>
-          ))}
-          {/* Sort direction */}
-          <button className={`btn-small ${settings.defaultSortDir==='asc'?'active':''}`}
-            onClick={()=>set('defaultSortDir', settings.defaultSortDir==='asc'?'desc':'asc')}
-            style={settings.defaultSortDir==='asc'
-              ?{borderColor:'var(--cyan)',color:'var(--cyan)',background:'rgba(0,212,255,0.1)'}
-              :{}}
-            title="Toggle sort direction">
-            {settings.defaultSortDir==='asc'?'↑ Asc':'↓ Desc'}
-          </button>
         </div>
       </div>
 
@@ -977,12 +944,12 @@ function FontSection({ cfg, set }) {
   const family = cfg.fontFamily ?? 'default'
 
   const SCALES = [
-    { id: 0.85, label: 'XS' },
-    { id: 0.92, label: 'S'  },
-    { id: 1,    label: 'M'  },
-    { id: 1.08, label: 'L'  },
-    { id: 1.16, label: 'XL' },
-    { id: 1.25, label: 'XXL'},
+    { id: 0.9,  label: 'XS' },
+    { id: 1,    label: 'S'  },
+    { id: 1.1,  label: 'M'  },
+    { id: 1.2,  label: 'L'  },
+    { id: 1.35, label: 'XL' },
+    { id: 1.5,  label: 'XXL'},
   ]
   const FONTS = [
     { id: 'default', label: 'Space Grotesk', preview: 'Aa' },
@@ -1036,7 +1003,7 @@ function FontSection({ cfg, set }) {
         </div>
         {/* Slider */}
         <input
-          type="range" min={0.75} max={1.35} step={0.01}
+          type="range" min={0.85} max={1.6} step={0.01}
           value={scale}
           onChange={e => set('fontScale', parseFloat(e.target.value))}
           style={{ width:'100%', marginTop:10, accentColor:'#7ecfff' }}
@@ -1154,10 +1121,6 @@ export default function SettingsTab({ settings, set, update, reset, clearSortOve
 
       <Accordion title="Font Settings" icon="Aa" defaultOpen={false} accentColor="rgba(126,207,255,0.4)" openKey={openKey}>
         <FontSection cfg={settings} set={set}/>
-      </Accordion>
-
-      <Accordion title="Signal Strength Filters" icon="◉" defaultOpen={false} accentColor="rgba(0,184,217,0.4)" openKey={openKey}>
-        <SignalStrengthSection cfg={settings} set={set}/>
       </Accordion>
 
       <Accordion title="Custom Pairs" icon="⊞" defaultOpen={false} accentColor="rgba(179,136,255,0.4)" openKey={openKey}>
