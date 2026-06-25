@@ -136,41 +136,78 @@ function attachEMAn(candles, period, key) {
 }
 
 function attachRSI(candles, period = 14) {
-  let avgGain = 0, avgLoss = 0
-  for (let i = 1; i <= period && i < candles.length; i++) {
-    const d = candles[i].close - candles[i-1].close
-    if (d > 0) avgGain += d / period; else avgLoss += -d / period
+  // Proper Wilder smoothing — matches scanner.js and TradingView
+  if (!candles || candles.length < period + 1) return
+  let gains = 0, losses = 0
+  for (let i = 1; i <= period; i++) {
+    const diff = candles[i].close - candles[i - 1].close
+    if (diff >= 0) gains += diff; else losses -= diff
   }
-  for (let i = period; i < candles.length; i++) {
-    if (i > period) {
-      const d = candles[i].close - candles[i-1].close
-      avgGain = (avgGain * (period-1) + Math.max(0,  d)) / period
-      avgLoss = (avgLoss * (period-1) + Math.max(0, -d)) / period
+  let avgGain = gains / period
+  let avgLoss = losses / period
+  for (let i = 0; i < candles.length; i++) {
+    if (i < period) { candles[i].rsi = null; candles[i].rsi14 = null; continue }
+    if (i === period) {
+      const v = avgLoss === 0 ? 100 : 100 - 100 / (1 + avgGain / avgLoss)
+      candles[i].rsi = v; candles[i].rsi14 = v
+    } else {
+      const diff = candles[i].close - candles[i - 1].close
+      avgGain = (avgGain * (period - 1) + (diff > 0 ? diff : 0)) / period
+      avgLoss = (avgLoss * (period - 1) + (diff < 0 ? -diff : 0)) / period
+      const v = avgLoss === 0 ? 100 : 100 - 100 / (1 + avgGain / avgLoss)
+      candles[i].rsi = v; candles[i].rsi14 = v
     }
-    const rs = avgLoss === 0 ? 100 : avgGain / avgLoss
-    candles[i].rsi14 = 100 - 100 / (1 + rs)
   }
 }
 
 function attachDMI(candles, period = 14) {
+  // Proper Wilder smoothing — matches scanner.js and TradingView
+  if (!candles || candles.length < period + 1) return
+  const dmPlus  = new Array(candles.length).fill(0)
+  const dmMinus = new Array(candles.length).fill(0)
+  const trArr   = new Array(candles.length).fill(0)
   for (let i = 1; i < candles.length; i++) {
-    const c = candles[i], p = candles[i-1]
+    const c = candles[i], p = candles[i - 1]
     const up = c.high - p.high, dn = p.low - c.low
-    c._pdm = up > dn && up > 0 ? up : 0
-    c._ndm = dn > up && dn > 0 ? dn : 0
-    c._tr  = Math.max(c.high - c.low, Math.abs(c.high - p.close), Math.abs(c.low - p.close))
+    dmPlus[i]  = (up > dn && up > 0) ? up : 0
+    dmMinus[i] = (dn > up && dn > 0) ? dn : 0
+    trArr[i]   = Math.max(c.high - c.low, Math.abs(c.high - p.close), Math.abs(c.low - p.close))
   }
-  let atr = 0, pdi = 0, ndi = 0
-  for (let i = 1; i < candles.length; i++) {
-    const c = candles[i]
-    atr = i < period ? atr + c._tr  : (atr*(period-1) + c._tr)  / period
-    pdi = i < period ? pdi + c._pdm : (pdi*(period-1) + c._pdm) / period
-    ndi = i < period ? ndi + c._ndm : (ndi*(period-1) + c._ndm) / period
-    if (atr > 0) {
-      const pp = pdi/atr*100, np = ndi/atr*100
-      c.dmi_plus = pp; c.dmi_minus = np
-      c.adx = (pp+np) > 0 ? Math.abs(pp-np)/(pp+np)*100 : 0
-    }
+  let smDmPlus  = dmPlus.slice(1, period + 1).reduce((s, v) => s + v, 0)
+  let smDmMinus = dmMinus.slice(1, period + 1).reduce((s, v) => s + v, 0)
+  let smTr      = trArr.slice(1, period + 1).reduce((s, v) => s + v, 0)
+  for (let i = 0; i <= period; i++) {
+    candles[i].diPlus = null; candles[i].diMinus = null; candles[i].adx = null
+  }
+  const diPlusArr  = new Array(candles.length).fill(null)
+  const diMinusArr = new Array(candles.length).fill(null)
+  candles[period].diPlus  = smTr > 0 ? (smDmPlus  / smTr) * 100 : 0
+  candles[period].diMinus = smTr > 0 ? (smDmMinus / smTr) * 100 : 0
+  diPlusArr[period]  = candles[period].diPlus
+  diMinusArr[period] = candles[period].diMinus
+  for (let i = period + 1; i < candles.length; i++) {
+    smDmPlus  = smDmPlus  - smDmPlus  / period + dmPlus[i]
+    smDmMinus = smDmMinus - smDmMinus / period + dmMinus[i]
+    smTr      = smTr      - smTr      / period + trArr[i]
+    candles[i].diPlus  = smTr > 0 ? (smDmPlus  / smTr) * 100 : 0
+    candles[i].diMinus = smTr > 0 ? (smDmMinus / smTr) * 100 : 0
+    diPlusArr[i]  = candles[i].diPlus
+    diMinusArr[i] = candles[i].diMinus
+  }
+  const dxArr = new Array(candles.length).fill(null)
+  for (let i = period; i < candles.length; i++) {
+    const sum = diPlusArr[i] + diMinusArr[i]
+    dxArr[i] = sum > 0 ? Math.abs(diPlusArr[i] - diMinusArr[i]) / sum * 100 : 0
+  }
+  const adxStart = period * 2
+  if (candles.length <= adxStart) return
+  let adx = 0
+  for (let i = period; i < adxStart; i++) adx += dxArr[i]
+  adx /= period
+  candles[adxStart - 1].adx = adx
+  for (let i = adxStart; i < candles.length; i++) {
+    adx = (adx * (period - 1) + dxArr[i]) / period
+    candles[i].adx = adx
   }
 }
 

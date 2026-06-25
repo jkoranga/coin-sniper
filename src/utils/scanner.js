@@ -69,12 +69,12 @@ export function attachRSI(candles, period = 14) {
   for (let i = 0; i < candles.length; i++) {
     if (i < period) { candles[i].rsi = null; continue }
     if (i === period) {
-      candles[i].rsi = avgLoss === 0 ? 100 : 100 - 100 / (1 + avgGain / avgLoss)
+      candles[i].rsi = candles[i].rsi14 = avgLoss === 0 ? 100 : 100 - 100 / (1 + avgGain / avgLoss)
     } else {
       const diff = candles[i].close - candles[i - 1].close
       avgGain = (avgGain * (period - 1) + (diff > 0 ? diff : 0)) / period
       avgLoss = (avgLoss * (period - 1) + (diff < 0 ? -diff : 0)) / period
-      candles[i].rsi = avgLoss === 0 ? 100 : 100 - 100 / (1 + avgGain / avgLoss)
+      candles[i].rsi = candles[i].rsi14 = avgLoss === 0 ? 100 : 100 - 100 / (1 + avgGain / avgLoss)
     }
   }
 }

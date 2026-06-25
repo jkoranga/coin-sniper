@@ -591,7 +591,7 @@ export default function DeltaScannerTab({
         setProgressSym(sym)
 
         try {
-          const candles = await fetchCached(sym, timeframe, 40)
+          const candles = await fetchCached(sym, timeframe, 80)  // 80 = DMI warmup safe floor
           if (!candles || candles.length < 10) { done++; setProgress(Math.round(done/symList.length*100)); continue }
 
           // HTF candles needed by any condition

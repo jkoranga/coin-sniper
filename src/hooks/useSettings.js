@@ -224,20 +224,21 @@ export function useSettings(firebaseUser) {
         saveNow()
         return
       }
-      setSettings(prev => {
-        const merged = mergeCloud(prev, cloud)
-        // Keep settingsRef in sync immediately — do NOT wait for the useEffect.
-        settingsRef.current = merged
-        return merged
-      })
-      // Push merged state back to Firestore immediately after login.
-      // This corrects any stale cloud state and ensures the cloud always
-      // reflects the authoritative merged result.
-      saveSettingsToCloud(uid, settingsRef.current).then(() => setCloudSynced(true))
-      // Also write scan settings to dedicated doc so onSnapshot on THIS browser
-      // gets a timestamp >= what we just set as _scanSettingsAt in load(),
-      // preventing a stale cloud push from overwriting local settings.
-      saveScanSettings(uid, settingsRef.current)
+      // IMPORTANT: compute merged OUTSIDE setSettings so we can pass it
+      // directly to saveSettingsToCloud below. setSettings(fn) is async —
+      // reading settingsRef.current after calling setSettings but before
+      // React processes the updater returns the stale PRE-merge value,
+      // which would immediately overwrite Firestore with the old (empty)
+      // trash and wipe out patterns that were correctly loaded from cloud.
+      const currentLocal = settingsRef.current
+      const merged = mergeCloud(currentLocal, cloud)
+      settingsRef.current = merged   // sync ref immediately
+      setSettings(merged)            // trigger re-render + localStorage persist
+
+      // Push merged state back to Firestore using the local `merged` reference
+      // (NOT settingsRef.current — React may not have processed the setState yet).
+      saveSettingsToCloud(uid, merged).then(() => setCloudSynced(true))
+      saveScanSettings(uid, merged)
     })
   }, [firebaseUser, saveNow, mergeCloud])
 
@@ -255,14 +256,14 @@ export function useSettings(firebaseUser) {
       if (document.visibilityState !== 'visible') return
       loadSettingsFromCloud(uid).then(cloud => {
         if (!cloud) return
-        setSettings(prev => {
-          const merged = mergeCloud(prev, cloud)
-          // Check ALL fields so scanInterval, volumeFilter, symbolSet etc. sync too
-          const changed = Object.keys(merged).some(k => merged[k] !== prev[k])
-          if (!changed) return prev
-          settingsRef.current = merged
-          return merged
-        })
+        // Compute merged outside setSettings to avoid reading stale settingsRef
+        const visLocal = settingsRef.current
+        const visMerged = mergeCloud(visLocal, cloud)
+        const visChanged = Object.keys(visMerged).some(k => visMerged[k] !== visLocal[k])
+        if (visChanged) {
+          settingsRef.current = visMerged
+          setSettings(visMerged)
+        }
       })
     }
 

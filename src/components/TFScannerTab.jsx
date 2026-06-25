@@ -430,8 +430,9 @@ export default function TFScannerTab({ timeframe, tabColor, settings, update, sa
         if (depth > maxDepth) maxDepth = depth
       }
     }
-    // +30 warmup buffer for EMA accuracy, floor 40, cap 200
-    return Math.min(200, Math.max(40, maxDepth + 30))
+    // Warmup buffer: DMI/ADX needs period*2=28 candles, RSI needs 14.
+    // 60-candle floor ensures indicators always have enough history.
+    return Math.min(300, Math.max(60, maxDepth + 60))
   }
 
   function isDupe(symbol, scannerId, tf) {
