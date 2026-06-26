@@ -840,7 +840,14 @@ export default function App() {
   async function handleLogout() {
     const { logout } = await import('./firebase.js')
     await logout()
+    // Clear localStorage so the next user (or the same user on re-login)
+    // starts with a clean slate — prevents previous user's patterns from
+    // being visible in the brief window before cloud sync completes.
+    try { localStorage.removeItem('cfa_settings_v4') } catch(_) {}
     setUser(null)
+    // Reload the page so all in-memory state (settings, alerts, scan state)
+    // is fully cleared — avoids any stale React state bleeding across sessions.
+    window.location.reload()
   }
 
   const togglePatterns = () => setShowPatterns(v => !v)
@@ -912,10 +919,18 @@ export default function App() {
               }}>Cancel</button>
               <button onClick={() => {
                 setShowExitWarning(false)
-                try { window.history.go(-(window.history.length)) } catch(_) {}
+                // Capacitor (native app shell)
+                try { if (window.Capacitor?.Plugins?.App) { window.Capacitor.Plugins.App.exitApp(); return } } catch(_) {}
+                // Cordova / older WebView wrapper
                 try { if (window.navigator?.app?.exitApp) { window.navigator.app.exitApp(); return } } catch(_) {}
+                // Android WebView — navigate to blank then close
+                try { window.location.replace('about:blank') } catch(_) {}
                 try { window.close() } catch(_) {}
-                document.body.innerHTML = ''; document.body.style.background = '#000'
+                // PWA / browser fallback — blank the page completely
+                setTimeout(() => {
+                  document.body.innerHTML = '<div style="background:#000;height:100vh;width:100vw"></div>'
+                  document.body.style.cssText = 'background:#000;margin:0;padding:0;overflow:hidden'
+                }, 50)
               }} style={{
                 flex:1, padding:'12px', borderRadius:10, cursor:'pointer',
                 border:'1.5px solid rgba(255,60,60,0.6)', background:'rgba(255,60,60,0.15)',
