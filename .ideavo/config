@@ -1,0 +1,53 @@
+{
+  "systemSetup": [],
+  "templateName": "custom",
+  "projectDependencies": [
+    {
+      "name": "Install Dependencies",
+      "command": "npm install"
+    }
+  ],
+  "codeChecks": [],
+  "buildSteps": [
+    {
+      "name": "Build Project",
+      "command": "npm run build"
+    }
+  ],
+  "runStep": [
+    {
+      "name": "Run Dev Server",
+      "command": "npm run dev -- --port 3000 --host",
+      "port": "3000"
+    }
+  ],
+  "deploySteps": [
+    {
+      "name": "Build for Production",
+      "command": "npm run build"
+    }
+  ],
+  "cleanupFiles": [
+    "dist",
+    "node_modules/.vite"
+  ],
+  "packageManager": "npm",
+  "envPaths": [
+    {
+      "name": "root",
+      "path": ".env"
+    },
+    {
+      "name": "coin-sniper",
+      "path": "coin-sniper/.env"
+    },
+    {
+      "name": "coin_sniper",
+      "path": "coin_sniper/.env"
+    },
+    {
+      "name": "coin_sniper_fixed",
+      "path": "coin_sniper_fixed/.env"
+    }
+  ]
+}
