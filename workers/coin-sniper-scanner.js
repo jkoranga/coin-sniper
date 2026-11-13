@@ -3,7 +3,6 @@ import { fetchDeltaSymbols, fetchDeltaCandles } from "../src/utils/deltaScanner.
 import { buildTelegramMsg } from "../src/utils/scanner.js";
 
 const FIREBASE_API_KEY = "AIzaSyAZahY8Ci0yGHHZcf5TLTakNod16Hihbqo";
-const DEDUP_SECONDS = 15 * 60;
 const MAX_MARKET_TASKS = 16;
 const MAX_TOTAL_FETCHES = 25;
 const MAX_ALERTS_PER_RUN = 5;
@@ -156,6 +155,10 @@ async function handleSync(request, env) {
       : [],
     volumeFilter: ["all", "500k", "1m", "5m", "10m"].includes(payload.volumeFilter)
       ? payload.volumeFilter : "all",
+    dedupMsByTf: Object.fromEntries(ALLOWED_TFS.map(tf => {
+      const ms = Number(payload.dedupMsByTf?.[tf]);
+      return [tf, Number.isFinite(ms) && ms >= 15000 && ms <= 86400000 ? ms : 180000];
+    })),
     telegram,
     updatedAt: Date.now(),
   };
@@ -294,7 +297,9 @@ async function scanCron(env) {
         const dedupKey = [
           "dedup", config.uid, task.symbol, task.timeframe, pattern.id, pattern.side,
         ].join(":");
-        if (await env.SCANNER_KV.get(dedupKey)) continue;
+        const cooldownMs = config.dedupMsByTf?.[task.timeframe] || 180000;
+        const existingExpiry = Number(await env.SCANNER_KV.get(dedupKey) || 0);
+        if (existingExpiry && Date.now() < existingExpiry) continue;
         const alertKey = dedupKey;
         if (sentThisRun.has(alertKey)) continue;
         sentThisRun.add(alertKey);
@@ -320,7 +325,9 @@ async function scanCron(env) {
         try {
           const telegram = await decryptTelegram(config.telegram, env);
           await sendTelegram(telegram.token, telegram.chatId, buildTelegramMsg(alert));
-          await env.SCANNER_KV.put(dedupKey, "1", { expirationTtl: DEDUP_SECONDS });
+          await env.SCANNER_KV.put(dedupKey, String(Date.now() + cooldownMs), {
+            expirationTtl: Math.max(60, Math.ceil(cooldownMs / 1000)),
+          });
           alertsSent++;
         } catch (error) {
           console.error("[CoinSniper] Alert delivery failed for user", config.uid, error?.message || error);
