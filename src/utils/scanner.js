@@ -391,8 +391,8 @@ export function buildTelegramMsg(alert) {
   const interval = tfMap[timeframe] || '15'
   const chartUrl = `https://www.tradingview.com/chart/?symbol=BYBIT:${encodeURIComponent(base)}USDT.P&interval=${interval}`
   const setup = escapeTelegramHtml(alert.scannerName || 'Pattern Signal')
-  const daily = Number(alert.dailyChangePct)
-  const hourly = Number(alert.hourlyChangePct)
+  const daily = alert.dailyChangePct == null ? NaN : Number(alert.dailyChangePct)
+  const hourly = alert.hourlyChangePct == null ? NaN : Number(alert.hourlyChangePct)
   const changeLine = (label, value) => Number.isFinite(value)
     ? `${value >= 0 ? '🟢' : '🔴'} <b>${label}:</b> ${value >= 0 ? '+' : ''}${value.toFixed(2)}%`
     : `⚪ <b>${label}:</b> N/A`
