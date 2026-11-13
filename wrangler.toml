@@ -1,0 +1,12 @@
+name = "coin-sniper-scanner"
+main = "workers/coin-sniper-scanner.js"
+compatibility_date = "2026-11-13"
+workers_dev = true
+
+[triggers]
+crons = ["*/5 * * * *"]
+
+[[kv_namespaces]]
+binding = "SCANNER_KV"
+# Replace this placeholder with the ID of the existing coin-sniper-data KV namespace.
+id = "REPLACE_WITH_EXISTING_KV_NAMESPACE_ID"
