@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { saveSettingsToCloud, loadSettingsFromCloud, saveScanSettings, subscribeScanSettings, isScanField } from '../firebase.js'
+import { syncBackgroundScanner } from '../utils/backgroundScannerSync.js'
 
 const STORAGE_KEY = 'cfa_settings_v4'
 
@@ -132,6 +133,16 @@ export function useSettings(firebaseUser) {
     settingsRef.current = settings
     try { localStorage.setItem(STORAGE_KEY, JSON.stringify(settings)) } catch {}
   }, [settings])
+
+  // Keep the Cloudflare background scanner aligned with the app's saved settings.
+  // It receives patterns/TF assignments only; Telegram token and chat ID stay in Worker Secrets.
+  useEffect(() => {
+    if (!firebaseUser || !cloudSynced) return
+    const timer = setTimeout(() => {
+      syncBackgroundScanner(firebaseUser, settings)
+    }, 1200)
+    return () => clearTimeout(timer)
+  }, [firebaseUser, cloudSynced, settings])
 
   // ── Direct cloud save (no debounce) ───────────────────────
   const saveNow = useCallback(async (overrideSettings) => {
