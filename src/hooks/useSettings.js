@@ -135,7 +135,7 @@ export function useSettings(firebaseUser) {
   }, [settings])
 
   // Keep the Cloudflare background scanner aligned with the app's saved settings.
-  // It receives patterns/TF assignments only; Telegram token and chat ID stay in Worker Secrets.
+  // Telegram credentials are sent over HTTPS and encrypted inside the Worker before KV storage.
   useEffect(() => {
     if (!firebaseUser || !cloudSynced) return
     const timer = setTimeout(() => {
