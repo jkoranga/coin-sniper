@@ -37,6 +37,7 @@ export async function fetchDeltaSymbols() {
             symbol:    p.symbol,
             name:      p.symbol.replace('USDT', ''),
             markPrice: parseFloat(p.lastPrice    || p.markPrice || 0),
+            dailyChangePct: parseFloat(p.price24hPcnt || 0) * 100,
             volume:    parseFloat(p.turnover24h  || 0), // 24h volume in USDT — what filters use
           }))
           .filter(p => p.volume > 0)
