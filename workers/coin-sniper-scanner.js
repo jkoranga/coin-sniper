@@ -274,13 +274,11 @@ async function scanCron(env) {
       if (alertsSent >= MAX_ALERTS_PER_RUN) break;
       const config = consumer.config;
       const htfMap = {};
-      let htfComplete = true;
       for (const pattern of consumer.patterns) {
         for (const condition of pattern.conditions || []) {
           if (!condition.htfTf || condition.htfTf === task.timeframe) continue;
           const htf = candleMap.get(task.symbol + "|" + condition.htfTf);
-          if (!htf) htfComplete = false;
-          else htfMap[condition.htfTf] = htf;
+          if (htf) htfMap[condition.htfTf] = htf;
         }
       }
       for (const pattern of consumer.patterns) {
@@ -297,8 +295,6 @@ async function scanCron(env) {
           "dedup", config.uid, task.symbol, task.timeframe, pattern.id, pattern.side,
         ].join(":");
         if (await env.SCANNER_KV.get(dedupKey)) continue;
-        await env.SCANNER_KV.put(dedupKey, "1", { expirationTtl: DEDUP_SECONDS });
-
         const alertKey = dedupKey;
         if (sentThisRun.has(alertKey)) continue;
         sentThisRun.add(alertKey);
@@ -324,6 +320,7 @@ async function scanCron(env) {
         try {
           const telegram = await decryptTelegram(config.telegram, env);
           await sendTelegram(telegram.token, telegram.chatId, buildTelegramMsg(alert));
+          await env.SCANNER_KV.put(dedupKey, "1", { expirationTtl: DEDUP_SECONDS });
           alertsSent++;
         } catch (error) {
           console.error("[CoinSniper] Alert delivery failed for user", config.uid, error?.message || error);
