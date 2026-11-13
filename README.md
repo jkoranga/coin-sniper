@@ -31,3 +31,5 @@ Delta's API blocks browser requests (CORS). These serverless functions run serve
 ## Stack
 
 React 18 + Vite + Firebase + Vercel
+
+Cloudflare background scanner deployment setup.
