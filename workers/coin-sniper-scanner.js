@@ -4,9 +4,9 @@ import { buildTelegramMsg } from "../src/utils/scanner.js";
 
 const FIREBASE_API_KEY = "AIzaSyAZahY8Ci0yGHHZcf5TLTakNod16Hihbqo";
 const DEDUP_SECONDS = 15 * 60;
-const MAX_MARKET_TASKS = 24;
-const MAX_TOTAL_FETCHES = 42;
-const MAX_ALERTS_PER_RUN = 10;
+const MAX_MARKET_TASKS = 16;
+const MAX_TOTAL_FETCHES = 25;
+const MAX_ALERTS_PER_RUN = 5;
 const ALLOWED_TFS = ["1m", "3m", "5m", "15m", "30m", "1h", "4h", "1d"];
 
 function corsHeaders() {
