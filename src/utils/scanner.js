@@ -382,42 +382,30 @@ function escapeTelegramHtml(value) {
 
 export function buildTelegramMsg(alert) {
   const isBull = alert.side === 'bull'
-  const side = isBull ? '🟢 BUY / BULLISH' : '🔴 SELL / BEARISH'
+  const icon = isBull ? '🟢' : '🔴'
+  const action = isBull ? 'BUY' : 'SELL'
   const symbol = String(alert.symbol || '').toUpperCase()
   const base = symbol.replace(/USDT$/, '')
+  const timeframe = String(alert.timeframe || '—')
   const tfMap = { '1m':'1', '3m':'3', '5m':'5', '15m':'15', '30m':'30', '1h':'60', '4h':'240', '1d':'D' }
-  const interval = tfMap[alert.timeframe] || '15'
+  const interval = tfMap[timeframe] || '15'
   const chartUrl = `https://www.tradingview.com/chart/?symbol=BYBIT:${encodeURIComponent(base)}USDT.P&interval=${interval}`
-  const details = alert.details || {}
-  const price = details.close ?? details.highestClose ?? details.lowestOpen ?? details.entry
-  const priceLine = Number.isFinite(Number(price)) && price != null
-    ? `💰 <b>Signal Price:</b> ${Number(price).toLocaleString('en-US', { maximumFractionDigits: 8 })}\n`
-    : ''
-  const moveLine = details.gainPct != null && Number.isFinite(Number(details.gainPct))
-    ? `📈 <b>Pattern Move:</b> ${Number(details.gainPct) >= 0 ? '+' : ''}${Number(details.gainPct)}%\n`
-    : ''
-  const candleLine = details.candleCount != null
-    ? `🕯 <b>Candles Matched:</b> ${escapeTelegramHtml(details.candleCount)}\n`
-    : ''
-  const time = new Intl.DateTimeFormat('en-IN', {
-    timeZone: 'Asia/Kolkata', dateStyle: 'medium', timeStyle: 'medium', hour12: true,
-  }).format(new Date(alert.time || Date.now()))
+  const setup = escapeTelegramHtml(alert.scannerName || 'Pattern Signal')
+  const daily = Number(alert.dailyChangePct)
+  const hourly = Number(alert.hourlyChangePct)
+  const changeLine = (label, value) => Number.isFinite(value)
+    ? `${value >= 0 ? '🟢' : '🔴'} <b>${label}:</b> ${value >= 0 ? '+' : ''}${value.toFixed(2)}%`
+    : `⚪ <b>${label}:</b> N/A`
 
   return [
-    `<b>⚡ COIN SNIPER · LIVE SIGNAL</b>`,
-    `${side}`,
+    `<b>${icon} ${action} · ${setup} · ${escapeTelegramHtml(timeframe)}</b>`,
+    `🪙 <b>${escapeTelegramHtml(symbol)}</b>`,
+    changeLine('Daily Change', daily),
+    changeLine('Hourly Change', hourly),
+    `📉 <a href="${chartUrl}">TradingView Chart</a>`,
     '',
-    `🪙 <b>Pair:</b> ${escapeTelegramHtml(symbol)}`,
-    `🎯 <b>Setup:</b> ${escapeTelegramHtml(alert.scannerName || 'Pattern Signal')}`,
-    `⏱ <b>Timeframe:</b> ${escapeTelegramHtml(alert.timeframe || '—')}`,
-    priceLine.trimEnd(),
-    moveLine.trimEnd(),
-    candleLine.trimEnd(),
-    `📉 <a href="${chartUrl}">TradingView Chart · ${escapeTelegramHtml(symbol)} · ${escapeTelegramHtml(alert.timeframe || '15m')}</a>`,
-    `🕒 <b>Signal Time:</b> ${escapeTelegramHtml(time)} IST`,
-    '',
-    '<i>Automated pattern alert · Not financial advice. Verify the chart before trading.</i>',
-  ].filter(Boolean).join('\n')
+    '<i>Coin Sniper</i>',
+  ].join('\\n')
 }
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
