@@ -413,7 +413,7 @@ export function buildTelegramMsg(alert) {
     priceLine.trimEnd(),
     moveLine.trimEnd(),
     candleLine.trimEnd(),
-    `📊 <a href="${chartUrl}">Open same pair & timeframe on TradingView</a>`,
+    `📉 <a href="${chartUrl}">TradingView Chart · ${escapeTelegramHtml(symbol)} · ${escapeTelegramHtml(alert.timeframe || '15m')}</a>`,
     `🕒 <b>Signal Time:</b> ${escapeTelegramHtml(time)} IST`,
     '',
     '<i>Automated pattern alert · Not financial advice. Verify the chart before trading.</i>',
