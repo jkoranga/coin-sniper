@@ -23,18 +23,18 @@ export async function syncBackgroundScanner(firebaseUser, settings) {
         patterns.some(pattern => Array.isArray(pattern.tfs) && pattern.tfs.includes(tf) && pattern.conditions.length > 0)
       ),
       scanModeByTf: Object.fromEntries(DELTA_TFS.map(tf => [
-        tf, settings[\`delta_scanMode_${tf}\`] ?? settings.scanMode ?? 'all',
+        tf, settings[`delta_scanMode_${tf}`] ?? settings.scanMode ?? 'all',
       ])),
       customPairs: Array.isArray(settings.customPairs) ? settings.customPairs : [],
       volumeFilter: settings.volumeFilter || 'all',
       updatedAt: Date.now(),
     }
 
-    const response = await fetch(\`${WORKER_URL}/sync\`, {
+    const response = await fetch(`${WORKER_URL}/sync`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        Authorization: \`Bearer ${idToken}\`,
+        Authorization: `Bearer ${idToken}`,
       },
       body: JSON.stringify(payload),
     })
