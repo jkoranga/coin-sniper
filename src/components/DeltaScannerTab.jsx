@@ -615,10 +615,21 @@ export default function DeltaScannerTab({
             const result = sc.logic(candles, htfMap)
             if (!result) continue
 
+            let hourlyChangePct = null
+            try {
+              const hourlyCandles = await fetchCached(sym, '1h', 2)
+              const lastHour = hourlyCandles?.[hourlyCandles.length - 1]
+              if (lastHour?.open > 0 && lastHour?.close > 0) {
+                hourlyChangePct = ((lastHour.close - lastHour.open) / lastHour.open) * 100
+              }
+            } catch {}
+
             const a = {
               id: ++idRef.current, exchange: 'delta', symbol: sym, timeframe,
               time: Date.now(), scannerId: sc.id, scannerName: sc.name,
               scannerIcon: sc.icon, side: sc.side, details: result, volume: symVol,
+              dailyChangePct: Number.isFinite(Number(symObj?.dailyChangePct)) ? Number(symObj.dailyChangePct) : null,
+              hourlyChangePct,
             }
             newAlerts.push(a)
             // Stream each result immediately — no waiting for full scan
