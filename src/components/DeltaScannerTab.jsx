@@ -647,9 +647,7 @@ export default function DeltaScannerTab({
     const tgCfg = settingsRef.current
     if (newAlerts.length > 0 && tgCfg.tgOn && tgCfg.tgToken && tgCfg.tgChatId) {
       for (const a of newAlerts.slice(0, 5)) {
-        sendTelegram(tgCfg.tgToken, tgCfg.tgChatId,
-          `🔶 ${a.scannerIcon} ${a.scannerName}\n${a.symbol} · ${a.timeframe}`
-        ).catch(() => {})
+        sendTelegram(tgCfg.tgToken, tgCfg.tgChatId, buildTelegramMsg(a)).catch(() => {})
       }
     }
 
