@@ -358,17 +358,66 @@ export function playBeep(isBear = false) {
 // ─── Telegram ─────────────────────────────────────────────────────────────────
 export async function sendTelegram(botToken, chatId, text) {
   if (!botToken || !chatId) return
-  await fetch(`https://api.telegram.org/bot${botToken}/sendMessage`, {
+  const res = await fetch(`https://api.telegram.org/bot${botToken}/sendMessage`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ chat_id: chatId, text, parse_mode: 'HTML' }),
+    body: JSON.stringify({
+      chat_id: chatId,
+      text,
+      parse_mode: 'HTML',
+      disable_web_page_preview: true,
+    }),
   })
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({}))
+    throw new Error(body.description || `Telegram send failed (${res.status})`)
+  }
+}
+
+function escapeTelegramHtml(value) {
+  return String(value ?? '').replace(/[&<>"]/g, ch => ({
+    '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;',
+  })[ch])
 }
 
 export function buildTelegramMsg(alert) {
   const isBull = alert.side === 'bull'
-  const dir = isBull ? '🟢 BULL' : '🔴 BEAR'
-  return `${dir} <b>${alert.symbol}</b> — ${alert.scannerName}\n📊 TF: ${alert.timeframe} | ${isBull ? '+' : '-'}${alert.details.gainPct}% | ${alert.details.candleCount} candles\n⏱ ${new Date(alert.time).toUTCString()}`
+  const side = isBull ? '🟢 BUY / BULLISH' : '🔴 SELL / BEARISH'
+  const symbol = String(alert.symbol || '').toUpperCase()
+  const base = symbol.replace(/USDT$/, '')
+  const tfMap = { '1m':'1', '3m':'3', '5m':'5', '15m':'15', '30m':'30', '1h':'60', '4h':'240', '1d':'D' }
+  const interval = tfMap[alert.timeframe] || '15'
+  const chartUrl = `https://www.tradingview.com/chart/?symbol=BYBIT:${encodeURIComponent(base)}USDT.P&interval=${interval}`
+  const details = alert.details || {}
+  const price = details.close ?? details.highestClose ?? details.lowestOpen ?? details.entry
+  const priceLine = Number.isFinite(Number(price)) && price != null
+    ? `💰 <b>Signal Price:</b> ${Number(price).toLocaleString('en-US', { maximumFractionDigits: 8 })}\n`
+    : ''
+  const moveLine = details.gainPct != null && Number.isFinite(Number(details.gainPct))
+    ? `📈 <b>Pattern Move:</b> ${Number(details.gainPct) >= 0 ? '+' : ''}${Number(details.gainPct)}%\n`
+    : ''
+  const candleLine = details.candleCount != null
+    ? `🕯 <b>Candles Matched:</b> ${escapeTelegramHtml(details.candleCount)}\n`
+    : ''
+  const time = new Intl.DateTimeFormat('en-IN', {
+    timeZone: 'Asia/Kolkata', dateStyle: 'medium', timeStyle: 'medium', hour12: true,
+  }).format(new Date(alert.time || Date.now()))
+
+  return [
+    `<b>⚡ COIN SNIPER · LIVE SIGNAL</b>`,
+    `${side}`,
+    '',
+    `🪙 <b>Pair:</b> ${escapeTelegramHtml(symbol)}`,
+    `🎯 <b>Setup:</b> ${escapeTelegramHtml(alert.scannerName || 'Pattern Signal')}`,
+    `⏱ <b>Timeframe:</b> ${escapeTelegramHtml(alert.timeframe || '—')}`,
+    priceLine.trimEnd(),
+    moveLine.trimEnd(),
+    candleLine.trimEnd(),
+    `📊 <a href="${chartUrl}">Open same pair & timeframe on TradingView</a>`,
+    `🕒 <b>Signal Time:</b> ${escapeTelegramHtml(time)} IST`,
+    '',
+    '<i>Automated pattern alert · Not financial advice. Verify the chart before trading.</i>',
+  ].filter(Boolean).join('\n')
 }
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
