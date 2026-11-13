@@ -191,9 +191,7 @@ function makeUserTasks(config, allSymbols) {
     if (!patterns.length) continue;
     const mode = config.scanModeByTf?.[tf] || "all";
     const symbols = symbolListFor(config, mode, allSymbols);
-    const minVolume = volumeThreshold(config.volumeFilter);
     for (const item of symbols) {
-      if ((item.volume || 0) < minVolume) continue;
       tasks.push({
         key: item.symbol + "|" + tf,
         symbol: item.symbol,
