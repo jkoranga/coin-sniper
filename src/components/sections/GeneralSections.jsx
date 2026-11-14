@@ -166,6 +166,7 @@ export function AlertsSection({ cfg, set }) {
           <Toggle checked={!!cfg.tgOn} onChange={v => set('tgOn', v)} />
         </SettingRow>
 
+        )}
         <SettingRow
           label="Web Push Notification"
           sub={cfg.webPushOn ? 'Browser permission enabled' : 'Receive alerts when the app is closed'}
@@ -222,7 +223,6 @@ export function AlertsSection({ cfg, set }) {
               Get token from @BotFather · Get ID from @userinfobot
             </div>
           </div>
-        )}
       </SectionCard>
     </div>
   )
