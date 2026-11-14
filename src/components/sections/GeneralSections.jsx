@@ -158,6 +158,39 @@ export function AlertsSection({ cfg, set }) {
           <Toggle checked={!!cfg.tgOn} onChange={v => set('tgOn', v)} />
         </SettingRow>
 
+        <SettingRow
+          label="Web Push Notification"
+          sub={cfg.webPushOn ? 'Browser permission enabled' : 'Receive alerts when the app is closed'}
+        >
+          <Toggle
+            checked={!!cfg.webPushOn}
+            onChange={async v => {
+              if (!v) { set('webPushOn', false); return }
+              if (!('Notification' in window)) {
+                window.alert('Push notifications are not supported by this browser.')
+                return
+              }
+              try {
+                const permission = Notification.permission === 'default'
+                  ? await Notification.requestPermission()
+                  : Notification.permission
+                if (permission === 'granted') {
+                  set('webPushOn', true)
+                  window.alert('Notification permission granted. Background push delivery will be connected in the next setup step.')
+                } else {
+                  set('webPushOn', false)
+                  window.alert('Notification permission was not granted. Please allow notifications in browser settings.')
+                }
+              } catch {
+                window.alert('Could not request notification permission in this browser.')
+              }
+            }}
+          />
+        </SettingRow>
+        <div style={{ fontSize: 9, fontFamily: 'var(--mono)', color: 'var(--text3)', padding: '0 2px 8px' }}>
+          Permission setup only — server-side push delivery will be connected separately. Telegram alerts remain unchanged.
+        </div>
+
         {cfg.tgOn && (
           <div style={{ paddingTop: 12 }}>
             <div style={{ fontSize: 10, fontFamily: 'var(--mono)', color: 'var(--text3)', marginBottom: 5 }}>Bot Token:</div>
