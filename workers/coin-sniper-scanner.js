@@ -355,8 +355,7 @@ async function scanCron(env) {
           "dedup", config.uid, task.symbol, task.timeframe, pattern.id, pattern.side,
         ].join(":");
         const cooldownMs = config.dedupMsByTf?.[task.timeframe] || 180000;
-        const existingExpiry = Number(await env.SCANNER_KV.get(dedupKey) || 0);
-        if (existingExpiry && Date.now() < existingExpiry) continue;
+        // Delivery cooldowns are checked independently for Telegram and Web Push below.
         const alertKey = dedupKey;
         if (sentThisRun.has(alertKey)) continue;
         sentThisRun.add(alertKey);
