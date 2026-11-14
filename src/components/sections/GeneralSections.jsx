@@ -1,6 +1,7 @@
 import React, { useState } from 'react'
 import { SectionHeader, Toggle, SettingRow, SectionCard, PillGroup } from '../UI'
 import { sendTelegram } from '../../utils/scanner'
+import { registerWebPush } from '../../utils/webPush'
 
 // ── Appearance ────────────────────────────────────────────────────────────────
 export function AppearanceSection({ cfg, set }) {
@@ -165,30 +166,24 @@ export function AlertsSection({ cfg, set }) {
           <Toggle
             checked={!!cfg.webPushOn}
             onChange={async v => {
-              if (!v) { set('webPushOn', false); return }
-              if (!('Notification' in window)) {
-                window.alert('Push notifications are not supported by this browser.')
+              if (!v) {
+                set('webPushOn', false)
                 return
               }
               try {
-                const permission = Notification.permission === 'default'
-                  ? await Notification.requestPermission()
-                  : Notification.permission
-                if (permission === 'granted') {
-                  set('webPushOn', true)
-                  window.alert('Notification permission granted. Background push delivery will be connected in the next setup step.')
-                } else {
-                  set('webPushOn', false)
-                  window.alert('Notification permission was not granted. Please allow notifications in browser settings.')
-                }
-              } catch {
-                window.alert('Could not request notification permission in this browser.')
+                const token = await registerWebPush()
+                set('pushToken', token)
+                set('webPushOn', true)
+                window.alert('Web Push is registered on this device. Background scanner sync will now be updated.')
+              } catch (error) {
+                set('webPushOn', false)
+                window.alert(error?.message || 'Could not enable Web Push in this browser.')
               }
             }}
           />
         </SettingRow>
         <div style={{ fontSize: 9, fontFamily: 'var(--mono)', color: 'var(--text3)', padding: '0 2px 8px' }}>
-          Permission setup only — server-side push delivery will be connected separately. Telegram alerts remain unchanged.
+          Push registration for this browser/device. Telegram alerts remain unchanged.
         </div>
 
         {cfg.tgOn && (
