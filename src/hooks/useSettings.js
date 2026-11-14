@@ -30,6 +30,7 @@ export const DEFAULTS = {
   patternTfs:    {},
   soundEnabled: true,
   tgOn:         false,
+  webPushOn:    false,
   tgToken:      '',
   tgChatId:     '',
   wickEnabled:   true,
@@ -59,7 +60,7 @@ const CRITICAL_KEYS = new Set([
   'resultFilter', 'scanMode', 'patternsMode',
   'defaultSort', 'defaultSortDir',
   // Alert / notification settings
-  'soundEnabled', 'tgOn', 'tgToken', 'tgChatId',
+  'soundEnabled', 'tgOn', 'webPushOn', 'tgToken', 'tgChatId',
   // Appearance
   'darkMode',
   // Signal strength
