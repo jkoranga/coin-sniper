@@ -215,11 +215,9 @@ export function AlertsSection({ cfg, set }) {
         <div style={{ fontSize: 9, fontFamily: 'var(--mono)', color: 'var(--text3)', padding: '0 2px 8px' }}>
           Push registration for this browser/device. Telegram alerts remain unchanged.
         </div>
-        {cfg.webPushOn && (
-          <button onClick={runPushTest} disabled={pushTestStatus === 'sending'} style={{ width: '100%', margin: '4px 0 10px', padding: '10px', borderRadius: 7, border: '1px solid var(--green)', background: 'var(--green-dim)', color: 'var(--green)', fontFamily: 'var(--mono)', fontSize: 11, fontWeight: 700, cursor: 'pointer' }}>
-            {pushTestStatus === 'sending' ? 'SENDING TEST PUSH…' : pushTestStatus === 'ok' ? '✓ TEST PUSH SENT' : pushTestStatus === 'fail' ? '✗ TRY AGAIN' : 'TEST WEB PUSH'}
-          </button>
-        )}
+        <button onClick={runPushTest} disabled={!cfg.webPushOn || pushTestStatus === 'sending'} style={{ width: '100%', margin: '4px 0 10px', padding: '10px', borderRadius: 7, border: '1px solid var(--green)', background: 'var(--green-dim)', color: 'var(--green)', fontFamily: 'var(--mono)', fontSize: 11, fontWeight: 700, cursor: !cfg.webPushOn || pushTestStatus === 'sending' ? 'not-allowed' : 'pointer', opacity: !cfg.webPushOn ? 0.55 : 1 }}>
+          {!cfg.webPushOn ? 'TURN ON WEB PUSH FIRST' : pushTestStatus === 'sending' ? 'SENDING TEST PUSH…' : pushTestStatus === 'ok' ? '✓ TEST PUSH SENT' : pushTestStatus === 'fail' ? '✗ TRY AGAIN' : 'TEST WEB PUSH'}
+        </button>
       </SectionCard>
     </div>
   )
