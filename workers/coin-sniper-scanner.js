@@ -227,6 +227,26 @@ async function handleSync(request, env) {
     activePatterns: safePatterns.length,
   });
 }
+async function handleTestPush(request, env) {
+  const uid = await authenticate(request);
+  if (!uid) return json({ ok: false, error: "Authentication required" }, 401);
+  const raw = await env.SCANNER_KV.get("cfg:" + uid);
+  if (!raw) return json({ ok: false, error: "No synced settings found for this account" }, 404);
+  const config = JSON.parse(raw);
+  if (!config.pushToken) return json({ ok: false, error: "No Web Push token saved. Turn Web Push OFF then ON in Preview Settings." }, 404);
+  try {
+    const token = await decryptTelegram(config.pushToken, env);
+    const account = JSON.parse(env.FIREBASE_SERVICE_ACCOUNT_JSON || "{}");
+    await sendWebPush(account.project_id || "signal-engines", token, {
+      side: "bull", timeframe: "test", scannerName: "Coin Sniper Test",
+      symbol: "WEBPUSH", dailyChangePct: null, hourlyChangePct: null,
+    }, env);
+    return json({ ok: true, message: "Test push sent to this device" });
+  } catch (error) {
+    console.error("[CoinSniper] Test push failed:", error?.message || error);
+    return json({ ok: false, error: "Test push failed. Check Firebase service account and FCM token." }, 500);
+  }
+}
 async function loadConfigs(env) {
   const configs = [];
   let cursor;
@@ -424,6 +444,13 @@ export default {
     const url = new URL(request.url);
     if (request.method === "GET" && url.pathname === "/health") {
       return json({ ok: true, service: "coin-sniper-scanner", time: new Date().toISOString() });
+    }
+    if (request.method === "POST" && url.pathname === "/test-push") {
+      try { return await handleTestPush(request, env); }
+      catch (error) {
+        console.error("[CoinSniper] Test push route failed:", error?.message || error);
+        return json({ ok: false, error: "Test push failed" }, 500);
+      }
     }
     if (request.method === "POST" && url.pathname === "/sync") {
       try { return await handleSync(request, env); }
