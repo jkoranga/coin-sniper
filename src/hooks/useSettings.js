@@ -60,7 +60,7 @@ const CRITICAL_KEYS = new Set([
   'resultFilter', 'scanMode', 'patternsMode',
   'defaultSort', 'defaultSortDir',
   // Alert / notification settings
-  'soundEnabled', 'tgOn', 'webPushOn', 'tgToken', 'tgChatId',
+  'soundEnabled', 'tgOn', 'webPushOn', 'pushToken', 'tgToken', 'tgChatId',
   // Appearance
   'darkMode',
   // Signal strength
