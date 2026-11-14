@@ -1,7 +1,7 @@
 import React, { useState } from 'react'
 import { SectionHeader, Toggle, SettingRow, SectionCard, PillGroup } from '../UI'
 import { sendTelegram } from '../../utils/scanner'
-import { registerWebPush } from '../../utils/webPush'
+import { registerWebPush, sendWebPushTest } from '../../utils/webPush'
 
 // ── Appearance ────────────────────────────────────────────────────────────────
 export function AppearanceSection({ cfg, set }) {
@@ -141,6 +141,13 @@ export function AlertsSection({ cfg, set }) {
   // Buffer telegram fields locally — flush to settings on blur to avoid stale-closure issues
   const [tgToken,  setTgToken]  = React.useState(cfg.tgToken  || '')
   const [tgChatId, setTgChatId] = React.useState(cfg.tgChatId || '')
+  const [pushTestStatus, setPushTestStatus] = React.useState('idle')
+  const runPushTest = async () => {
+    setPushTestStatus('sending')
+    try { await sendWebPushTest(); setPushTestStatus('ok') }
+    catch (error) { window.alert(error?.message || 'Test push failed.'); setPushTestStatus('fail') }
+    setTimeout(() => setPushTestStatus('idle'), 5000)
+  }
 
   // Sync if parent settings change externally (e.g. reset)
   React.useEffect(() => { setTgToken(cfg.tgToken  || '') }, [cfg.tgToken])
