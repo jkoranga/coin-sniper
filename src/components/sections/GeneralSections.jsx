@@ -139,7 +139,7 @@ function TgTestBtn({ token, chatId, onSave }) {
 
 export function AlertsSection({ cfg, set }) {
   // Buffer telegram fields locally — flush to settings on blur to avoid stale-closure issues
-  const [tgToken,  setTgToken]  = React.useState(cfg.tgToken  || '')
+  const [tgToken, setTgToken] = React.useState(cfg.tgToken || '')
   const [tgChatId, setTgChatId] = React.useState(cfg.tgChatId || '')
   const [pushTestStatus, setPushTestStatus] = React.useState('idle')
   const runPushTest = async () => {
@@ -149,24 +149,46 @@ export function AlertsSection({ cfg, set }) {
     setTimeout(() => setPushTestStatus('idle'), 5000)
   }
 
-  // Sync if parent settings change externally (e.g. reset)
-  React.useEffect(() => { setTgToken(cfg.tgToken  || '') }, [cfg.tgToken])
+  React.useEffect(() => { setTgToken(cfg.tgToken || '') }, [cfg.tgToken])
   React.useEffect(() => { setTgChatId(cfg.tgChatId || '') }, [cfg.tgChatId])
 
   return (
     <div>
       <SectionHeader title="Alerts & Notifications" sub="Sound, Telegram and push notification settings" />
-
       <SectionCard>
         <SettingRow label="Sound Alert" sub={cfg.soundEnabled ? 'Plays tone on each signal' : 'Silent mode'}>
           <Toggle checked={!!cfg.soundEnabled} onChange={v => set('soundEnabled', v)} />
         </SettingRow>
-
         <SettingRow label="Telegram Alert" sub={cfg.tgOn ? 'Sending to your Telegram bot' : 'Disabled'}>
           <Toggle checked={!!cfg.tgOn} onChange={v => set('tgOn', v)} />
         </SettingRow>
 
+        {cfg.tgOn && (
+          <div style={{ paddingTop: 12 }}>
+            <div style={{ fontSize: 10, fontFamily: 'var(--mono)', color: 'var(--text3)', marginBottom: 5 }}>Bot Token:</div>
+            <input
+              className="field"
+              placeholder="123456789:AAF..."
+              value={tgToken}
+              onChange={e => setTgToken(e.target.value)}
+              onBlur={() => set('tgToken', tgToken)}
+              style={{ marginBottom: 10 }}
+            />
+            <div style={{ fontSize: 10, fontFamily: 'var(--mono)', color: 'var(--text3)', marginBottom: 5 }}>Chat ID:</div>
+            <input
+              className="field"
+              placeholder="Your chat ID (use @userinfobot)"
+              value={tgChatId}
+              onChange={e => setTgChatId(e.target.value)}
+              onBlur={() => set('tgChatId', tgChatId)}
+            />
+            <TgTestBtn token={tgToken} chatId={tgChatId} onSave={() => { set('tgToken', tgToken); set('tgChatId', tgChatId) }} />
+            <div style={{ fontSize: 9, fontFamily: 'var(--mono)', color: 'var(--text3)' }}>
+              Get token from @BotFather · Get ID from @userinfobot
+            </div>
+          </div>
         )}
+
         <SettingRow
           label="Web Push Notification"
           sub={cfg.webPushOn ? 'Browser permission enabled' : 'Receive alerts when the app is closed'}
@@ -198,31 +220,6 @@ export function AlertsSection({ cfg, set }) {
             {pushTestStatus === 'sending' ? 'SENDING TEST PUSH…' : pushTestStatus === 'ok' ? '✓ TEST PUSH SENT' : pushTestStatus === 'fail' ? '✗ TRY AGAIN' : 'TEST WEB PUSH'}
           </button>
         )}
-
-        {cfg.tgOn && (
-          <div style={{ paddingTop: 12 }}>
-            <div style={{ fontSize: 10, fontFamily: 'var(--mono)', color: 'var(--text3)', marginBottom: 5 }}>Bot Token:</div>
-            <input
-              className="field"
-              placeholder="123456789:AAF..."
-              value={tgToken}
-              onChange={e => setTgToken(e.target.value)}
-              onBlur={() => set('tgToken', tgToken)}
-              style={{ marginBottom: 10 }}
-            />
-            <div style={{ fontSize: 10, fontFamily: 'var(--mono)', color: 'var(--text3)', marginBottom: 5 }}>Chat ID:</div>
-            <input
-              className="field"
-              placeholder="Your chat ID (use @userinfobot)"
-              value={tgChatId}
-              onChange={e => setTgChatId(e.target.value)}
-              onBlur={() => set('tgChatId', tgChatId)}
-            />
-            <TgTestBtn token={tgToken} chatId={tgChatId} onSave={() => { set('tgToken', tgToken); set('tgChatId', tgChatId) }} />
-            <div style={{ fontSize: 9, fontFamily: 'var(--mono)', color: 'var(--text3)' }}>
-              Get token from @BotFather · Get ID from @userinfobot
-            </div>
-          </div>
       </SectionCard>
     </div>
   )
