@@ -7,6 +7,8 @@ const MAX_MARKET_TASKS = 16;
 const MAX_TOTAL_FETCHES = 25;
 const MAX_ALERTS_PER_RUN = 5;
 const ALLOWED_TFS = ["1m", "3m", "5m", "15m", "30m", "1h", "4h", "1d"];
+const FCM_SCOPE = "https://www.googleapis.com/auth/firebase.messaging";
+let fcmAccessTokenCache = null;
 
 function corsHeaders() {
   return {
@@ -93,6 +95,58 @@ function symbolListFor(config, mode, allSymbols) {
 function volumeThreshold(value) {
   return ({ all: 0, "500k": 500000, "1m": 1000000, "5m": 5000000, "10m": 10000000 })[value] ?? 0;
 }
+function base64Url(bytes) {
+  return b64(bytes).replace(/=/g, "").replace(/\+/g, "-").replace(/\//g, "_");
+}
+function pemBytes(pem) {
+  return unb64(pem.replace(/-----BEGIN PRIVATE KEY-----|-----END PRIVATE KEY-----|\s/g, ""));
+}
+async function getFcmAccessToken(env) {
+  if (fcmAccessTokenCache && fcmAccessTokenCache.expiresAt > Date.now() + 60000) return fcmAccessTokenCache.token;
+  if (!env.FIREBASE_SERVICE_ACCOUNT_JSON) throw new Error("Missing FIREBASE_SERVICE_ACCOUNT_JSON secret");
+  const account = JSON.parse(env.FIREBASE_SERVICE_ACCOUNT_JSON);
+  if (!account.client_email || !account.private_key || !account.project_id) throw new Error("Invalid Firebase service account JSON");
+  const now = Math.floor(Date.now() / 1000);
+  const header = base64Url(new TextEncoder().encode(JSON.stringify({ alg: "RS256", typ: "JWT" })));
+  const claim = base64Url(new TextEncoder().encode(JSON.stringify({
+    iss: account.client_email, scope: FCM_SCOPE,
+    aud: account.token_uri || "https://oauth2.googleapis.com/token", iat: now, exp: now + 3600,
+  })));
+  const unsigned = header + "." + claim;
+  const key = await crypto.subtle.importKey("pkcs8", pemBytes(account.private_key),
+    { name: "RSASSA-PKCS1-v1_5", hash: "SHA-256" }, false, ["sign"]);
+  const signature = await crypto.subtle.sign("RSASSA-PKCS1-v1_5", key, new TextEncoder().encode(unsigned));
+  const response = await fetch(account.token_uri || "https://oauth2.googleapis.com/token", {
+    method: "POST", headers: { "Content-Type": "application/x-www-form-urlencoded" },
+    body: new URLSearchParams({
+      grant_type: "urn:ietf:params:oauth:grant-type:jwt-bearer",
+      assertion: unsigned + "." + base64Url(new Uint8Array(signature)),
+    }),
+  });
+  const result = await response.json();
+  if (!response.ok || !result.access_token) throw new Error("Google OAuth token exchange failed: " + response.status);
+  fcmAccessTokenCache = { token: result.access_token, expiresAt: Date.now() + (result.expires_in || 3600) * 1000 };
+  return result.access_token;
+}
+async function sendWebPush(projectId, token, alert, env) {
+  const accessToken = await getFcmAccessToken(env);
+  const side = alert.side === "bear" ? "SELL" : "BUY";
+  const title = (alert.side === "bear" ? "🔴 SELL" : "🟢 BUY") + " · " + alert.timeframe.toUpperCase();
+  const body = alert.scannerName + " · " + alert.symbol +
+    " · 24h " + (alert.dailyChangePct == null ? "—" : alert.dailyChangePct.toFixed(2) + "%") +
+    " · 1h " + (alert.hourlyChangePct == null ? "—" : alert.hourlyChangePct.toFixed(2) + "%");
+  const response = await fetch("https://fcm.googleapis.com/v1/projects/" + projectId + "/messages:send", {
+    method: "POST", headers: { Authorization: "Bearer " + accessToken, "Content-Type": "application/json" },
+    body: JSON.stringify({ message: {
+      token, notification: { title, body },
+      data: { title, body, symbol: alert.symbol, timeframe: alert.timeframe, side,
+        scannerName: alert.scannerName,
+        url: "https://www.tradingview.com/chart/?symbol=BINANCE:" + alert.symbol },
+      webpush: { fcm_options: { link: "https://coin-sniper.vercel.app/" } },
+    } }),
+  });
+  if (!response.ok) throw new Error("FCM send failed: " + response.status + " " + (await response.text()).slice(0, 250));
+}
 async function sendTelegram(token, chatId, message) {
   const response = await fetch("https://api.telegram.org/bot" + token + "/sendMessage", {
     method: "POST",
@@ -139,10 +193,12 @@ async function handleSync(request, env) {
     );
   }
 
+  const pushReady = payload.webPushOn === true && typeof payload.pushToken === "string" && payload.pushToken.length > 20;
+  const pushToken = pushReady ? await encryptTelegram(payload.pushToken, env) : null;
   const timeframes = [...new Set(safePatterns.flatMap(p => p.tfs))];
   const config = {
     uid,
-    enabled: telegramReady && timeframes.length > 0,
+    enabled: (telegramReady || pushReady) && timeframes.length > 0,
     patterns: safePatterns,
     timeframes,
     scanModeByTf: Object.fromEntries(ALLOWED_TFS.map(tf => [
@@ -160,6 +216,7 @@ async function handleSync(request, env) {
       return [tf, Number.isFinite(ms) && ms >= 15000 && ms <= 86400000 ? ms : 180000];
     })),
     telegram,
+    pushToken,
     updatedAt: Date.now(),
   };
   await env.SCANNER_KV.put("cfg:" + uid, JSON.stringify(config));
@@ -180,7 +237,7 @@ async function loadConfigs(env) {
       if (!raw) continue;
       try {
         const config = JSON.parse(raw);
-        if (config.enabled && config.telegram && config.timeframes?.length) configs.push(config);
+        if (config.enabled && (config.telegram || config.pushToken) && config.timeframes?.length) configs.push(config);
       } catch {}
     }
     cursor = page.list_complete ? undefined : page.cursor;
@@ -322,16 +379,40 @@ async function scanCron(env) {
             ? Number(task.ticker.dailyChangePct) : null,
           hourlyChangePct,
         };
-        try {
-          const telegram = await decryptTelegram(config.telegram, env);
-          await sendTelegram(telegram.token, telegram.chatId, buildTelegramMsg(alert));
-          await env.SCANNER_KV.put(dedupKey, String(Date.now() + cooldownMs), {
-            expirationTtl: Math.max(60, Math.ceil(cooldownMs / 1000)),
-          });
-          alertsSent++;
-        } catch (error) {
-          console.error("[CoinSniper] Alert delivery failed for user", config.uid, error?.message || error);
+        let delivered = false;
+        if (config.telegram) {
+          const expiry = Number(await env.SCANNER_KV.get(dedupKey) || 0);
+          if (!expiry || Date.now() >= expiry) {
+            try {
+              const telegram = await decryptTelegram(config.telegram, env);
+              await sendTelegram(telegram.token, telegram.chatId, buildTelegramMsg(alert));
+              await env.SCANNER_KV.put(dedupKey, String(Date.now() + cooldownMs), {
+                expirationTtl: Math.max(60, Math.ceil(cooldownMs / 1000)),
+              });
+              delivered = true;
+            } catch (error) {
+              console.error("[CoinSniper] Telegram delivery failed for user", config.uid, error?.message || error);
+            }
+          }
         }
+        if (config.pushToken) {
+          const pushDedupKey = "dedup:push:" + config.uid + ":" + task.symbol + ":" + task.timeframe + ":" + pattern.id + ":" + pattern.side;
+          const pushExpiry = Number(await env.SCANNER_KV.get(pushDedupKey) || 0);
+          if (!pushExpiry || Date.now() >= pushExpiry) {
+            try {
+              const token = await decryptTelegram(config.pushToken, env);
+              const account = JSON.parse(env.FIREBASE_SERVICE_ACCOUNT_JSON || "{}");
+              await sendWebPush(account.project_id || "signal-engines", token, alert, env);
+              await env.SCANNER_KV.put(pushDedupKey, String(Date.now() + cooldownMs), {
+                expirationTtl: Math.max(60, Math.ceil(cooldownMs / 1000)),
+              });
+              delivered = true;
+            } catch (error) {
+              console.error("[CoinSniper] Web Push delivery failed for user", config.uid, error?.message || error);
+            }
+          }
+        }
+        if (delivered) alertsSent++;
       }
     }
   }
