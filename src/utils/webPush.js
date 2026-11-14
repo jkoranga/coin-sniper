@@ -21,3 +21,19 @@ export async function registerWebPush() {
   if (!token) throw new Error('Could not create a push registration token.')
   return token
 }
+
+export async function sendWebPushTest() {
+  const { getAuth } = await import('firebase/auth')
+  const user = getAuth(getApp()).currentUser
+  if (!user) throw new Error('Please sign in first.')
+  const workerUrl = (import.meta.env.VITE_SCANNER_WORKER_URL || '').replace(/\/$/, '')
+  if (!workerUrl) throw new Error('Test Worker URL is not configured in this Preview.')
+  const idToken = await user.getIdToken()
+  const response = await fetch(workerUrl + '/test-push', {
+    method: 'POST',
+    headers: { Authorization: 'Bearer ' + idToken },
+  })
+  const result = await response.json().catch(() => ({}))
+  if (!response.ok || !result.ok) throw new Error(result.error || 'Test push failed.')
+  return result
+}
