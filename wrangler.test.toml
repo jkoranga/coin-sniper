@@ -1,0 +1,10 @@
+# Isolated test Worker. Never add the production KV ID or production Cron here.
+name = "coin-sniper-scanner-test"
+main = "workers/coin-sniper-scanner.js"
+compatibility_date = "2026-11-13"
+workers_dev = true
+
+# Create a NEW KV namespace in Cloudflare and replace this value with its ID.
+[[kv_namespaces]]
+binding = "SCANNER_KV"
+id = "REPLACE_WITH_NEW_TEST_KV_NAMESPACE_ID"
