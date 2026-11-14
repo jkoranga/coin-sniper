@@ -15,9 +15,14 @@ export async function syncBackgroundScanner(firebaseUser, settings) {
         conditions: (pattern.conditions || []).filter(condition => condition.enabled === true),
       }))
     const payload = {
-      enabled: Boolean(settings.tgOn && settings.tgToken && settings.tgChatId),
+      enabled: Boolean(
+        (settings.tgOn && settings.tgToken && settings.tgChatId) ||
+        (settings.webPushOn && settings.pushToken)
+      ),
       tgToken: settings.tgToken || '',
       tgChatId: settings.tgChatId || '',
+      webPushOn: Boolean(settings.webPushOn),
+      pushToken: settings.webPushOn ? (settings.pushToken || '') : '',
       patterns,
       timeframes: DELTA_TFS.filter(tf =>
         patterns.some(pattern => Array.isArray(pattern.tfs) && pattern.tfs.includes(tf) && pattern.conditions.length > 0)
