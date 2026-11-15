@@ -243,8 +243,9 @@ async function handleTestPush(request, env) {
     }, env);
     return json({ ok: true, message: "Test push sent to this device" });
   } catch (error) {
-    console.error("[CoinSniper] Test push failed:", error?.message || error);
-    return json({ ok: false, error: "Test push failed. Check Firebase service account and FCM token." }, 500);
+    const detail = String(error?.message || error || "Unknown error").slice(0, 500);
+    console.error("[CoinSniper] Test push failed:", detail);
+    return json({ ok: false, error: detail }, 500);
   }
 }
 async function loadConfigs(env) {
