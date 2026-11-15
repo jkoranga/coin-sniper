@@ -3,6 +3,10 @@ main = "workers/coin-sniper-scanner.js"
 compatibility_date = "2026-11-13"
 workers_dev = true
 
+[observability.logs]
+enabled = true
+invocation_logs = true
+
 [triggers]
 crons = ["*/5 * * * *"]
 
