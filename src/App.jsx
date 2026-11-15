@@ -5,6 +5,7 @@ import SettingsTab from './components/SettingsTab.jsx'
 import PatternBuilderTab from './components/PatternBuilder.jsx'
 import { onAuthChanged, checkConfigured, getGoogleRedirectResult } from './firebase.js'
 import { historyLoad, historySave, historyAddAlerts, fmtHistoryDate, exportHistoryCSV, tvUrl, TF_COLORS, HISTORY_CAP } from './utils/history.js'
+import { listenForForegroundMessages } from './utils/webPush.js'
 
 const ORANGE       = '#ff6b00'
 const ORANGE_DIM   = 'rgba(255,107,0,0.12)'
@@ -709,6 +710,23 @@ function ssSaveTapped(s) { try { sessionStorage.setItem(SS_TAPPED, JSON.stringif
 
 // ── Main App ───────────────────────────────────────────────────────────────────
 export default function App() {
+  useEffect(() => {
+    let unsubscribe = () => {}
+    let cancelled = false
+
+    listenForForegroundMessages()
+      .then(stop => {
+        if (cancelled) stop()
+        else unsubscribe = stop
+      })
+      .catch(error => console.warn('[CoinSniper] Foreground push listener failed:', error?.message || error))
+
+    return () => {
+      cancelled = true
+      unsubscribe()
+    }
+  }, [])
+
   const [activeTab,      setActiveTab]      = useState(() => ssGetTab())
   const [user,           setUser]           = useState(null)
   const [authReady,      setAuthReady]      = useState(false)
