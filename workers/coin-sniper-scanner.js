@@ -52,6 +52,22 @@ async function decryptTelegram(value, env) {
   );
   return JSON.parse(new TextDecoder().decode(plain));
 }
+async function decryptPushToken(value, env) {
+  const key = await encryptionKey(env);
+  const plain = await crypto.subtle.decrypt(
+    { name: "AES-GCM", iv: unb64(value.iv) },
+    key,
+    unb64(value.data)
+  );
+  const decoded = new TextDecoder().decode(plain);
+  try {
+    const parsed = JSON.parse(decoded);
+    return typeof parsed === "string" ? parsed : decoded;
+  } catch {
+    // Older saved push tokens may have been encrypted as raw text.
+    return decoded;
+  }
+}
 async function authenticate(request) {
   const auth = request.headers.get("Authorization") || "";
   const token = auth.startsWith("Bearer ") ? auth.slice(7) : "";
@@ -235,7 +251,7 @@ async function handleTestPush(request, env) {
   const config = JSON.parse(raw);
   if (!config.pushToken) return json({ ok: false, error: "No Web Push token saved. Turn Web Push OFF then ON in Preview Settings." }, 404);
   try {
-    const token = await decryptTelegram(config.pushToken, env);
+    const token = await decryptPushToken(config.pushToken, env);
     const account = JSON.parse(env.FIREBASE_SERVICE_ACCOUNT_JSON || "{}");
     await sendWebPush(account.project_id || "signal-engines", token, {
       side: "bull", timeframe: "test", scannerName: "Coin Sniper Test",
