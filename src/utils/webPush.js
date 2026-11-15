@@ -1,5 +1,5 @@
 import { getApp } from 'firebase/app'
-import { getMessaging, getToken } from 'firebase/messaging'
+import { getMessaging, getToken, onMessage } from 'firebase/messaging'
 
 const VAPID_PUBLIC_KEY = 'BOFx8esZCZ5pxJXzZjsnaARvY43sCM8xK-yYQst0LjDeEAKQhCc25FbUvmjWyxhr0l7RycnTW0v247tI_U_hvHw'
 
@@ -36,4 +36,33 @@ export async function sendWebPushTest() {
   const result = await response.json().catch(() => ({}))
   if (!response.ok || !result.ok) throw new Error(result.error || 'Test push failed.')
   return result
+}
+
+export async function listenForForegroundMessages() {
+  if (!('serviceWorker' in navigator) || !('Notification' in window)) return () => {}
+
+  const messaging = getMessaging(getApp())
+  const unsubscribe = onMessage(messaging, async payload => {
+    if (Notification.permission !== 'granted') return
+
+    const title = payload.notification?.title || payload.data?.title || 'Coin Sniper Alert'
+    const body = payload.notification?.body || payload.data?.body || 'A new scanner signal is available.'
+    const options = {
+      body,
+      icon: '/favicon.ico',
+      badge: '/favicon.ico',
+      data: { url: payload.data?.url || 'https://coin-sniper.vercel.app/' },
+      tag: [payload.data?.symbol, payload.data?.timeframe, payload.data?.side].filter(Boolean).join('-') || 'coin-sniper-alert',
+    }
+
+    try {
+      const registration = await navigator.serviceWorker.getRegistration()
+        || await navigator.serviceWorker.register('/firebase-messaging-sw.js')
+      await registration.showNotification(title, options)
+    } catch (error) {
+      console.warn('[CoinSniper] Could not show foreground push notification:', error?.message || error)
+    }
+  })
+
+  return unsubscribe
 }
