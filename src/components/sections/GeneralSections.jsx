@@ -1,6 +1,7 @@
 import React, { useState } from 'react'
 import { SectionHeader, Toggle, SettingRow, SectionCard, PillGroup } from '../UI'
 import { sendTelegram } from '../../utils/scanner'
+import { registerWebPush, sendWebPushTest } from '../../utils/webPush'
 
 // ── Appearance ────────────────────────────────────────────────────────────────
 export function AppearanceSection({ cfg, set }) {
@@ -138,22 +139,26 @@ function TgTestBtn({ token, chatId, onSave }) {
 
 export function AlertsSection({ cfg, set }) {
   // Buffer telegram fields locally — flush to settings on blur to avoid stale-closure issues
-  const [tgToken,  setTgToken]  = React.useState(cfg.tgToken  || '')
+  const [tgToken, setTgToken] = React.useState(cfg.tgToken || '')
   const [tgChatId, setTgChatId] = React.useState(cfg.tgChatId || '')
+  const [pushTestStatus, setPushTestStatus] = React.useState('idle')
+  const runPushTest = async () => {
+    setPushTestStatus('sending')
+    try { await sendWebPushTest(); setPushTestStatus('ok') }
+    catch (error) { window.alert(error?.message || 'Test push failed.'); setPushTestStatus('fail') }
+    setTimeout(() => setPushTestStatus('idle'), 5000)
+  }
 
-  // Sync if parent settings change externally (e.g. reset)
-  React.useEffect(() => { setTgToken(cfg.tgToken  || '') }, [cfg.tgToken])
+  React.useEffect(() => { setTgToken(cfg.tgToken || '') }, [cfg.tgToken])
   React.useEffect(() => { setTgChatId(cfg.tgChatId || '') }, [cfg.tgChatId])
 
   return (
     <div>
       <SectionHeader title="Alerts & Notifications" sub="Sound, Telegram and push notification settings" />
-
       <SectionCard>
         <SettingRow label="Sound Alert" sub={cfg.soundEnabled ? 'Plays tone on each signal' : 'Silent mode'}>
           <Toggle checked={!!cfg.soundEnabled} onChange={v => set('soundEnabled', v)} />
         </SettingRow>
-
         <SettingRow label="Telegram Alert" sub={cfg.tgOn ? 'Sending to your Telegram bot' : 'Disabled'}>
           <Toggle checked={!!cfg.tgOn} onChange={v => set('tgOn', v)} />
         </SettingRow>
@@ -183,6 +188,36 @@ export function AlertsSection({ cfg, set }) {
             </div>
           </div>
         )}
+
+        <SettingRow
+          label="Web Push Notification"
+          sub={cfg.webPushOn ? 'Browser permission enabled' : 'Receive alerts when the app is closed'}
+        >
+          <Toggle
+            checked={!!cfg.webPushOn}
+            onChange={async v => {
+              if (!v) {
+                set('webPushOn', false)
+                return
+              }
+              try {
+                const token = await registerWebPush()
+                set('pushToken', token)
+                set('webPushOn', true)
+                window.alert('Web Push is registered on this device. Background scanner sync will now be updated.')
+              } catch (error) {
+                set('webPushOn', false)
+                window.alert(error?.message || 'Could not enable Web Push in this browser.')
+              }
+            }}
+          />
+        </SettingRow>
+        <div style={{ fontSize: 9, fontFamily: 'var(--mono)', color: 'var(--text3)', padding: '0 2px 8px' }}>
+          Push registration for this browser/device. Telegram alerts remain unchanged.
+        </div>
+        <button onClick={runPushTest} disabled={!cfg.webPushOn || pushTestStatus === 'sending'} style={{ width: '100%', margin: '4px 0 10px', padding: '10px', borderRadius: 7, border: '1px solid var(--green)', background: 'var(--green-dim)', color: 'var(--green)', fontFamily: 'var(--mono)', fontSize: 11, fontWeight: 700, cursor: !cfg.webPushOn || pushTestStatus === 'sending' ? 'not-allowed' : 'pointer', opacity: !cfg.webPushOn ? 0.55 : 1 }}>
+          {!cfg.webPushOn ? 'TURN ON WEB PUSH FIRST' : pushTestStatus === 'sending' ? 'SENDING TEST PUSH…' : pushTestStatus === 'ok' ? '✓ TEST PUSH SENT' : pushTestStatus === 'fail' ? '✗ TRY AGAIN' : 'TEST WEB PUSH'}
+        </button>
       </SectionCard>
     </div>
   )

@@ -1,11 +1,15 @@
-// Send each signed-in user's own scanner settings to the shared Cloudflare Worker.
-// Telegram credentials travel only over HTTPS and are encrypted by the Worker before KV storage.
-const WORKER_URL = 'https://coin-sniper-scanner.jagdishkoranga.workers.dev'
+// Send each signed-in user's scanner settings to the configured Cloudflare Worker.
+// Preview builds must set VITE_SCANNER_WORKER_URL to the isolated test Worker.
+// No fallback to production: this prevents preview builds from writing to live scanner data.
+const WORKER_URL = (import.meta.env.VITE_SCANNER_WORKER_URL || '').replace(/\/$/, '')
 
 const DELTA_TFS = ['1m','3m','5m','15m','30m','1h','4h','1d']
 
 export async function syncBackgroundScanner(firebaseUser, settings) {
-  if (!firebaseUser) return false
+  if (!firebaseUser || !WORKER_URL) {
+    if (!WORKER_URL) console.warn('[CoinSniper] Background scanner URL is not configured for this build.')
+    return false
+  }
   try {
     const idToken = await firebaseUser.getIdToken()
     const patterns = (settings.customPatterns || [])
@@ -15,9 +19,14 @@ export async function syncBackgroundScanner(firebaseUser, settings) {
         conditions: (pattern.conditions || []).filter(condition => condition.enabled === true),
       }))
     const payload = {
-      enabled: Boolean(settings.tgOn && settings.tgToken && settings.tgChatId),
+      enabled: Boolean(
+        (settings.tgOn && settings.tgToken && settings.tgChatId) ||
+        (settings.webPushOn && settings.pushToken)
+      ),
       tgToken: settings.tgToken || '',
       tgChatId: settings.tgChatId || '',
+      webPushOn: Boolean(settings.webPushOn),
+      pushToken: settings.webPushOn ? (settings.pushToken || '') : '',
       patterns,
       timeframes: DELTA_TFS.filter(tf =>
         patterns.some(pattern => Array.isArray(pattern.tfs) && pattern.tfs.includes(tf) && pattern.conditions.length > 0)
