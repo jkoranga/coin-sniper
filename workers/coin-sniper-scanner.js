@@ -436,7 +436,7 @@ async function scanCron(env) {
           const pushExpiry = Number(await env.SCANNER_KV.get(pushDedupKey) || 0);
           if (!pushExpiry || Date.now() >= pushExpiry) {
             try {
-              const token = await decryptTelegram(config.pushToken, env);
+              const token = await decryptPushToken(config.pushToken, env);
               const account = JSON.parse(env.FIREBASE_SERVICE_ACCOUNT_JSON || "{}");
               await sendWebPush(account.project_id || "signal-engines", token, alert, env);
               await env.SCANNER_KV.put(pushDedupKey, String(Date.now() + cooldownMs), {
