@@ -5,7 +5,6 @@ import { buildTelegramMsg } from "../src/utils/scanner.js";
 const FIREBASE_API_KEY = "AIzaSyAZahY8Ci0yGHHZcf5TLTakNod16Hihbqo";
 const MAX_MARKET_TASKS = 16;
 const MAX_TOTAL_FETCHES = 25;
-const MAX_ALERTS_PER_RUN = 5;
 const ALLOWED_TFS = ["1m", "3m", "5m", "15m", "30m", "1h", "4h", "1d"];
 const FCM_SCOPE = "https://www.googleapis.com/auth/firebase.messaging";
 let fcmAccessTokenCache = null;
@@ -188,6 +187,84 @@ async function sendTelegram(token, chatId, message) {
   const result = await response.json();
   if (!result.ok) throw new Error("Telegram rejected the message");
 }
+async function enqueuePendingChannel(env, config, alert, dedupKey, cooldownMs, channel) {
+  const key = "pending-alert:" + dedupKey;
+  let item;
+  try { item = JSON.parse(await env.SCANNER_KV.get(key) || "null"); } catch { item = null; }
+  if (!item) {
+    item = {
+      uid: config.uid, alert, dedupKey, cooldownMs,
+      telegramPending: false, pushPending: false,
+      attempts: { telegram: 0, push: 0 },
+      nextAttemptAt: Date.now(),
+      createdAt: Date.now(),
+    };
+  }
+  if (channel === "telegram") item.telegramPending = true;
+  if (channel === "push") item.pushPending = true;
+  await env.SCANNER_KV.put(key, JSON.stringify(item), { expirationTtl: 172800 });
+}
+
+async function processPendingAlerts(env, configs) {
+  const byUid = new Map(configs.map(config => [config.uid, config]));
+  const page = await env.SCANNER_KV.list({ prefix: "pending-alert:", limit: 100 });
+  let deliveredCount = 0;
+  for (const entry of page.keys) {
+    let item;
+    try { item = JSON.parse(await env.SCANNER_KV.get(entry.name) || "null"); } catch { item = null; }
+    if (!item) { await env.SCANNER_KV.delete(entry.name); continue; }
+    const now = Date.now();
+    if (now - Number(item.createdAt || now) > 172800000) {
+      await env.SCANNER_KV.delete(entry.name);
+      continue;
+    }
+    if (Number(item.nextAttemptAt || 0) > now) continue;
+    const config = byUid.get(item.uid);
+    if (!config) {
+      await env.SCANNER_KV.delete(entry.name);
+      continue;
+    }
+    let delivered = false;
+    for (const channel of ["telegram", "push"]) {
+      const pendingField = channel === "telegram" ? "telegramPending" : "pushPending";
+      if (!item[pendingField]) continue;
+      if (channel === "telegram" && !config.telegram) { item[pendingField] = false; continue; }
+      if (channel === "push" && !config.pushToken) { item[pendingField] = false; continue; }
+      try {
+        if (channel === "telegram") {
+          const telegram = await decryptTelegram(config.telegram, env);
+          await sendTelegram(telegram.token, telegram.chatId, buildTelegramMsg(item.alert));
+        } else {
+          const token = await decryptPushToken(config.pushToken, env);
+          const account = getFirebaseServiceAccount(env);
+          await sendWebPush(account.project_id || "signal-engines", token, item.alert, env);
+        }
+        const dedup = channel === "telegram"
+          ? item.dedupKey
+          : "dedup:push:" + item.dedupKey.slice("dedup:".length);
+        await env.SCANNER_KV.put(dedup, String(Date.now() + item.cooldownMs), {
+          expirationTtl: Math.max(60, Math.ceil(item.cooldownMs / 1000)),
+        });
+        item[pendingField] = false;
+        delivered = true;
+      } catch (error) {
+        item.attempts = item.attempts || { telegram: 0, push: 0 };
+        item.attempts[channel] = (item.attempts[channel] || 0) + 1;
+        console.error("[CoinSniper] Pending " + channel + " retry failed for user", item.uid, error?.message || error);
+      }
+    }
+    if (delivered) deliveredCount++;
+    if (!item.telegramPending && !item.pushPending) {
+      await env.SCANNER_KV.delete(entry.name);
+    } else {
+      const attempts = Math.max(item.attempts?.telegram || 0, item.attempts?.push || 0);
+      item.nextAttemptAt = Date.now() + Math.min(900000, 30000 * Math.pow(2, Math.min(attempts, 5)));
+      await env.SCANNER_KV.put(entry.name, JSON.stringify(item), { expirationTtl: 172800 });
+    }
+  }
+  return deliveredCount;
+}
+
 async function handleSync(request, env) {
   const uid = await authenticate(request);
   if (!uid) return json({ ok: false, error: "Authentication required" }, 401);
@@ -372,13 +449,12 @@ async function scanCron(env) {
     if (candles?.length >= 10) candleMap.set(task.key, candles);
   }));
 
-  let alertsSent = 0;
+  let alertsSent = await processPendingAlerts(env, configs);
   const sentThisRun = new Set();
   for (const task of selected) {
     const candles = candleMap.get(task.key);
     if (!candles) continue;
     for (const consumer of task.consumers) {
-      if (alertsSent >= MAX_ALERTS_PER_RUN) break;
       const config = consumer.config;
       const htfMap = {};
       for (const pattern of consumer.patterns) {
@@ -389,7 +465,6 @@ async function scanCron(env) {
         }
       }
       for (const pattern of consumer.patterns) {
-        if (alertsSent >= MAX_ALERTS_PER_RUN) break;
         const hasMissingHtf = (pattern.conditions || []).some(c =>
           c.htfTf && c.htfTf !== task.timeframe && !htfMap[c.htfTf]
         );
@@ -438,6 +513,8 @@ async function scanCron(env) {
               delivered = true;
             } catch (error) {
               console.error("[CoinSniper] Telegram delivery failed for user", config.uid, error?.message || error);
+              try { await enqueuePendingChannel(env, config, alert, dedupKey, cooldownMs, "telegram"); }
+              catch (queueError) { console.error("[CoinSniper] Could not queue Telegram alert:", queueError?.message || queueError); }
             }
           }
         }
@@ -455,6 +532,8 @@ async function scanCron(env) {
               delivered = true;
             } catch (error) {
               console.error("[CoinSniper] Web Push delivery failed for user", config.uid, error?.message || error);
+              try { await enqueuePendingChannel(env, config, alert, dedupKey, cooldownMs, "push"); }
+              catch (queueError) { console.error("[CoinSniper] Could not queue Web Push alert:", queueError?.message || queueError); }
             }
           }
         }
