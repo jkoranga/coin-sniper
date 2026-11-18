@@ -117,10 +117,20 @@ function base64Url(bytes) {
 function pemBytes(pem) {
   return unb64(pem.replace(/-----BEGIN PRIVATE KEY-----|-----END PRIVATE KEY-----|\s/g, ""));
 }
+function getFirebaseServiceAccount(env) {
+  const raw = env.FIREBASE_SERVICE_ACCOUNT_JSON;
+  if (!raw) throw new Error("Missing FIREBASE_SERVICE_ACCOUNT_JSON secret");
+  // Cloudflare JSON-type variables may already be objects; Secret/Text values are strings.
+  const account = typeof raw === "string" ? JSON.parse(raw) : raw;
+  if (!account || typeof account !== "object" || Array.isArray(account)) {
+    throw new Error("Invalid Firebase service account JSON");
+  }
+  return account;
+}
+
 async function getFcmAccessToken(env) {
   if (fcmAccessTokenCache && fcmAccessTokenCache.expiresAt > Date.now() + 60000) return fcmAccessTokenCache.token;
-  if (!env.FIREBASE_SERVICE_ACCOUNT_JSON) throw new Error("Missing FIREBASE_SERVICE_ACCOUNT_JSON secret");
-  const account = JSON.parse(env.FIREBASE_SERVICE_ACCOUNT_JSON);
+  const account = getFirebaseServiceAccount(env);
   if (!account.client_email || !account.private_key || !account.project_id) throw new Error("Invalid Firebase service account JSON");
   const now = Math.floor(Date.now() / 1000);
   const header = base64Url(new TextEncoder().encode(JSON.stringify({ alg: "RS256", typ: "JWT" })));
@@ -252,7 +262,7 @@ async function handleTestPush(request, env) {
   if (!config.pushToken) return json({ ok: false, error: "No Web Push token saved. Turn Web Push OFF then ON in Preview Settings." }, 404);
   try {
     const token = await decryptPushToken(config.pushToken, env);
-    const account = JSON.parse(env.FIREBASE_SERVICE_ACCOUNT_JSON || "{}");
+    const account = getFirebaseServiceAccount(env);
     await sendWebPush(account.project_id || "signal-engines", token, {
       side: "bull", timeframe: "test", scannerName: "Coin Sniper Test",
       symbol: "WEBPUSH", dailyChangePct: null, hourlyChangePct: null,
@@ -437,7 +447,7 @@ async function scanCron(env) {
           if (!pushExpiry || Date.now() >= pushExpiry) {
             try {
               const token = await decryptPushToken(config.pushToken, env);
-              const account = JSON.parse(env.FIREBASE_SERVICE_ACCOUNT_JSON || "{}");
+              const account = getFirebaseServiceAccount(env);
               await sendWebPush(account.project_id || "signal-engines", token, alert, env);
               await env.SCANNER_KV.put(pushDedupKey, String(Date.now() + cooldownMs), {
                 expirationTtl: Math.max(60, Math.ceil(cooldownMs / 1000)),
