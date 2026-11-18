@@ -481,6 +481,8 @@ async function scanCron(env) {
         const alertKey = dedupKey;
         if (sentThisRun.has(alertKey)) continue;
         sentThisRun.add(alertKey);
+        // If an earlier delivery is queued for retry, don't send the same signal again here.
+        if (await env.SCANNER_KV.get("pending-alert:" + dedupKey)) continue;
 
         let hourlyChangePct = null;
         try {
