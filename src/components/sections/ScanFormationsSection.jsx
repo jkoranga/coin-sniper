@@ -465,6 +465,7 @@ export default function ScanFormationsSection({ settings, update, isFirstVisit }
   // their respective useMemo declarations to avoid TDZ (Temporal Dead Zone) errors
   useEffect(() => { settingsRef.current = settings }, [settings])
   useEffect(() => { tickersRef.current  = tickers  }, [tickers])
+  useEffect(() => { alertsRef.current = alerts }, [alerts])
 
   const loadSymbols = useCallback(async () => {
     setLoadingSyms(true)
@@ -518,19 +519,6 @@ export default function ScanFormationsSection({ settings, update, isFirstVisit }
   // ✅ scannersRef sync placed HERE — after activeScanners is declared — to avoid TDZ crash
   useEffect(() => { scannersRef.current = activeScanners }, [activeScanners])
 
-  function isDupe(symbol, scannerId, tf) {
-    const key = `${symbol}__${scannerId}__${tf}`
-    const now = Date.now()
-    const exp = seenRef.current[key]
-    if (exp && now < exp) return true
-    const ttl = Math.max(
-      intervalToMs(dedupInterval),
-      intervalToMs(settingsRef.current.scanInterval||'1m')
-    )
-    seenRef.current[key] = now + ttl
-    return false
-  }
-
   async function scanBatch(symList, tf) {
     const CONCURRENCY = 10
     const newAlerts=[], newErrors=[]
@@ -550,19 +538,44 @@ export default function ScanFormationsSection({ settings, update, isFirstVisit }
           const candles = await fetchCandles(sym, tf, 60, tkrs[sym] || null)
           for (const scanner of scanners) {
             if (abort?.aborted) continue
-            if (isDupe(sym, scanner.id, tf)) continue
+            // Always evaluate the pattern so a repeated match can refresh its existing row.
             const result = scanner.logic(candles)
             if (result) {
+              const now = Date.now()
+              // One visible row per coin + timeframe + scanner pattern + direction.
+              const existing = alertsRef.current.find(x =>
+                x.symbol === sym && x.timeframe === tf &&
+                x.scannerId === scanner.id && x.side === scanner.side
+              )
               const a = {
-                id:++idRef.current, symbol:sym, timeframe:tf, time:Date.now(),
+                id: existing?.id ?? ++idRef.current,
+                symbol:sym, timeframe:tf, time:now, lastSeen:now,
+                firstSeen:existing?.firstSeen ?? existing?.time ?? now,
                 scannerId:scanner.id, scannerName:scanner.name,
                 scannerIcon:scanner.icon, side:scanner.side,
                 group: scanner.group||'standard',
                 details:result, ticker:tkrs[sym]||null,
               }
-              newAlerts.push(a)
-              // APPEND only — never wipe existing results
-              setAlerts(prev => [a, ...prev].slice(0, 500))
+
+              // Update the existing row in place (move it to the top); never add a duplicate.
+              const nextAlerts = existing
+                ? [a, ...alertsRef.current.filter(x => x.id !== existing.id)]
+                : [a, ...alertsRef.current]
+              alertsRef.current = nextAlerts.slice(0, 500)
+              setAlerts(alertsRef.current)
+
+              // Keep notification cooldown separate from the visible result list.
+              // Repeated matches refresh Last Seen but only notify after the configured cooldown.
+              const notifyKey = `${sym}__${scanner.id}__${tf}`
+              const expiresAt = seenRef.current[notifyKey] || 0
+              const notifyTtl = Math.max(
+                intervalToMs(dedupInterval),
+                intervalToMs(settingsRef.current.scanInterval||'1m')
+              )
+              if (now >= expiresAt) {
+                seenRef.current[notifyKey] = now + notifyTtl
+                newAlerts.push(a)
+              }
             }
           }
         } catch { newErrors.push(sym) }
