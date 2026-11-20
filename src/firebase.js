@@ -134,6 +134,33 @@ export async function loadSettingsFromCloud(uid) {
   }
 }
 
+// Trash Bin is stored independently so unrelated settings saves or stale
+// full-document writes can never erase patterns waiting for permanent deletion.
+export async function savePatternBinToCloud(uid, patterns) {
+  if (!uid) return false
+  try {
+    await setDoc(doc(db, 'users', uid, 'data', 'pattern-bin'), {
+      deletedPatterns: Array.isArray(patterns) ? patterns : [],
+      updatedAt: Date.now(),
+    })
+    return true
+  } catch (e) {
+    console.warn('[Signal Engine] pattern bin save failed:', e.message)
+    return false
+  }
+}
+
+export async function loadPatternBinFromCloud(uid) {
+  if (!uid) return null
+  try {
+    const snap = await getDoc(doc(db, 'users', uid, 'data', 'pattern-bin'))
+    return snap.exists() ? snap.data() : null
+  } catch (e) {
+    console.warn('[Signal Engine] pattern bin load failed:', e.message)
+    return null
+  }
+}
+
 // ── Scan Settings (separate doc — real-time sync) ────────────────────────────
 const SCAN_FIELDS = [
   'timeframe','scanInterval','symbolSet','customPairs',
