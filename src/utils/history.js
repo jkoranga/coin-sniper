@@ -24,9 +24,7 @@ export function historyAddAlerts(alerts) {
   for (const a of alerts) {
     const tf = a.timeframe || 'unknown'
     if (!data[tf]) data[tf] = []
-    const minute = Math.floor(a.time / 60000)
-    if (data[tf].some(h => h.symbol === a.symbol && h.scannerId === a.scannerId && Math.floor(h.time/60000) === minute)) continue
-    data[tf].unshift({
+    const record = {
       id: a.id, symbol: a.symbol, timeframe: tf,
       time: a.time, side: a.side,
       scannerName: a.scannerName, scannerIcon: a.scannerIcon || '',
@@ -39,8 +37,12 @@ export function historyAddAlerts(alerts) {
       adx:     a.details?.adx          ?? null,
       volume:  a.volume                ?? 0,
       scannerId: a.scannerId,
-    })
-    if (data[tf].length > HISTORY_CAP) data[tf] = data[tf].slice(0, HISTORY_CAP)
+    }
+    // Keep one latest history row per symbol + pattern + direction + timeframe.
+    const isSame = h => h.symbol === a.symbol && h.scannerId === a.scannerId && h.side === a.side
+    const existing = data[tf].find(isSame)
+    record.id = existing?.id ?? record.id
+    data[tf] = [record, ...data[tf].filter(h => !isSame(h))].slice(0, HISTORY_CAP)
   }
   historySave(data)
 }
