@@ -224,7 +224,8 @@ export default function TFScannerTab({ timeframe, tabColor, settings, update, sa
   const scanMode      = settings[tfKey('scanMode')]      ?? settings.scanMode      ?? 'all'
   const dedupInterval = settings[tfKey('dedupInterval')] ?? settings.dedupInterval ?? '1m'
   const resultFilter  = settings[tfKey('resultFilter')]  ?? settings.resultFilter  ?? 'all'
-  const volumeFilter  = settings[tfKey('volumeFilter')]  ?? settings.volumeFilter  ?? '500k'
+  // Volume filter is a single global preference shared with Settings → Scan Settings.
+  const volumeFilter  = settings.volumeFilter ?? '500k'
 
   const scannerEnabled = useMemo(() => {
     const saved = settings[tfKey('scannerEnabled')] || settings.scannerEnabled || {}
@@ -238,7 +239,7 @@ export default function TFScannerTab({ timeframe, tabColor, settings, update, sa
   const setScanMode      = v   => setTfSetting('scanMode', v)
   const setDedupInterval = v   => { seenRef.current = {}; setTfSetting('dedupInterval', v) }
   const setResultFilter  = v   => setTfSetting('resultFilter', v)
-  const setVolumeFilter  = v   => setTfSetting('volumeFilter', v)
+  const setVolumeFilter  = v   => update({ volumeFilter: v })
   const setScannerEnabled = fn => {
     const next = typeof fn==='function' ? fn(scannerEnabled) : fn
     const key  = tfKey('scannerEnabled')
