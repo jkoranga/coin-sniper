@@ -6,6 +6,7 @@ import { useState, useEffect, useRef, useCallback, useMemo } from 'react'
 import { fetchDeltaSymbols, fetchDeltaCandles, DELTA_FALLBACK_SYMBOLS as DELTA_FALLBACK_SYMBOLS_IMPORT } from '../utils/deltaScanner.js'
 import { compilePattern } from './PatternBuilder.jsx'
 import { historyAddAlerts } from '../utils/history.js'
+import { onAuthChanged, loadNotificationCooldownsFromCloud, saveNotificationCooldownsToCloud } from '../firebase.js'
 import { intervalToMs, sendTelegram, buildTelegramMsg, fmt, timeSince, fmtVol } from '../utils/scanner.js'
 
 const DC  = '#ff6b00'
@@ -548,6 +549,24 @@ export default function DeltaScannerTab({
   const loopRef     = useRef(false)
   const scanningRef = useRef(false)
   const seenRef     = useRef(loadDedupCooldowns())
+  const cooldownUidRef = useRef(null)
+  const cooldownSaveTimerRef = useRef(null)
+  useEffect(() => {
+    let active = true
+    let unsubscribe
+    onAuthChanged(async user => {
+      if (!active) return
+      cooldownUidRef.current = user?.uid || null
+      if (!user?.uid) return
+      const cloud = await loadNotificationCooldownsFromCloud(user.uid)
+      if (!active || cooldownUidRef.current !== user.uid || !cloud) return
+      const merged = { ...loadDedupCooldowns(), ...cloud }
+      const now = Date.now()
+      seenRef.current = Object.fromEntries(Object.entries(merged).filter(([, expiry]) => Number(expiry) > now))
+      saveDedupCooldowns(seenRef.current)
+    }).then(fn => { unsubscribe = fn })
+    return () => { active = false; unsubscribe?.(); clearTimeout(cooldownSaveTimerRef.current) }
+  }, [])
   const cacheRef    = useRef({})
   const idRef       = useRef(0)
   const timerRef    = useRef(null)
@@ -614,6 +633,14 @@ export default function DeltaScannerTab({
     if (exp > now) return true
     seenRef.current[key] = now + intervalToMs(dedupInt)
     saveDedupCooldowns(seenRef.current)
+    if (cooldownUidRef.current) {
+      clearTimeout(cooldownSaveTimerRef.current)
+      const uid = cooldownUidRef.current
+      const snapshot = { ...seenRef.current }
+      cooldownSaveTimerRef.current = setTimeout(() => {
+        if (cooldownUidRef.current === uid) saveNotificationCooldownsToCloud(uid, snapshot)
+      }, 250)
+    }
     return false
   }
 
