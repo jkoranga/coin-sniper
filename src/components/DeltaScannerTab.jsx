@@ -178,7 +178,7 @@ function AlertCard({ a, onDismiss, onTap, resultFilter }) {
       {a.details?.run?.length >= 2 && (
         <div style={{marginBottom:9}}>
           <div style={{fontSize:10,fontFamily:'var(--mono)',letterSpacing:'.12em',color:'var(--text3)',marginBottom:6}}>CANDLE CHART</div>
-          <MiniCandleChart candles={a.details.run}/>
+          <MiniCandleChart candles={a.details.run} timeframe={a.timeframe}/>
         </div>
       )}
       <div style={{display:'grid',gridTemplateColumns:'repeat(4,minmax(0,1fr))',gap:5,marginBottom:8}}>
@@ -214,10 +214,10 @@ function AlertCard({ a, onDismiss, onTap, resultFilter }) {
 }
 
 // ── Mini candle chart with EMA overlay + RSI panel ────────────────────────────
-function MiniCandleChart({ candles }) {
+function MiniCandleChart({ candles, timeframe = '15m' }) {
   if (!candles || candles.length < 2) return null
 
-  const W = 340, CH = 190, RH = 76, PAD = 8, GAP = 9
+  const W = 420, CH = 210, RH = 78, PAD = 9, GAP = 9
   const TH = CH + GAP + RH  // total height
 
   // ── Candle chart ────────────────────────────────────────────────────────────
@@ -225,8 +225,8 @@ function MiniCandleChart({ candles }) {
   const maxP = Math.max(...candles.map(c => c.high))
   const rng  = maxP - minP || 1
   const toY  = p => PAD + (1 - (p - minP) / rng) * (CH - PAD * 2)
-  const cw   = Math.floor((W - PAD * 2) / candles.length)
-  const bw   = Math.max(2, cw - 2)
+  const cw   = (W - PAD * 2) / candles.length
+  const bw   = Math.max(1.5, cw * 0.68)
   const cx   = (i) => PAD + i * cw + cw / 2
 
   // Price labels
@@ -256,10 +256,25 @@ function MiniCandleChart({ candles }) {
   }
 
   const last = candles[candles.length - 1]
+  const tfMinutes = ({'1m':1,'3m':3,'5m':5,'15m':15,'30m':30,'1h':60,'4h':240,'1d':1440,'Day':1440})[timeframe] || 15
+  const mult = tfMinutes < 15 ? 15 / tfMinutes : 1
+  const emaDefs = tfMinutes < 15
+    ? [
+        {key:`ema${9*mult}`,label:`EMA ${9*mult}`,color:'#4dabf7'},
+        {key:`ema${20*mult}`,label:`EMA ${20*mult}`,color:'#b388ff'},
+        {key:`ema${40*mult}`,label:`EMA ${40*mult}`,color:'#aab2bd'},
+        {key:`ema${5*mult}`,label:`EMA ${5*mult} · 15m EMA 5`,color:'#ff5252'},
+      ]
+    : [
+        {key:'ema9',label:'EMA 9',color:'#4dabf7'},
+        {key:'ema20',label:'EMA 20',color:'#b388ff'},
+        {key:'ema40',label:'EMA 40',color:'#aab2bd'},
+      ]
+  const visibleEmaDefs = emaDefs.filter(def => last?.[def.key] != null)
 
   return (
-    <div style={{borderRadius:10, overflow:'hidden', background:'rgba(0,0,0,0.3)'}}>
-      <svg width="100%" viewBox={`0 0 ${W} ${TH}`} style={{display:'block'}}>
+    <div style={{width:'100%',minWidth:0,borderRadius:10,overflow:'hidden',background:'rgba(0,0,0,0.3)'}}>
+      <svg width="100%" viewBox={`0 0 ${W} ${TH}`} preserveAspectRatio="xMidYMid meet" style={{display:'block',width:'100%',height:'auto',maxWidth:'100%'}}>
         {/* ── Candle chart background ── */}
         <rect x={0} y={0} width={W} height={CH} fill="rgba(0,0,0,0.0)"/>
 
@@ -281,9 +296,7 @@ function MiniCandleChart({ candles }) {
         })}
 
         {/* EMA lines */}
-        {last?.ema9  && emaPath('ema9',  '#4dabf7', 1.2, 0.85)}
-        {last?.ema20 && emaPath('ema20', '#b388ff', 1.5, 0.92)}
-        {last?.ema40 && emaPath('ema40', '#aab2bd', 1.5, 0.88)}
+        {visibleEmaDefs.map(def => emaPath(def.key, def.color, 1.5, 0.92))}
 
         {/* Candles */}
         {candles.map((c, i) => {
@@ -303,20 +316,15 @@ function MiniCandleChart({ candles }) {
         })}
 
         {/* EMA legend */}
-        {(last?.ema9 || last?.ema20 || last?.ema40) && (
+        {visibleEmaDefs.length > 0 && (
           <g>
-            {last?.ema9 && <>
-              <line x1={PAD} y1={CH-10} x2={PAD+12} y2={CH-10} stroke="#4dabf7" strokeWidth={1.5}/>
-              <text x={PAD+15} y={CH-7} fontSize={7} fill="#4dabf7" fontFamily="monospace">EMA9</text>
-            </>}
-            {last?.ema20 && <>
-              <line x1={PAD+38} y1={CH-10} x2={PAD+50} y2={CH-10} stroke="#b388ff" strokeWidth={1.5}/>
-              <text x={PAD+53} y={CH-7} fontSize={7} fill="#b388ff" fontFamily="monospace">EMA20</text>
-            </>}
-            {last?.ema40 && <>
-              <line x1={PAD+92} y1={CH-10} x2={PAD+104} y2={CH-10} stroke="#aab2bd" strokeWidth={1.5}/>
-              <text x={PAD+107} y={CH-7} fontSize={7} fill="#aab2bd" fontFamily="monospace">EMA40</text>
-            </>}
+            {visibleEmaDefs.map((def,i) => {
+              const x = PAD + i * (W - PAD*2) / visibleEmaDefs.length
+              return <g key={def.key}>
+                <line x1={x} y1={CH-10} x2={x+12} y2={CH-10} stroke={def.color} strokeWidth={1.8}/>
+                <text x={x+15} y={CH-7} fontSize={7.5} fill={def.color} fontFamily="monospace">{def.label}</text>
+              </g>
+            })}
           </g>
         )}
 
@@ -421,7 +429,7 @@ function DetailSheet({ alert: a, onClose }) {
           {d.run && d.run.length >= 2 && (
             <div style={{marginBottom:12}}>
               <div style={{fontSize:9, fontFamily:'var(--mono)', color:'var(--text3)', letterSpacing:'.1em', marginBottom:6}}>CANDLE CHART</div>
-              <MiniCandleChart candles={d.run}/>
+              <MiniCandleChart candles={d.run} timeframe={a.timeframe}/>
             </div>
           )}
 
