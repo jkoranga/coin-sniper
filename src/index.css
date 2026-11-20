@@ -611,3 +611,16 @@ input,select,textarea{font-family:var(--mono);font-size:14px;color:var(--text)}
   from { opacity: 0; transform: scale(0.88); }
   to   { opacity: 1; transform: scale(1);    }
 }
+
+
+/* Settings rows: keep labels readable and let option groups use available width. */
+.setting-row > .row-label{flex:0 1 38%;min-width:150px}
+.setting-row > div:not(.row-label){min-width:0;max-width:100%}
+@media(max-width:700px){
+  .setting-row{flex-direction:column;align-items:stretch;justify-content:flex-start;gap:9px}
+  .setting-row > .row-label{flex:0 0 auto;width:100%;min-width:0}
+  .setting-row > .row-label span{font-size:14px;line-height:1.35}
+  .setting-row > .row-label small{font-size:11px;line-height:1.45;white-space:normal}
+  .setting-row > div:not(.row-label){width:100%;display:flex;justify-content:flex-start!important;flex-wrap:wrap;gap:6px!important}
+  .setting-row .btn-small{flex:0 0 auto;min-width:48px}
+}
