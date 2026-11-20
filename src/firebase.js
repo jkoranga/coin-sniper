@@ -161,6 +161,32 @@ export async function loadPatternBinFromCloud(uid) {
   }
 }
 
+// Per-account notification cooldowns survive browser changes and device switches.
+export async function saveNotificationCooldownsToCloud(uid, cooldowns) {
+  if (!uid) return false
+  try {
+    await setDoc(doc(db, 'users', uid, 'data', 'notification-cooldowns'), {
+      cooldowns: cooldowns || {},
+      updatedAt: Date.now(),
+    })
+    return true
+  } catch (e) {
+    console.warn('[CoinSniper] notification cooldown save failed:', e.message)
+    return false
+  }
+}
+
+export async function loadNotificationCooldownsFromCloud(uid) {
+  if (!uid) return null
+  try {
+    const snap = await getDoc(doc(db, 'users', uid, 'data', 'notification-cooldowns'))
+    return snap.exists() ? snap.data().cooldowns || {} : null
+  } catch (e) {
+    console.warn('[CoinSniper] notification cooldown load failed:', e.message)
+    return null
+  }
+}
+
 // ── Scan Settings (separate doc — real-time sync) ────────────────────────────
 const SCAN_FIELDS = [
   'timeframe','scanInterval','symbolSet','customPairs',
