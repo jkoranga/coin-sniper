@@ -42,6 +42,32 @@ const DEDUP_OPT = ['1m','3m','5m','15m','30m','1h','4h','1d']
 
 const DELTA_RESULTS_KEY = 'cs_delta_results_v1'
 const DELTA_RESULTS_CAP = 300
+// Persist notification cooldowns across reloads so restarting the app does not
+// immediately resend a signal that was already notified within its cooldown.
+const DELTA_DEDUP_KEY = 'cs_delta_notification_cooldowns_v1'
+
+function loadDedupCooldowns() {
+  try {
+    const saved = JSON.parse(localStorage.getItem(DELTA_DEDUP_KEY) || '{}')
+    const now = Date.now()
+    return Object.fromEntries(
+      Object.entries(saved).filter(([, expiresAt]) => Number(expiresAt) > now)
+    )
+  } catch { return {} }
+}
+
+function saveDedupCooldowns(cooldowns) {
+  try {
+    const now = Date.now()
+    const active = Object.entries(cooldowns)
+      .filter(([, expiresAt]) => Number(expiresAt) > now)
+      .sort((a, b) => Number(b[1]) - Number(a[1]))
+      .slice(0, 5000)
+    localStorage.setItem(DELTA_DEDUP_KEY, JSON.stringify(Object.fromEntries(active)))
+  } catch (err) {
+    console.warn('[DeltaScanner] Could not persist notification cooldowns', err)
+  }
+}
 
 function deltaResultKey(a) {
   return [a.exchange || 'delta', a.symbol, a.timeframe, a.scannerId, a.side].join('__')
@@ -521,7 +547,7 @@ export default function DeltaScannerTab({
   const abortRef    = useRef(null)
   const loopRef     = useRef(false)
   const scanningRef = useRef(false)
-  const seenRef     = useRef({})
+  const seenRef     = useRef(loadDedupCooldowns())
   const cacheRef    = useRef({})
   const idRef       = useRef(0)
   const timerRef    = useRef(null)
@@ -580,12 +606,14 @@ export default function DeltaScannerTab({
   }
 
   // ── Dedup ────────────────────────────────────────────────────────────────────
-  function isDupe(symbol, scannerId) {
-    const key = `delta__${symbol}__${scannerId}__${timeframe}`
+  function isDupe(symbol, scannerId, side) {
+    // Cooldown is per coin + timeframe + pattern + direction.
+    const key = `delta__${symbol}__${timeframe}__${scannerId}__${side || 'any'}`
     const now = Date.now()
-    const exp = seenRef.current[key]
-    if (exp && now < exp) return true
+    const exp = Number(seenRef.current[key] || 0)
+    if (exp > now) return true
     seenRef.current[key] = now + intervalToMs(dedupInt)
+    saveDedupCooldowns(seenRef.current)
     return false
   }
 
@@ -705,7 +733,7 @@ export default function DeltaScannerTab({
 
             // Notification cooldown is independent: refresh the row every scan,
             // but only send Telegram after the configured dedup interval.
-            if (!isDupe(sym, sc.id)) newAlerts.push(a)
+            if (!isDupe(sym, sc.id, sc.side)) newAlerts.push(a)
             historyAddAlerts([a])
           }
         } catch { newErrors.push(sym) }
