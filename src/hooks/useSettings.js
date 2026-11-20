@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
-import { saveSettingsToCloud, loadSettingsFromCloud, saveScanSettings, subscribeScanSettings, isScanField } from '../firebase.js'
+import { saveSettingsToCloud, loadSettingsFromCloud, savePatternBinToCloud, loadPatternBinFromCloud, saveScanSettings, subscribeScanSettings, isScanField } from '../firebase.js'
 import { syncBackgroundScanner } from '../utils/backgroundScannerSync.js'
 
 const STORAGE_KEY = 'cfa_settings_v4'
@@ -227,10 +227,11 @@ export function useSettings(firebaseUser) {
     prevUidRef.current = uid
     setCloudSynced(false)
 
-    loadSettingsFromCloud(uid).then(cloud => {
+    Promise.all([loadSettingsFromCloud(uid), loadPatternBinFromCloud(uid)]).then(([cloud, binCloud]) => {
       if (!cloud) {
-        // First time user — push whatever is in local storage up to cloud
+        // First time user — push local settings and independently persist its Bin.
         saveNow()
+        savePatternBinToCloud(uid, settingsRef.current.deletedPatterns || [])
         return
       }
       // IMPORTANT: compute merged OUTSIDE setSettings so we can pass it
@@ -241,6 +242,14 @@ export function useSettings(firebaseUser) {
       // trash and wipe out patterns that were correctly loaded from cloud.
       const currentLocal = settingsRef.current
       const merged = mergeCloud(currentLocal, cloud)
+      // Dedicated Bin document is authoritative when it exists.
+      if (binCloud && Array.isArray(binCloud.deletedPatterns)) {
+        merged.deletedPatterns = binCloud.deletedPatterns
+        merged._deletedPatternsAt = Math.max(merged._deletedPatternsAt || 0, binCloud.updatedAt || 0)
+      } else {
+        // One-time migration for accounts created before the dedicated Bin existed.
+        savePatternBinToCloud(uid, merged.deletedPatterns || [])
+      }
       settingsRef.current = merged   // sync ref immediately
       setSettings(merged)            // trigger re-render + localStorage persist
 
@@ -263,11 +272,15 @@ export function useSettings(firebaseUser) {
 
     function handleVisibilityChange() {
       if (document.visibilityState !== 'visible') return
-      loadSettingsFromCloud(uid).then(cloud => {
+      Promise.all([loadSettingsFromCloud(uid), loadPatternBinFromCloud(uid)]).then(([cloud, binCloud]) => {
         if (!cloud) return
         // Compute merged outside setSettings to avoid reading stale settingsRef
         const visLocal = settingsRef.current
         const visMerged = mergeCloud(visLocal, cloud)
+        if (binCloud && Array.isArray(binCloud.deletedPatterns)) {
+          visMerged.deletedPatterns = binCloud.deletedPatterns
+          visMerged._deletedPatternsAt = Math.max(visMerged._deletedPatternsAt || 0, binCloud.updatedAt || 0)
+        }
         const visChanged = Object.keys(visMerged).some(k => visMerged[k] !== visLocal[k])
         if (visChanged) {
           settingsRef.current = visMerged
@@ -344,6 +357,11 @@ export function useSettings(firebaseUser) {
     // Cloud save
     const uid = firebaseUser?.uid
     if (!uid) return
+
+    // Save explicit Bin changes to their own Firestore document immediately.
+    if (typeof patch === 'object' && patch !== null && Object.prototype.hasOwnProperty.call(patch, 'deletedPatterns')) {
+      savePatternBinToCloud(uid, next.deletedPatterns || [])
+    }
 
     const isCritical = typeof patch === 'function'
       ? true  // function patches always treated as critical (e.g. complex updates)
