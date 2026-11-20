@@ -40,6 +40,43 @@ const VOLUME_FILTERS = [
 
 const DEDUP_OPT = ['1m','3m','5m','15m','30m','1h','4h','1d']
 
+const DELTA_RESULTS_KEY = 'cs_delta_results_v1'
+const DELTA_RESULTS_CAP = 300
+
+function deltaResultKey(a) {
+  return [a.exchange || 'delta', a.symbol, a.timeframe, a.scannerId, a.side].join('__')
+}
+
+function normalizeDeltaResults(items) {
+  const unique = new Map()
+  for (const item of (Array.isArray(items) ? items : [])) {
+    if (!item?.symbol || !item?.scannerId || !item?.timeframe) continue
+    const key = deltaResultKey(item)
+    const old = unique.get(key)
+    if (!old || Number(item.time || 0) >= Number(old.time || 0)) {
+      unique.set(key, { ...item, id: old?.id ?? item.id ?? key })
+    }
+  }
+  return [...unique.values()].sort((a,b) => Number(b.time || 0) - Number(a.time || 0)).slice(0, DELTA_RESULTS_CAP)
+}
+
+function loadDeltaResults(tf) {
+  try {
+    const saved = JSON.parse(localStorage.getItem(DELTA_RESULTS_KEY) || '{}')
+    return normalizeDeltaResults(saved[tf] || [])
+  } catch { return [] }
+}
+
+function saveDeltaResults(tf, items) {
+  try {
+    const saved = JSON.parse(localStorage.getItem(DELTA_RESULTS_KEY) || '{}')
+    saved[tf] = normalizeDeltaResults(items)
+    localStorage.setItem(DELTA_RESULTS_KEY, JSON.stringify(saved))
+  } catch (err) {
+    console.warn('[DeltaScanner] Could not persist results', err)
+  }
+}
+
 function tvUrl(symbol, tf = '15m') {
   const m = {'1m':'1','3m':'3','5m':'5','15m':'15','30m':'30','1h':'60','4h':'240','1d':'D'}
   const base = symbol.replace('USDT','')
@@ -461,7 +498,7 @@ export default function DeltaScannerTab({
   const [scanning,    setScanning]    = useState(false)
   const [progress,    setProgress]    = useState(0)
   const [progressSym, setProgressSym] = useState('')
-  const [alerts,      setAlerts]      = useState([])
+  const [alerts,      setAlerts]      = useState(() => loadDeltaResults(tfProp || '15m'))
   const [errors,      setErrors]      = useState([])
   const [lastScan,    setLastScan]    = useState(null)
   const [autoEnabled, setAutoEnabled] = useState(false)
@@ -482,6 +519,7 @@ export default function DeltaScannerTab({
   const timerRef    = useRef(null)
   const settingsRef = useRef(settings)
   useEffect(() => { settingsRef.current = settings }, [settings])
+  useEffect(() => { saveDeltaResults(timeframe, alerts) }, [timeframe, alerts])
 
   // Notify parent of current alert count (consistent with TFScannerTab)
   useEffect(() => {
@@ -570,9 +608,7 @@ export default function DeltaScannerTab({
     setScanning(true)
     setProgress(0)
     setErrors([])
-    // In loop mode: clear old alerts at start so fresh results stream in cleanly
-    // In auto mode: keep old alerts visible during scan — new ones accumulate on top
-    if (loopRef.current) setAlerts([])
+    // Keep existing results in Auto and Loop modes; repeated signals update in place.
 
     const CONCURRENCY = cfg.concurrency || 30
     const newAlerts   = []
@@ -611,7 +647,6 @@ export default function DeltaScannerTab({
 
           for (const sc of activePatterns) {
             if (abortRef.current.signal.aborted) break
-            if (isDupe(sym, sc.id)) continue
             const result = sc.logic(candles, htfMap)
             if (!result) continue
 
@@ -624,16 +659,31 @@ export default function DeltaScannerTab({
               }
             } catch {}
 
+            const now = Date.now()
             const a = {
-              id: ++idRef.current, exchange: 'delta', symbol: sym, timeframe,
-              time: Date.now(), scannerId: sc.id, scannerName: sc.name,
+              id: [ 'delta', sym, timeframe, sc.id, sc.side ].join('__'),
+              exchange: 'delta', symbol: sym, timeframe,
+              time: now, lastSeen: now, scannerId: sc.id, scannerName: sc.name,
               scannerIcon: sc.icon, side: sc.side, details: result, volume: symVol,
               dailyChangePct: Number.isFinite(Number(symObj?.dailyChangePct)) ? Number(symObj.dailyChangePct) : null,
               hourlyChangePct,
             }
-            newAlerts.push(a)
-            // Stream each result immediately — no waiting for full scan
-            setAlerts(prev => [a, ...prev].slice(0, 300))
+
+            // Upsert one row per coin + timeframe + pattern + direction.
+            setAlerts(prev => {
+              const key = deltaResultKey(a)
+              const existing = prev.find(x => deltaResultKey(x) === key)
+              const updated = {
+                ...a,
+                id: existing?.id ?? a.id,
+                firstSeen: existing?.firstSeen ?? existing?.time ?? now,
+              }
+              return normalizeDeltaResults([updated, ...prev.filter(x => deltaResultKey(x) !== key)])
+            })
+
+            // Notification cooldown is independent: refresh the row every scan,
+            // but only send Telegram after the configured dedup interval.
+            if (!isDupe(sym, sc.id)) newAlerts.push(a)
             historyAddAlerts([a])
           }
         } catch { newErrors.push(sym) }
