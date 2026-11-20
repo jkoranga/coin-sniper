@@ -189,34 +189,31 @@ export function useSettings(firebaseUser) {
       merged._scanSettingsAt = localScanAt
     }
 
-    // customPatterns: keep local only when it is strictly newer — same
-    // empty-array defensive guard as trash above.
-    const localAt = prev._customPatternsAt  || 0
+    // Pattern arrays are timestamp-authoritative, including intentional empty arrays.
+    // A timestamp of 0 means this device has no local change; a newer non-zero
+    // timestamp means the user deliberately changed the list (including clearing it).
+    const localAt = prev._customPatternsAt || 0
     const cloudAt = clean._customPatternsAt || 0
-    const localPatEmpty = !prev.customPatterns || prev.customPatterns.length === 0
-    const cloudHasPat   = Array.isArray(clean.customPatterns) && clean.customPatterns.length > 0
-    if (localAt > cloudAt && !(localPatEmpty && cloudHasPat)) {
-      merged.customPatterns    = prev.customPatterns
+    if (localAt > cloudAt) {
+      merged.customPatterns = prev.customPatterns ?? []
       merged._customPatternsAt = localAt
     } else {
-      merged.customPatterns    = clean.customPatterns ?? prev.customPatterns
+      merged.customPatterns = clean.customPatterns ?? prev.customPatterns ?? []
       merged._customPatternsAt = cloudAt || localAt
     }
 
     // Normalize patterns from either source — stamp missing condition ids
     merged.customPatterns = normalizeLoadedPatterns(merged.customPatterns)
 
-    // Same for trash — additionally: never let an empty local array beat
-    // cloud data just because of a timestamp edge case (defensive guard).
-    const localTrAt = prev._deletedPatternsAt  || 0
+    // Trash follows the same rule: an intentionally emptied Bin must stay empty
+    // after reload/login; a fresh device (timestamp 0) still receives cloud data.
+    const localTrAt = prev._deletedPatternsAt || 0
     const cloudTrAt = clean._deletedPatternsAt || 0
-    const localTrashEmpty = !prev.deletedPatterns || prev.deletedPatterns.length === 0
-    const cloudHasTrash   = Array.isArray(clean.deletedPatterns) && clean.deletedPatterns.length > 0
-    if (localTrAt > cloudTrAt && !(localTrashEmpty && cloudHasTrash)) {
-      merged.deletedPatterns    = prev.deletedPatterns
+    if (localTrAt > cloudTrAt) {
+      merged.deletedPatterns = prev.deletedPatterns ?? []
       merged._deletedPatternsAt = localTrAt
     } else {
-      merged.deletedPatterns    = clean.deletedPatterns ?? prev.deletedPatterns
+      merged.deletedPatterns = clean.deletedPatterns ?? prev.deletedPatterns ?? []
       merged._deletedPatternsAt = cloudTrAt || localTrAt
     }
 
