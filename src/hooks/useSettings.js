@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
-import { saveSettingsToCloud, loadSettingsFromCloud, savePatternBinToCloud, loadPatternBinFromCloud, saveScanSettings, subscribeScanSettings, isScanField } from '../firebase.js'
+import { saveSettingsToCloud, loadSettingsFromCloud, savePatternBinToCloud, loadPatternBinFromCloud, saveScanSettings, loadScanSettingsFromCloud, subscribeScanSettings, isScanField } from '../firebase.js'
 import { syncBackgroundScanner } from '../utils/backgroundScannerSync.js'
 
 const STORAGE_KEY = 'cfa_settings_v4'
@@ -227,7 +227,7 @@ export function useSettings(firebaseUser) {
     prevUidRef.current = uid
     setCloudSynced(false)
 
-    Promise.all([loadSettingsFromCloud(uid), loadPatternBinFromCloud(uid)]).then(([cloud, binCloud]) => {
+    Promise.all([loadSettingsFromCloud(uid), loadPatternBinFromCloud(uid), loadScanSettingsFromCloud(uid)]).then(([cloud, binCloud, scanCloud]) => {
       if (!cloud) {
         // First time user — push local settings and independently persist its Bin.
         saveNow()
@@ -242,6 +242,15 @@ export function useSettings(firebaseUser) {
       // trash and wipe out patterns that were correctly loaded from cloud.
       const currentLocal = settingsRef.current
       const merged = mergeCloud(currentLocal, cloud)
+      // The dedicated scan-config document is the source of truth for scan
+      // preferences. Load it explicitly on login; onSnapshot's first event is
+      // intentionally ignored to prevent stale initial echoes.
+      if (scanCloud) {
+        Object.keys(scanCloud).forEach(k => {
+          if (k !== '_savedAt' && isScanField(k)) merged[k] = scanCloud[k]
+        })
+        merged._scanSettingsAt = scanCloud._savedAt || Date.now()
+      }
       // Dedicated Bin document is authoritative when it exists.
       if (binCloud && Array.isArray(binCloud.deletedPatterns)) {
         merged.deletedPatterns = binCloud.deletedPatterns
@@ -256,7 +265,7 @@ export function useSettings(firebaseUser) {
       // Push merged state back to Firestore using the local `merged` reference
       // (NOT settingsRef.current — React may not have processed the setState yet).
       saveSettingsToCloud(uid, merged).then(() => setCloudSynced(true))
-      saveScanSettings(uid, merged)
+      if (!scanCloud) saveScanSettings(uid, merged)
     })
   }, [firebaseUser, saveNow, mergeCloud])
 
@@ -272,11 +281,17 @@ export function useSettings(firebaseUser) {
 
     function handleVisibilityChange() {
       if (document.visibilityState !== 'visible') return
-      Promise.all([loadSettingsFromCloud(uid), loadPatternBinFromCloud(uid)]).then(([cloud, binCloud]) => {
+      Promise.all([loadSettingsFromCloud(uid), loadPatternBinFromCloud(uid), loadScanSettingsFromCloud(uid)]).then(([cloud, binCloud, scanCloud]) => {
         if (!cloud) return
         // Compute merged outside setSettings to avoid reading stale settingsRef
         const visLocal = settingsRef.current
         const visMerged = mergeCloud(visLocal, cloud)
+        if (scanCloud) {
+          Object.keys(scanCloud).forEach(k => {
+            if (k !== '_savedAt' && isScanField(k)) visMerged[k] = scanCloud[k]
+          })
+          visMerged._scanSettingsAt = scanCloud._savedAt || visMerged._scanSettingsAt || 0
+        }
         if (binCloud && Array.isArray(binCloud.deletedPatterns)) {
           visMerged.deletedPatterns = binCloud.deletedPatterns
           visMerged._deletedPatternsAt = Math.max(visMerged._deletedPatternsAt || 0, binCloud.updatedAt || 0)
