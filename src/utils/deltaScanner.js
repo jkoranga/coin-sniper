@@ -120,7 +120,7 @@ export async function fetchDeltaCandles(symbol, interval = '15m', limit = 60) {
 
 // ─── Indicators ───────────────────────────────────────────────────────────────
 function attachIndicators(candles) {
-  const periods = [5,9,15,16,20,25,30,40,50,60,75,80,100,120,150,200,300,600]
+  const periods = [5,9,15,16,20,25,27,30,40,45,50,60,75,80,100,120,135,150,200,300,600]
   for (const p of periods) attachEMAn(candles, p, `ema${p}`)
   attachRSI(candles, 14)
   attachDMI(candles, 14)
