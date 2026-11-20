@@ -190,6 +190,17 @@ export async function saveScanSettings(uid, allSettings) {
   }
 }
 
+export async function loadScanSettingsFromCloud(uid) {
+  if (!uid) return null
+  try {
+    const snap = await getDoc(doc(db, 'users', uid, 'settings', 'scan-config'))
+    return snap.exists() ? snap.data() : null
+  } catch (e) {
+    console.warn('[CoinSniper] loadScanSettings failed:', e.message)
+    return null
+  }
+}
+
 export function subscribeScanSettings(uid, onChange) {
   if (!uid) return () => {}
   const ref = doc(db, 'users', uid, 'settings', 'scan-config')
