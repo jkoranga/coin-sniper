@@ -229,9 +229,25 @@ export function useSettings(firebaseUser) {
 
     Promise.all([loadSettingsFromCloud(uid), loadPatternBinFromCloud(uid), loadScanSettingsFromCloud(uid)]).then(([cloud, binCloud, scanCloud]) => {
       if (!cloud) {
-        // First time user — push local settings and independently persist its Bin.
-        saveNow()
-        savePatternBinToCloud(uid, settingsRef.current.deletedPatterns || [])
+        // Settings doc may be new while the dedicated scan-config already
+        // exists (for example after a partial migration). Never discard it.
+        const firstSettings = { ...settingsRef.current }
+        if (scanCloud) {
+          Object.keys(scanCloud).forEach(k => {
+            if (k !== '_savedAt' && isScanField(k)) firstSettings[k] = scanCloud[k]
+          })
+          firstSettings._scanSettingsAt = scanCloud._savedAt || Date.now()
+        }
+        if (binCloud && Array.isArray(binCloud.deletedPatterns)) {
+          firstSettings.deletedPatterns = binCloud.deletedPatterns
+          firstSettings._deletedPatternsAt = Math.max(firstSettings._deletedPatternsAt || 0, binCloud.updatedAt || 0)
+        } else {
+          savePatternBinToCloud(uid, firstSettings.deletedPatterns || [])
+        }
+        settingsRef.current = firstSettings
+        setSettings(firstSettings)
+        saveSettingsToCloud(uid, firstSettings).then(() => setCloudSynced(true))
+        if (!scanCloud) saveScanSettings(uid, firstSettings)
         return
       }
       // IMPORTANT: compute merged OUTSIDE setSettings so we can pass it
