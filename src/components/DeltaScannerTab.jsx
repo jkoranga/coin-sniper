@@ -178,7 +178,7 @@ function AlertCard({ a, onDismiss, onTap, resultFilter }) {
       {a.details?.run?.length >= 2 && (
         <div style={{marginBottom:9}}>
           <div style={{fontSize:10,fontFamily:'var(--mono)',letterSpacing:'.12em',color:'var(--text3)',marginBottom:6}}>CANDLE CHART</div>
-          <MiniCandleChart candles={a.details.run} timeframe={a.timeframe}/>
+          <MiniCandleChart candles={a.details.run} timeframe={a.details.chartTimeframe || a.timeframe}/>
         </div>
       )}
       <div style={{display:'grid',gridTemplateColumns:'repeat(4,minmax(0,1fr))',gap:5,marginBottom:8}}>
@@ -429,7 +429,7 @@ function DetailSheet({ alert: a, onClose }) {
           {d.run && d.run.length >= 2 && (
             <div style={{marginBottom:12}}>
               <div style={{fontSize:9, fontFamily:'var(--mono)', color:'var(--text3)', letterSpacing:'.1em', marginBottom:6}}>CANDLE CHART</div>
-              <MiniCandleChart candles={d.run} timeframe={a.timeframe}/>
+              <MiniCandleChart candles={d.run} timeframe={d.chartTimeframe || a.timeframe}/>
             </div>
           )}
 
@@ -658,6 +658,20 @@ export default function DeltaScannerTab({
             const result = sc.logic(candles, htfMap)
             if (!result) continue
 
+            // Signals on 1m/3m/5m all use a consistent 5m candle chart.
+            // Scanner evaluation itself remains on the selected timeframe.
+            const chartTimeframe = ['1m','3m','5m'].includes(timeframe) ? '5m' : timeframe
+            let chartCandles = result.run
+            if (chartTimeframe !== timeframe) {
+              try {
+                const fiveMinuteCandles = await fetchCached(sym, '5m', 80)
+                if (fiveMinuteCandles?.length >= 2) chartCandles = fiveMinuteCandles
+              } catch {}
+            }
+            const chartDetails = chartCandles
+              ? { ...result, run: chartCandles, chartTimeframe }
+              : { ...result, chartTimeframe: timeframe }
+
             let hourlyChangePct = null
             try {
               const hourlyCandles = await fetchCached(sym, '1h', 2)
@@ -672,7 +686,7 @@ export default function DeltaScannerTab({
               id: [ 'delta', sym, timeframe, sc.id, sc.side ].join('__'),
               exchange: 'delta', symbol: sym, timeframe,
               time: now, lastSeen: now, scannerId: sc.id, scannerName: sc.name,
-              scannerIcon: sc.icon, side: sc.side, details: result, volume: symVol,
+              scannerIcon: sc.icon, side: sc.side, details: chartDetails, volume: symVol,
               dailyChangePct: Number.isFinite(Number(symObj?.dailyChangePct)) ? Number(symObj.dailyChangePct) : null,
               hourlyChangePct,
             }
