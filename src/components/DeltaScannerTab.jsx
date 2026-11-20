@@ -164,42 +164,37 @@ function AlertCard({ a, onDismiss, onTap, resultFilter }) {
         background:'rgba(0,0,0,0.3)', border:'1px solid var(--border2)',
         color:'var(--text3)', fontSize:13, display:'flex', alignItems:'center', justifyContent:'center', cursor:'pointer',
       }}>×</button>
-      <div style={{display:'flex', alignItems:'center', gap:8, marginBottom:10}}>
-        <span style={{fontSize:22}}>{a.scannerIcon}</span>
-        <div>
-          <span style={{fontSize:11, fontWeight:800, padding:'2px 9px', borderRadius:16,
-            background:`${col}22`, color:col, border:`1.5px solid ${bd}`, fontFamily:'var(--mono)'}}>{a.scannerName}</span>
-          <span style={{marginLeft:6, fontSize:9, padding:'2px 6px', borderRadius:5,
-            background:isBull?'rgba(0,230,118,0.12)':'rgba(255,60,80,0.12)', color:col, fontWeight:800,
-            fontFamily:'var(--mono)'}}>{isBull?'BULL':'BEAR'}</span>
+      <div style={{display:'flex', alignItems:'center', gap:9, marginBottom:10, paddingRight:25}}>
+        <span style={{fontSize:25, flexShrink:0}}>{a.scannerIcon}</span>
+        <div style={{flex:1,minWidth:0}}>
+          <div style={{display:'flex',alignItems:'center',gap:7,flexWrap:'wrap'}}>
+            <span style={{fontSize:17,fontWeight:900,color:col,lineHeight:1.2}}>{a.scannerName}</span>
+            <span style={{fontSize:10,fontWeight:900,padding:'4px 10px',borderRadius:8,background:isBull?'rgba(0,230,118,.12)':'rgba(255,60,80,.12)',color:col,border:`1px solid ${col}66`}}>{isBull?'BULL':'BEAR'}</span>
+          </div>
+          <div style={{fontSize:11,color:'var(--text3)',fontFamily:'var(--mono)',marginTop:3}}>{base}/USDT · {a.timeframe} · {timeSince(a.time)}</div>
         </div>
+        <TvIcon symbol={a.symbol} timeframe={a.timeframe} sz={31}/>
       </div>
-      <div style={{fontWeight:900, fontSize:20, color:col, fontFamily:'var(--mono)', marginBottom:4, letterSpacing:'-.02em'}}>
-        {base}<span style={{fontSize:12, fontWeight:400, color:'var(--text3)'}}>/USDT</span>
-        <span style={{fontSize:10, fontWeight:400, color:'var(--text3)', marginLeft:8}}>{a.timeframe} · {timeSince(a.time)}</span>
-      </div>
-      <div style={{display:'grid', gridTemplateColumns:'repeat(3,1fr)', gap:6, marginBottom:8}}>
+      {a.details?.run?.length >= 2 && (
+        <div style={{marginBottom:9}}>
+          <div style={{fontSize:10,fontFamily:'var(--mono)',letterSpacing:'.12em',color:'var(--text3)',marginBottom:6}}>CANDLE CHART</div>
+          <MiniCandleChart candles={a.details.run}/>
+        </div>
+      )}
+      <div style={{display:'grid',gridTemplateColumns:'repeat(4,minmax(0,1fr))',gap:5,marginBottom:8}}>
         {[
-          ['Close', a.details?.close ? `$${fmt(a.details.close)}` : '—'],
-          ['EMA 9', a.details?.ema9  ? fmt(a.details.ema9)  : '—'],
-          ['EMA 20',a.details?.ema20 ? fmt(a.details.ema20) : '—'],
-        ].map(([l,v])=>(
-          <div key={l} style={{borderRadius:8, padding:'6px 8px', background:'rgba(0,0,0,0.2)', border:`1px solid ${bd}`}}>
-            <div style={{fontSize:9, fontFamily:'var(--mono)', color:'var(--text3)', marginBottom:2, letterSpacing:'.05em'}}>{l}</div>
-            <div style={{fontWeight:800, fontSize:13, color:'var(--text)', fontFamily:'var(--mono)'}}>{v}</div>
+          ['PRICE',a.details?.close != null ? fmt(a.details.close) : '—','var(--text)'],
+          ['EMA 9',a.details?.ema9 != null ? fmt(a.details.ema9) : '—','#4dabf7'],
+          ['EMA 20',a.details?.ema20 != null ? fmt(a.details.ema20) : '—','#b388ff'],
+          ['EMA 40',a.details?.ema40 != null ? fmt(a.details.ema40) : '—','#aab2bd'],
+        ].map(([label,value,color])=>(
+          <div key={label} style={{borderRadius:8,padding:'7px 6px',background:'rgba(0,0,0,.22)',border:'1px solid rgba(255,255,255,.08)',minWidth:0}}>
+            <div style={{fontSize:8,fontFamily:'var(--mono)',color,marginBottom:3,fontWeight:800}}>{label}</div>
+            <div style={{fontWeight:800,fontSize:11,color:'var(--text)',fontFamily:'var(--mono)',overflow:'hidden',textOverflow:'ellipsis'}}>{value}</div>
           </div>
         ))}
       </div>
-      {a.details?.rsi14 != null && (
-        <div style={{display:'inline-flex', alignItems:'center', gap:5, padding:'4px 9px', borderRadius:6,
-          background:'rgba(255,167,38,0.08)', border:'1px solid rgba(255,167,38,0.25)', marginBottom:6}}>
-          <span style={{fontSize:9, color:'var(--amber)', fontWeight:700, fontFamily:'var(--mono)'}}>RSI-14</span>
-          <span style={{fontSize:11, fontWeight:700, fontFamily:'var(--mono)',
-            color:a.details.rsi14 < 30 ? GR : a.details.rsi14 > 70 ? RD : 'var(--text)'}}>
-            {a.details.rsi14.toFixed(1)}
-          </span>
-        </div>
-      )}
+      {a.details?.rsi14 != null && <div style={{fontSize:10,color:'var(--text3)',fontFamily:'var(--mono)'}}>RSI 14 <b style={{color:'#b388ff'}}>{a.details.rsi14.toFixed(1)}</b></div>}
       <div style={{display:'flex', gap:8, marginTop:6}}>
         <a href={tvUrl(a.symbol, a.timeframe)} target="_blank" rel="noopener noreferrer"
           onClick={e=>e.stopPropagation()} style={{
@@ -222,7 +217,7 @@ function AlertCard({ a, onDismiss, onTap, resultFilter }) {
 function MiniCandleChart({ candles }) {
   if (!candles || candles.length < 2) return null
 
-  const W = 340, CH = 120, RH = 44, PAD = 6, GAP = 8
+  const W = 340, CH = 190, RH = 76, PAD = 8, GAP = 9
   const TH = CH + GAP + RH  // total height
 
   // ── Candle chart ────────────────────────────────────────────────────────────
@@ -287,7 +282,8 @@ function MiniCandleChart({ candles }) {
 
         {/* EMA lines */}
         {last?.ema9  && emaPath('ema9',  '#4dabf7', 1.2, 0.85)}
-        {last?.ema20 && emaPath('ema20', '#ff6b00', 1.5, 0.90)}
+        {last?.ema20 && emaPath('ema20', '#b388ff', 1.5, 0.92)}
+        {last?.ema40 && emaPath('ema40', '#aab2bd', 1.5, 0.88)}
 
         {/* Candles */}
         {candles.map((c, i) => {
@@ -307,15 +303,19 @@ function MiniCandleChart({ candles }) {
         })}
 
         {/* EMA legend */}
-        {(last?.ema9 || last?.ema20) && (
+        {(last?.ema9 || last?.ema20 || last?.ema40) && (
           <g>
             {last?.ema9 && <>
               <line x1={PAD} y1={CH-10} x2={PAD+12} y2={CH-10} stroke="#4dabf7" strokeWidth={1.5}/>
               <text x={PAD+15} y={CH-7} fontSize={7} fill="#4dabf7" fontFamily="monospace">EMA9</text>
             </>}
             {last?.ema20 && <>
-              <line x1={PAD+38} y1={CH-10} x2={PAD+50} y2={CH-10} stroke="#ff6b00" strokeWidth={1.5}/>
-              <text x={PAD+53} y={CH-7} fontSize={7} fill="#ff6b00" fontFamily="monospace">EMA20</text>
+              <line x1={PAD+38} y1={CH-10} x2={PAD+50} y2={CH-10} stroke="#b388ff" strokeWidth={1.5}/>
+              <text x={PAD+53} y={CH-7} fontSize={7} fill="#b388ff" fontFamily="monospace">EMA20</text>
+            </>}
+            {last?.ema40 && <>
+              <line x1={PAD+92} y1={CH-10} x2={PAD+104} y2={CH-10} stroke="#aab2bd" strokeWidth={1.5}/>
+              <text x={PAD+107} y={CH-7} fontSize={7} fill="#aab2bd" fontFamily="monospace">EMA40</text>
             </>}
           </g>
         )}
