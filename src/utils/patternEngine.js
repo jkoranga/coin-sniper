@@ -407,7 +407,7 @@ export function compilePattern(pattern, _htfCandlesMap) {
         const pre = i > 0 ? `${active[i-1].joinNext} ` : ''
         return `✓ ${pre}${condFormula(c)}`
       }),
-      run: candles.slice(len - 8, len),
+      run: candles.slice(Math.max(0, len - 28), len),
       ema9: curr.ema9, ema20: curr.ema20, rsi: curr.rsi,
       accuracy,
     }
