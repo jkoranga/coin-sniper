@@ -654,6 +654,7 @@ function CondCard({ cond, idx, total, color, onChange, onRemove, onCopy, onMoveU
             </div>
           </div>
 
+          {!cond.histCompare && (
           {/* RIGHT SIDE — mode select */}
           <div style={{ padding: '7px 8px', borderRadius: 7, background: 'rgba(0,0,0,0.18)' }}>
             <Lbl>RIGHT — compare to</Lbl>
@@ -865,6 +866,8 @@ function CondCard({ cond, idx, total, color, onChange, onRemove, onCopy, onMoveU
               </div>
             )}
           </div>
+
+          )}
 
           {/* Live formula */}
           <div style={{
