@@ -698,10 +698,11 @@ function ManualSection() {
       </Block>
       <Block icon="🔧" title="What is a Pattern?" accent="var(--lime,#c6ff00)">
         <div style={{ fontSize:10, color:'var(--text2)', lineHeight:1.85 }}>
-          A <b style={{ color:'var(--text)' }}>Pattern</b> is a named set of conditions. <b>All conditions must be true</b> for a coin to fire a signal — like an AND logic gate.<br/><br/>
+          A <b style={{ color:'var(--text)' }}>Pattern</b> is a named set of conditions. Conditions are combined using <b>AND / OR</b> logic, including grouped conditions. The pattern fires only when the complete logic expression evaluates true.<br/><br/>
           Every pattern has:<br/>
           • A <b style={{ color:'var(--green)' }}>Side</b> — Bull or Bear<br/>
-          • A list of <b style={{ color:'var(--blue)' }}>Conditions</b><br/>
+          • Enabled / disabled <b style={{ color:'var(--blue)' }}>Conditions</b> and their AND / OR links<br/>
+          • Optional condition groups and higher-timeframe (HTF) references<br/>
           • A set of <b style={{ color:'var(--purple)' }}>Timeframes</b> it runs on
         </div>
         <Ex>
@@ -715,16 +716,49 @@ function ManualSection() {
       </Block>
       <Block icon="📊" title="Fields — What You Can Measure" accent="var(--blue)">
         <Table rows={[
-          ['Close / Open / High / Low','Raw candle price data',''],
-          ['Volume','Trading volume of the candle',''],
-          ['EMA 5 → EMA 600','Exponential Moving Average. Smaller period = faster reaction',''],
-          ['RSI 14','Momentum oscillator 0–100. Below 30 = oversold, above 70 = overbought',''],
-          ['+DI / -DI / ADX','Directional trend strength. ADX > 25 = strong trend',''],
-          ['Change %','Candle close vs previous close as %',''],
-          ['Body %','% of candle range that is body (100% = no wicks)',''],
-          ['Is Green / Is Red','1 if condition true, else 0',''],
+          ['Close / Open / High / Low','Current candle OHLC prices. Can be compared with each other, indicators, or a fixed value.',''],
+          ['Volume','Volume of the selected candle (not the rolling 24h ticker volume).',''],
+          ['EMA 5, 9, 10, 15, 20, 25, 30, 40, 50, 60, 75, 80, 100, 120, 150, 200, 300, 600','Exponential Moving Average. Lower periods react faster; higher periods are slower trend references.',''],
+          ['RSI 14','Momentum oscillator (0–100). Common reference: below 30 oversold, above 70 overbought; tune to your strategy.',''],
+          ['+DI 14 / -DI 14','Directional movement values. +DI stronger than -DI can indicate upward directional pressure; inverse can indicate downward pressure.',''],
+          ['ADX 14','Trend-strength measure; it does not tell bullish or bearish direction by itself. 25 is a common strength reference, not a guaranteed signal.',''],
+          ['Change %','(Close[0] / Close[-1] − 1) × 100. Signed candle-to-candle close change.',''],
+          ['24h Change%','Exchange ticker's rolling 24-hour price change; distinct from the selected candle's Change %.',''],
+          ['Full Body %','|Close − Open| / (High − Low) × 100. Body share of candle range; 100% means no wick.',''],
+          ['Body Size %','|Close − Open| / |Open| × 100. Direction-neutral body size relative to Open; use Is Green / Is Red to identify direction.',''],
+          ['Range H-L','High − Low. Absolute candle range in price units.',''],
+          ['Upper Wick','High − max(Close, Open). Absolute upper-wick size in price units.',''],
+          ['Green Bar Lower Wick %','Green candles only: (Open − Low) / |Open| × 100. Returns no value for red / doji candles.',''],
+          ['Red Bar Lower Wick %','Red candles only: (Close − Low) / |Close| × 100. Returns no value for green / doji candles.',''],
+          ['Is Green / Is Red','1 when Close > Open / Close < Open respectively; otherwise 0.',''],
         ]} />
-        <Tip><b>Candle Offset</b> — [0] current candle, [-1] previous, [-2] two back. Use to check past candles.</Tip>
+        <Tip><b>Candle Offset</b> — [0] latest candle, [-1] previous candle, [-2] two candles back. The same offset concept applies to the LHS and RHS fields. If required candle/indicator data is unavailable, that condition cannot trigger.</Tip>
+      </Block>
+      <Block icon="🧮" title="Condition Builder — Modes & Formulas" accent="var(--purple)">
+        <div style={{ fontSize:10, color:'var(--text2)', lineHeight:1.85 }}>
+          Each condition compares a <b style={{color:'var(--text)'}}>Left Field (LHS)</b> with a selected <b style={{color:'var(--text)'}}>Right Side (RHS)</b>. RHS mode decides how the comparison value is calculated.
+        </div>
+        <Table rows={[
+          ['Value','Compare LHS with a fixed number.','RSI > 50'],
+          ['Field','Compare LHS with another field and its candle offset.','Close > EMA20'],
+          ['× Mult','Compare with RHS × multiplier.','EMA10 > EMA20 × 1.5'],
+          ['± %','Compare with RHS × (1 + percent / 100). Positive adds; negative subtracts.','Close > EMA20 + 1%'],
+          ['% Diff','Calculate ((LHS / RHS) − 1) × 100, then compare that percentage with the entered value.','(Close / EMA20 − 1) × 100 > 1'],
+          ['Slope %','Calculate ((Field[now] / Field[past]) − 1) × 100. Length sets N candles; Skip shifts the calculation further back.','EMA20 slope over 5 candles > 0.3%'],
+        ]} />
+        <div style={{fontSize:10,color:'var(--text2)',lineHeight:1.85,marginTop:8}}>
+          <b style={{color:'var(--text)'}}>Range Check:</b> applies the selected condition across a candle-offset window. <b>ALL</b> means every candle in the window must pass; <b>ANY</b> means at least one must pass.<br/><br/>
+          <b style={{color:'var(--text)'}}>AND / OR:</b> AND requires both linked conditions to pass; OR requires either. Use the group/bracket control to combine multiple conditions before linking that group to the next condition or group.<br/><br/>
+          <b style={{color:'var(--text)'}}>Higher Timeframe (HTF):</b> when an HTF is selected, the condition reads that timeframe's candles instead of the pattern's base timeframe. If HTF data is missing or insufficient, the condition does not pass; it is not silently checked against the base timeframe.
+        </div>
+        <Ex>
+          <b style={{color:'var(--green)'}}>Example — bullish EMA alignment + candle strength:</b><br/>
+          ① EMA10 &gt; EMA20 → fast EMA is above the slower EMA.<br/>
+          ② Close &gt; EMA20 → price is above EMA20.<br/>
+          ③ Is Green = 1 → current candle is green.<br/>
+          ④ Body Size % &gt; 1 → body is larger than 1% of its Open price.<br/>
+          Combine with AND when all four rules must pass.
+        </Ex>
       </Block>
       <Block icon="⚖️" title="Operators" accent="var(--amber)">
         <Table rows={[
@@ -737,8 +771,9 @@ function ManualSection() {
         ]} />
       </Block>
       <Block icon="⚡" title="Pattern Actions" accent="var(--blue)">
-        <Row icon="⇄" name="Mirror" desc="Creates the opposite pattern — flips Bull↔Bear, inverts all operators automatically." tip="Review mirrored conditions after creation." />
-        <Row icon="⧉" name="Copy" desc="Duplicates with a new name. Same side, same conditions." />
+        <Row icon="⇄" name="Mirror" desc="Creates the opposite-side pattern and mirrors supported fields / comparison operators. Review the generated conditions before relying on it." />
+        <Row icon="⧉" name="Copy Pattern" desc="Duplicates the selected pattern with a new name, keeping its side, timeframe selection and conditions." />
+        <Row icon="⧉" name="Copy to Another TF" desc="Open the Copy dropdown beside Mirror, choose Copy to Another TF, select the target timeframe and name. The source pattern stays unchanged. If the name already exists, rename the new copy; existing patterns are not overwritten." />
         <Row icon="🔒" name="Lock" desc="Prevents accidental edits. Pattern still scans when locked." />
         <Row icon="🗑" name="Delete → Trash" desc="Deleted patterns go to Trash Bin. Recoverable from there." />
       </Block>
