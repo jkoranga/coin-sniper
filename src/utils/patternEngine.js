@@ -260,9 +260,9 @@ export function compilePattern(pattern, _htfCandlesMap) {
           if (value == null || !Number.isFinite(Number(value))) return null
           previousValues.push(Number(value))
         }
-        const pctDiffMode = cond.op === '% Diff' || (cond.histCompareMode ?? 'value') === 'pctdiff'
-        const compareOp = pctDiffMode ? (cond.histPctOp || '>=') : cond.op
-        const op = OP_SYM[compareOp] || compareOp
+        const legacyPctDiff = cond.op === '% Diff' || (cond.histCompareMode ?? 'value') === 'pctdiff'
+        const rhsMode = legacyPctDiff ? 'pctdiff' : (cond.rhsMode ?? 'field')
+        const op = OP_SYM[cond.op] || cond.op
         const compare = (a, b) => {
           if (op === '>') return a > b
           if (op === '>=') return a >= b
@@ -272,25 +272,31 @@ export function compilePattern(pattern, _htfCandlesMap) {
           return Math.abs(a - b) >= 1e-9
         }
         const previousMode = cond.histPreviousMode ?? 'max'
-        const pctThreshold = Number.parseFloat(cond.histPctThreshold) || 0
-        const compareCurrentToPrevious = (currentValue, previousValue) => {
-          if (pctDiffMode) {
-            if (previousValue === 0) return null
-            const differencePct = ((currentValue - previousValue) / previousValue) * 100
-            return compare(differencePct, pctThreshold)
+        const referenceValue = previousMode === 'min' ? Math.min(...previousValues)
+          : previousMode === 'avg' ? previousValues.reduce((a,b)=>a+b,0) / previousValues.length
+          : Math.max(...previousValues)
+        const currentResults = currentValues.map((currentValue, index) => {
+          if (rhsMode === 'number') return compare(currentValue, Number.parseFloat(cond.rhsNum) || 0)
+          if (rhsMode === 'slope') {
+            const candleNo = cStart + index
+            const lookback = Math.max(1, Math.round(cond.slopeLen ?? 5)) + Math.max(0, Math.round(cond.slopeSkip ?? 0))
+            const nowValue = currentValue
+            const pastCandle = gC(-(candleNo + lookback))
+            const pastValue = gV(pastCandle, cond.lhsField, L - 1 - (candleNo + lookback))
+            if (pastValue == null || pastValue === 0) return null
+            const slopePct = (nowValue / pastValue - 1) * 100
+            return compare(slopePct, Number.parseFloat(cond.slopeNum) || 0)
           }
-          return compare(currentValue, previousValue)
-        }
-        const currentResults = currentValues.map(currentValue => {
-          if (previousMode === 'every') {
-            const checks = previousValues.map(previousValue => compareCurrentToPrevious(currentValue, previousValue))
-            if (checks.some(result => result == null)) return null
-            return checks.every(Boolean)
+          const baseValue = referenceValue
+          if (baseValue == null) return null
+          if (rhsMode === 'mult') return compare(currentValue, baseValue * (Number.parseFloat(cond.rhsMult) || 1))
+          if (rhsMode === 'pct') return compare(currentValue, baseValue * (1 + (Number.parseFloat(cond.rhsPct) || 0) / 100))
+          if (rhsMode === 'pctdiff') {
+            if (baseValue === 0) return null
+            const diffPct = (currentValue / baseValue - 1) * 100
+            return compare(diffPct, Number.parseFloat(cond.rhsNum) || 0)
           }
-          const reference = previousMode === 'min' ? Math.min(...previousValues)
-            : previousMode === 'avg' ? previousValues.reduce((a,b)=>a+b,0) / previousValues.length
-            : Math.max(...previousValues)
-          return compareCurrentToPrevious(currentValue, reference)
+          return compare(currentValue, baseValue)
         })
         if (currentResults.some(result => result == null)) return null
         return (cond.histCurrentMatch ?? 'any') === 'all'
