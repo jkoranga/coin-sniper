@@ -260,7 +260,9 @@ export function compilePattern(pattern, _htfCandlesMap) {
           if (value == null || !Number.isFinite(Number(value))) return null
           previousValues.push(Number(value))
         }
-        const op = OP_SYM[cond.op] || cond.op
+        const pctDiffMode = cond.op === '% Diff' || (cond.histCompareMode ?? 'value') === 'pctdiff'
+        const compareOp = pctDiffMode ? (cond.histPctOp || '>=') : cond.op
+        const op = OP_SYM[compareOp] || compareOp
         const compare = (a, b) => {
           if (op === '>') return a > b
           if (op === '>=') return a >= b
@@ -270,7 +272,6 @@ export function compilePattern(pattern, _htfCandlesMap) {
           return Math.abs(a - b) >= 1e-9
         }
         const previousMode = cond.histPreviousMode ?? 'max'
-        const pctDiffMode = (cond.histCompareMode ?? 'value') === 'pctdiff'
         const pctThreshold = Number.parseFloat(cond.histPctThreshold) || 0
         const compareCurrentToPrevious = (currentValue, previousValue) => {
           if (pctDiffMode) {
