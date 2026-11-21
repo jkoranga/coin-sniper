@@ -575,7 +575,7 @@ function CondCard({ cond, idx, total, color, onChange, onRemove, onCopy, onMoveU
                 Current candles vs an older candle / EMA / RSI range
               </div>
             </div>
-            <button onClick={() => { s('histCompare', !cond.histCompare); if (!cond.histCompare) s('rangeCheck', false) }} style={{
+            <button onClick={() => onChange({ ...cond, histCompare: !cond.histCompare, rangeCheck: cond.histCompare ? cond.rangeCheck : false })} style={{
               padding: '5px 10px', borderRadius: 7, cursor: 'pointer', fontSize: 10, fontWeight: 800,
               border: `1px solid ${cond.histCompare ? '#00e676' : 'var(--border)'}`,
               background: cond.histCompare ? 'rgba(0,230,118,0.16)' : 'var(--bg3)',
