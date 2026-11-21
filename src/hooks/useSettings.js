@@ -19,6 +19,7 @@ export const DEFAULTS = {
   darkMode:     true,
   symbolSet:    'all',
   customPairs:  DEFAULT_30_PAIRS,
+  assetGroups: [],
   scanMode:       'all',
   autoScan:       false,
   viewMode:       'list',
@@ -56,7 +57,7 @@ const CRITICAL_KEYS = new Set([
   // Scanner toggles & TF assignments
   'scannerEnabled', 'patternTfs',
   // Scan settings (Settings tab)
-  'symbolSet', 'scanInterval', 'dedupInterval', 'volumeFilter',
+  'symbolSet', 'scanInterval', 'dedupInterval', 'volumeFilter', 'assetGroups',
   'resultFilter', 'scanMode', 'patternsMode',
   'defaultSort', 'defaultSortDir',
   // Alert / notification settings
@@ -179,7 +180,7 @@ export function useSettings(firebaseUser) {
     const localScanAt = prev._scanSettingsAt || 0
     const cloudScanAt = clean._scanSettingsAt || 0
     if (localScanAt > cloudScanAt) {
-      const SF = ['timeframe','scanInterval','symbolSet','customPairs','scanMode','dedupInterval','volumeFilter','resultFilter','patternsMode','autoScan','viewMode','scannerEnabled']
+      const SF = ['timeframe','scanInterval','symbolSet','customPairs','assetGroups','scanMode','dedupInterval','volumeFilter','resultFilter','patternsMode','autoScan','viewMode','scannerEnabled']
       SF.forEach(k => { merged[k] = prev[k] })
       Object.keys(prev).forEach(k => {
         if (k.startsWith('scanMode_') || k.startsWith('dedupInterval_') ||
