@@ -11,7 +11,7 @@ const STOCKS = [
   ['PLTR', 'Palantir'],
 ]
 
-const DEFAULT_GROUPS = [
+export const DEFAULT_GROUPS = [
   {
     id: 'crypto', name: 'Crypto', kind: 'crypto', locked: true,
     assets: TOP_SYMBOLS.slice(0, 30).map(symbol => ({
