@@ -20,6 +20,17 @@ function decorateCandles(candles, ticker = null) {
 
 export async function fetchCandles(symbol, interval = '15m', limit = 60, ticker = null) {
   // STOCK: prefix routes real US exchange OHLCV through the secure Twelve Data proxy.
+  // ITICK: prefix routes spot metals through the secure iTick proxy.
+  if (String(symbol).startsWith('ITICK:')) {
+    const [, , market, code] = String(symbol).split(':')
+    const res = await fetch(`/api/commodity-candles?region=${encodeURIComponent(market)}&symbol=${encodeURIComponent(code)}&interval=${encodeURIComponent(interval)}&limit=${Math.min(500, Math.max(60, limit))}`, { signal: AbortSignal.timeout(12000) })
+    const data = await res.json().catch(() => ({}))
+    if (!res.ok) throw new Error(data.error || `Commodity data unavailable for ${code}`)
+    if (!Array.isArray(data.values) || !data.values.length) throw new Error(`No commodity candles for ${code}`)
+    const candles = data.values.map(v => ({ time: Number(v.t), open: Number(v.o), high: Number(v.h), low: Number(v.l), close: Number(v.c), volume: Number(v.v || 0) }))
+      .filter(c => Number.isFinite(c.time) && [c.open,c.high,c.low,c.close].every(Number.isFinite)).sort((a,b) => a.time-b.time)
+    return decorateCandles(candles, ticker)
+  }
   if (String(symbol).startsWith('STOCK:')) {
     const stockSymbol = String(symbol).slice(6)
     const res = await fetch(`/api/stock-candles?symbol=${encodeURIComponent(stockSymbol)}&interval=${encodeURIComponent(interval)}&outputsize=${Math.min(5000, Math.max(60, limit))}`, {
