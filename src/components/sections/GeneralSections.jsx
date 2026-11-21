@@ -2,6 +2,7 @@ import React, { useState } from 'react'
 import { SectionHeader, Toggle, SettingRow, SectionCard, PillGroup } from '../UI'
 import { sendTelegram } from '../../utils/scanner'
 import { registerWebPush, sendWebPushTest } from '../../utils/webPush'
+import { syncBackgroundScanner } from '../../utils/backgroundScannerSync'
 
 // ── Appearance ────────────────────────────────────────────────────────────────
 export function AppearanceSection({ cfg, set }) {
@@ -137,7 +138,7 @@ function TgTestBtn({ token, chatId, onSave }) {
   )
 }
 
-export function AlertsSection({ cfg, set }) {
+export function AlertsSection({ cfg, set, update, user, saveNowWithPatch }) {
   // Buffer telegram fields locally — flush to settings on blur to avoid stale-closure issues
   const [tgToken, setTgToken] = React.useState(cfg.tgToken || '')
   const [tgChatId, setTgChatId] = React.useState(cfg.tgChatId || '')
@@ -196,18 +197,30 @@ export function AlertsSection({ cfg, set }) {
           <Toggle
             checked={!!cfg.webPushOn}
             onChange={async v => {
-              if (!v) {
-                set('webPushOn', false)
-                return
-              }
               try {
-                const token = await registerWebPush()
-                set('pushToken', token)
-                set('webPushOn', true)
-                window.alert('Web Push is registered on this device. Background scanner sync will now be updated.')
+                let patch
+                if (v) {
+                  const token = await registerWebPush()
+                  patch = { pushToken: token, webPushOn: true }
+                } else {
+                  patch = { webPushOn: false }
+                }
+
+                // Save the Web Push toggle and token together as one account setting.
+                // This avoids two overlapping Firestore writes leaving the old OFF state.
+                if (user && saveNowWithPatch) {
+                  const saved = await saveNowWithPatch(patch)
+                  if (!saved) throw new Error('Could not save Web Push settings to your account.')
+                  const synced = await syncBackgroundScanner(user, { ...cfg, ...patch })
+                  if (!synced) throw new Error('Settings were saved, but background scanner sync failed. Please try again.')
+                } else {
+                  update?.(patch)
+                  if (set && !update) set('webPushOn', Boolean(v))
+                }
+
+                if (v) window.alert('Web Push is enabled and saved to your login account. Background alerts will continue when the app is closed.')
               } catch (error) {
-                set('webPushOn', false)
-                window.alert(error?.message || 'Could not enable Web Push in this browser.')
+                window.alert(error?.message || 'Could not update Web Push settings.')
               }
             }}
           />
