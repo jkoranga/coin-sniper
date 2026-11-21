@@ -739,6 +739,7 @@ export default function App() {
   const [prevTab,        setPrevTab]        = useState(() => ssGetTab())
   const [userTappedTabs, setUserTappedTabs] = useState(() => ssGetTapped())
   const [showExitWarning,setShowExitWarning]= useState(false)
+  const [exitHint, setExitHint] = useState('')
   const [isOnline,       setIsOnline]       = useState(() => navigator.onLine)
   const [backOnline,     setBackOnline]     = useState(false)
 
@@ -935,30 +936,35 @@ export default function App() {
             <div style={{ fontSize:42, lineHeight:1 }}>🎯</div>
             <div style={{ textAlign:'center' }}>
               <div style={{ fontWeight:800, fontSize:16, color:'var(--text)', marginBottom:6 }}>Exit Coins Sniper?</div>
-              <div style={{ fontSize:12, color:'var(--text3)', fontFamily:'var(--mono)', lineHeight:1.5 }}>
-                {scanProgress.pct >= 0 ? 'A scan is running.\nExiting will stop it.' : 'Are you sure you want to exit?'}
+              <div style={{ fontSize:12, color:'var(--text3)', fontFamily:'var(--mono)', lineHeight:1.5, whiteSpace:'pre-line' }}>
+                {exitHint || (scanProgress.pct >= 0 ? 'A scan is running.\nExiting will stop it.' : 'Are you sure you want to exit?')}
               </div>
             </div>
             <div style={{ display:'flex', gap:10, width:'100%' }}>
-              <button onClick={() => setShowExitWarning(false)} style={{
+              <button onClick={() => { setShowExitWarning(false); setExitHint('') }} style={{
                 flex:1, padding:'12px', borderRadius:10, cursor:'pointer',
                 border:'1.5px solid var(--border2)', background:'var(--bg3)',
                 color:'var(--text2)', fontSize:14, fontWeight:700, fontFamily:'var(--mono)',
               }}>Cancel</button>
               <button onClick={() => {
-                setShowExitWarning(false)
-                // Capacitor (native app shell)
-                try { if (window.Capacitor?.Plugins?.App) { window.Capacitor.Plugins.App.exitApp(); return } } catch(_) {}
-                // Cordova / older WebView wrapper
-                try { if (window.navigator?.app?.exitApp) { window.navigator.app.exitApp(); return } } catch(_) {}
-                // Android WebView — navigate to blank then close
-                try { window.location.replace('about:blank') } catch(_) {}
+                // Native app shells can close themselves safely.
+                try {
+                  if (window.Capacitor?.Plugins?.App?.exitApp) {
+                    window.Capacitor.Plugins.App.exitApp()
+                    return
+                  }
+                } catch(_) {}
+                try {
+                  if (window.navigator?.app?.exitApp) {
+                    window.navigator.app.exitApp()
+                    return
+                  }
+                } catch(_) {}
+
+                // Browsers only allow scripts to close tabs opened by scripts.
+                // Never navigate to about:blank or destroy the document as a fallback.
                 try { window.close() } catch(_) {}
-                // PWA / browser fallback — blank the page completely
-                setTimeout(() => {
-                  document.body.innerHTML = '<div style="background:#000;height:100vh;width:100vw"></div>'
-                  document.body.style.cssText = 'background:#000;margin:0;padding:0;overflow:hidden'
-                }, 50)
+                setExitHint('Browser security ke kaaran app khud tab close nahi kar sakta. Is tab ko browser ke ✕ button se band karein.')
               }} style={{
                 flex:1, padding:'12px', borderRadius:10, cursor:'pointer',
                 border:'1.5px solid rgba(255,60,60,0.6)', background:'rgba(255,60,60,0.15)',
