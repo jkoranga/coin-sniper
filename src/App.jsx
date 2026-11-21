@@ -268,7 +268,8 @@ const CS_TABS = [
   { id: '30m', label: '30m', color: '#38d9a9' },
   { id: '1h',  label: '1h',  color: '#4dabf7' },
   { id: '4h',  label: '4h',  color: '#9775fa' },
-  { id: '1d',  label: 'Day', color: '#f783ac' },
+  { id: '1d',  label: 'D', color: '#f783ac' },
+  { id: 'clear', label: 'C', color: '#ff4757', isClear: true },
   { id: 'builder',  label: '🔧', color: 'var(--lime)', isBuilder: true },
   { id: 'settings', label: 'settings', color: ORANGE, isSettings: true },
 ]
@@ -870,6 +871,15 @@ export default function App() {
 
   const togglePatterns = () => setShowPatterns(v => !v)
 
+  function clearAllResults() {
+    if (!window.confirm('Clear all results from every timeframe? Patterns and scan settings will remain unchanged.')) return
+    try { localStorage.removeItem('cs_delta_results_v1') } catch (_) {}
+    historySave({})
+    setAlertCounts({})
+    window.dispatchEvent(new Event('coinsniper:clear-results'))
+    setActiveTab(prev => prev === 'clear' ? HOME_TAB : prev)
+  }
+
   return (
     <div className="app-shell-v2">
       {/* Network status banner */}
@@ -1077,6 +1087,7 @@ export default function App() {
               key={tab.id}
               className={`bottom-tab${tab.isSettings?' bottom-tab-settings':''}${tab.isBuilder&&isActive?' bottom-tab-builder-active':''}`}
               onClick={() => {
+                if (tab.isClear) { clearAllResults(); return }
                 if (!tab.isSettings && !tab.isBuilder) {
                   setUserTappedTabs(prev => new Set([...prev, tab.id]))
                 }
@@ -1087,7 +1098,9 @@ export default function App() {
                 background: isActive ? `${tab.color}10` : 'transparent',
                 borderTop: isActive ? `2px solid ${tab.color}` : '2px solid transparent',
               }}>
-              {tab.isSettings ? (
+              {tab.isClear ? (
+                <span style={{fontSize:17,fontWeight:900,lineHeight:1}}>C</span>
+              ) : tab.isSettings ? (
                 <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"
                   style={{ transition:'transform .3s', transform: isActive?'rotate(45deg)':'rotate(0deg)' }}>
                   <circle cx="12" cy="12" r="3"/>
