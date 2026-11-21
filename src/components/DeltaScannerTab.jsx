@@ -570,7 +570,16 @@ export default function DeltaScannerTab({
     const saved = Array.isArray(settings.assetGroups) ? settings.assetGroups : []
     const builtIns = DEFAULT_GROUPS.map(def => {
       const existing = saved.find(group => group.id === def.id)
-      return existing ? { ...def, ...existing, assets: Array.isArray(existing.assets) ? existing.assets : def.assets } : def
+      return existing ? {
+        ...def, ...existing,
+        assets: [
+          ...def.assets.map(base => {
+            const savedAsset = (existing.assets || []).find(a => a.id === base.id || a.symbol === base.symbol)
+            return savedAsset ? { ...base, ...savedAsset, scanSymbol: savedAsset.scanSymbol || base.scanSymbol, status: base.scanSymbol ? 'supported' : (savedAsset.status || base.status) } : base
+          }),
+          ...(existing.assets || []).filter(a => !def.assets.some(base => base.id === a.id || base.symbol === a.symbol)),
+        ],
+      } : def
     })
     return [...builtIns, ...saved.filter(group => !DEFAULT_GROUPS.some(def => def.id === group.id))]
   }, [settings.assetGroups])
