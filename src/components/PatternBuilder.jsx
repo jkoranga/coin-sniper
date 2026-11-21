@@ -654,24 +654,7 @@ function CondCard({ cond, idx, total, color, onChange, onRemove, onCopy, onMoveU
             </div>
           </div>
 
-          {cond.histCompare && (
-            <div style={{ padding: '7px 8px', borderRadius: 7, background: 'rgba(0,0,0,0.18)' }}>
-              <Lbl>RIGHT — previous range field</Lbl>
-              <FSelect
-                value={cond.rhsField || cond.lhsField}
-                offset={0}
-                onField={v => s('rhsField', v)}
-                onOffset={() => {}}
-                color="#00e676"
-                hideOffset
-              />
-              <div style={{ fontSize: 9, color: 'var(--text3)', fontFamily: 'var(--mono)', marginTop: 5 }}>
-                Current range uses LEFT field; previous range uses RIGHT field.
-              </div>
-            </div>
-          )}
-
-          {!cond.histCompare && (
+          {true && (
 
           <div style={{ padding: '7px 8px', borderRadius: 7, background: 'rgba(0,0,0,0.18)' }}>
             <Lbl>RIGHT — compare to</Lbl>
