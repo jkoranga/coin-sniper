@@ -765,14 +765,28 @@ export default function App() {
     return () => window.removeEventListener('popstate', handlePop)
   }, [])
 
-  // Network detection
+  // Network detection — reload once connection is restored.
   useEffect(() => {
-    let t = null
-    const off = () => { setIsOnline(false); setBackOnline(false); clearTimeout(t) }
-    const on  = () => { setIsOnline(true); setBackOnline(true); t = setTimeout(() => setBackOnline(false), 3000) }
+    let reloadTimer = null
+    const off = () => {
+      setIsOnline(false)
+      setBackOnline(false)
+      clearTimeout(reloadTimer)
+    }
+    const on = () => {
+      setIsOnline(true)
+      setBackOnline(true)
+      clearTimeout(reloadTimer)
+      // Give the connection a moment to stabilize, then refresh app data/state.
+      reloadTimer = setTimeout(() => window.location.reload(), 1500)
+    }
     window.addEventListener('offline', off)
-    window.addEventListener('online',  on)
-    return () => { window.removeEventListener('offline', off); window.removeEventListener('online', on); clearTimeout(t) }
+    window.addEventListener('online', on)
+    return () => {
+      window.removeEventListener('offline', off)
+      window.removeEventListener('online', on)
+      clearTimeout(reloadTimer)
+    }
   }, [])
 
   const { settings, update, reset, clearSortOverrides, cloudSynced, cloudSaving, saveNow, saveNowWithPatch, isFirstVisit } = useSettings(user)
