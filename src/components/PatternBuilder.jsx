@@ -654,8 +654,6 @@ function CondCard({ cond, idx, total, color, onChange, onRemove, onCopy, onMoveU
             </div>
           </div>
 
-          {true && (
-
           <div style={{ padding: '7px 8px', borderRadius: 7, background: 'rgba(0,0,0,0.18)' }}>
             <Lbl>RIGHT — compare to</Lbl>
             <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap', marginBottom: 9 }}>
@@ -867,7 +865,6 @@ function CondCard({ cond, idx, total, color, onChange, onRemove, onCopy, onMoveU
             )}
           </div>
 
-          )}
 
           {/* Live formula */}
           <div style={{
