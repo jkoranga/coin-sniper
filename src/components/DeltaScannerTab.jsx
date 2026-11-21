@@ -1186,13 +1186,23 @@ export default function DeltaScannerTab({
           )}
           <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',gap:8,marginTop:11,flexWrap:'wrap'}}>
             <span style={{fontSize:9,color:'var(--text3)'}}>Selected: {selectedAssetIds.size} · Gold/Silver via iTick; other futures require a verified contract feed.</span>
-            <button onClick={()=>{
+            <div style={{display:'flex',gap:6,flexWrap:'wrap'}}>
+              <button onClick={() => {
+                const allKeys = assetGroups.flatMap(g => (g.assets || []).filter(a => a.scanSymbol).map(a => a.scanSymbol || a.id))
+                const allSelected = allKeys.length > 0 && allKeys.every(key => selectedAssetIds.has(key))
+                setSelectedAssetIds(allSelected ? new Set() : new Set(allKeys))
+              }} style={{padding:'8px 10px',borderRadius:8,cursor:'pointer',fontSize:10,fontWeight:800,
+                border:'1px solid var(--border)',background:'var(--bg2)',color:'var(--text2)'}}>
+                {assetGroups.flatMap(g => (g.assets || []).filter(a => a.scanSymbol).map(a => a.scanSymbol || a.id)).length > 0 && assetGroups.flatMap(g => (g.assets || []).filter(a => a.scanSymbol).map(a => a.scanSymbol || a.id)).every(key => selectedAssetIds.has(key)) ? 'Deselect All' : 'Select All'}
+              </button>
+              <button onClick={()=>{
               const pairs=[...selectedAssetIds].filter(Boolean)
               update({customPairs:pairs,selectedAssetGroupIds:assetGroups.filter(g=>(g.assets||[]).some(a=>selectedAssetIds.has(a.scanSymbol||a.id))).map(g=>g.id)})
             }} style={{padding:'8px 12px',borderRadius:8,cursor:'pointer',fontSize:10,fontWeight:800,
               border:'1px solid var(--green2)',background:'var(--green-dim)',color:'var(--green)'}}>
               Apply Selection · {selectedAssetIds.size}
-            </button>
+              </button>
+            </div>
           </div>
           <div style={{fontSize:10,fontFamily:'var(--mono)',color:'var(--text3)',marginTop:8}}>
             {activePatterns.length} patterns · {timeframe.toUpperCase()} · Custom scan
