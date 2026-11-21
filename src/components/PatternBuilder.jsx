@@ -48,8 +48,6 @@ const FIELDS = [
   { id: 'upperWick',        label: 'Upper Wick',               short: 'UWick',     group: 'Calc', computed: c => c.high - Math.max(c.close, c.open) },
   { id: 'greenLowerWickPct',label: 'Green Bar Lower Wick %',   short: 'GreenLw%',  group: 'Calc', computed: c => c.close > c.open && c.open !== 0 ? (c.open - c.low) / Math.abs(c.open) * 100 : null },
   { id: 'redLowerWickPct',  label: 'Red Bar Lower Wick %',     short: 'RedLw%',    group: 'Calc', computed: c => c.close < c.open && c.close !== 0 ? (c.close - c.low) / Math.abs(c.close) * 100 : null },
-  { id: 'greenUpperWickPct',label: 'Green Bar Upper Wick %',   short: 'GreenUw%', group: 'Calc', computed: c => c.close > c.open && c.open !== 0 ? (c.high - c.close) / Math.abs(c.open) * 100 : null },
-  { id: 'redUpperWickPct',  label: 'Red Bar Upper Wick %',     short: 'RedUw%',    group: 'Calc', computed: c => c.close < c.open && c.close !== 0 ? (c.high - c.open) / Math.abs(c.close) * 100 : null },
   { id: 'isGreen',   label: 'Is Green',    short: 'Green?',  group: 'Calc', computed: c => c.close > c.open ? 1 : 0 },
   { id: 'isRed',     label: 'Is Red',      short: 'Red?',    group: 'Calc', computed: c => c.close < c.open ? 1 : 0 },
 ]
@@ -132,8 +130,6 @@ const MIRROR_FIELD = {
   'upperWick': 'lowerWick',
   'greenLowerWickPct': 'redLowerWickPct',
   'redLowerWickPct': 'greenLowerWickPct',
-  'greenUpperWickPct': 'redUpperWickPct',
-  'redUpperWickPct': 'greenUpperWickPct',
   'isGreen':   'isRed',
   'isRed':     'isGreen',
 }
@@ -152,7 +148,7 @@ function mirrorCond(cond) {
   // Size/magnitude fields — always absolute positive (0-100), keep value & op
   const SIZE_FIELDS = new Set([
     'body','bodyPct','bodySizePct','range','rangePct',
-    'upperWick','lowerWick','greenLowerWickPct','redLowerWickPct','greenUpperWickPct','redUpperWickPct','wickPct',
+    'upperWick','lowerWick','greenLowerWickPct','redLowerWickPct','wickPct',
     'volume',
     'isGreen','isRed',  // binary 0/1 flags — never negate on mirror
   ])
@@ -1838,8 +1834,6 @@ function HintsAccordion() {
           <div><b>Body Size %:</b> |Close − Open| / |Open| × 100. Direction-neutral size; use Is Green / Is Red to select candle direction.</div>
           <div><b>Green Lower Wick %:</b> (Open − Low) / |Open| × 100; available only on green candles.</div>
           <div><b>Red Lower Wick %:</b> (Close − Low) / |Close| × 100; available only on red candles.</div>
-          <div><b>Green Upper Wick %:</b> (High − Close) / |Open| × 100; available only on green candles.</div>
-          <div><b>Red Upper Wick %:</b> (High − Open) / |Close| × 100; available only on red candles.</div>
           <div><b>24h Change%:</b> exchange ticker's rolling 24-hour price change; not the candle change.</div>
           <div><b>+DI / −DI:</b> directional movement; <b>ADX</b> measures trend strength, not direction by itself.</div>
           <div style={{marginTop:7,color:'var(--text2)'}}>Tip: percentage and size fields are magnitudes unless the field is Change % or a signed slope / % Diff. A condition with unavailable data cannot trigger.</div>
