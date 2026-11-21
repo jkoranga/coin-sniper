@@ -2,7 +2,7 @@ import React, { useEffect, useMemo, useState } from 'react'
 import { SectionHeader, SectionCard } from '../UI'
 import { TOP_SYMBOLS } from '../../utils/scanner.js'
 
-const STOCK_TOKENS = [
+const STOCKS = [
   ['AAPL', 'Apple'], ['MSFT', 'Microsoft'], ['NVDA', 'NVIDIA'], ['AMZN', 'Amazon'],
   ['GOOGL', 'Alphabet'], ['META', 'Meta'], ['TSLA', 'Tesla'], ['AVGO', 'Broadcom'],
   ['BRK.B', 'Berkshire Hathaway'], ['JPM', 'JPMorgan'], ['WMT', 'Walmart'],
@@ -20,9 +20,9 @@ const DEFAULT_GROUPS = [
     })),
   },
   {
-    id: 'stock-token', name: 'Stock Token', kind: 'stock', locked: true,
-    assets: STOCK_TOKENS.map(([symbol, name]) => ({
-      id: symbol, symbol, name, scanSymbol: null, status: 'provider-required',
+    id: 'stocks', name: 'Stocks', kind: 'stock', locked: true,
+    assets: STOCKS.map(([symbol, name]) => ({
+      id: symbol, symbol, name, scanSymbol: 'STOCK:' + symbol, status: 'supported',
     })),
   },
   {
@@ -144,7 +144,7 @@ export default function CustomPairsSection({ cfg, set }) {
               <div>
                 <div style={{ fontSize:14, fontWeight:800, color:'var(--text)' }}>{active.name}</div>
                 <div style={{ fontSize:10, color:'var(--text3)', fontFamily:'var(--mono)', marginTop:2 }}>
-                  {isCrypto ? 'BINANCE SPOT PAIRS' : active.kind === 'stock' ? 'TOKENIZED STOCK WATCHLIST' : active.kind === 'commodity' ? 'COMMODITY WATCHLIST' : 'CUSTOM ASSET GROUP'}
+                  {isCrypto ? 'BINANCE SPOT PAIRS' : active.kind === 'stock' ? 'NASDAQ / NYSE STOCK WATCHLIST' : active.kind === 'commodity' ? 'COMMODITY WATCHLIST' : 'CUSTOM ASSET GROUP'}
                 </div>
               </div>
               {!active.locked && <button onClick={() => deleteCategory(active)} style={{
@@ -162,7 +162,7 @@ export default function CustomPairsSection({ cfg, set }) {
 
             <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', gap:8, flexWrap:'wrap', marginBottom:10 }}>
               <span style={{ fontSize:10, color:'var(--text3)', fontFamily:'var(--mono)' }}>
-                {active.assets.length} assets · {scanCount} Binance-scannable
+                {active.assets.length} assets · {scanCount} scan-ready
               </span>
               {scanCount > 0 && (
                 <button onClick={useForScanner} style={{
@@ -181,7 +181,7 @@ export default function CustomPairsSection({ cfg, set }) {
                   <div style={{ minWidth:0 }}>
                     <div style={{ fontSize:11, fontWeight:800, color:'var(--text)', overflow:'hidden', textOverflow:'ellipsis' }}>{asset.symbol}</div>
                     <div style={{ fontSize:9, color:asset.status === 'supported' ? 'var(--green)' : 'var(--amber)', marginTop:2 }}>
-                      {asset.status === 'supported' ? 'Binance pair' : 'Provider needed'}
+                      {asset.status === 'supported' ? (active.kind === 'stock' ? 'US stock data' : 'Binance pair') : 'Provider needed'}
                     </div>
                   </div>
                   <button onClick={() => removeAsset(asset.id)} aria-label={'Remove ' + asset.symbol} style={{
@@ -202,7 +202,7 @@ export default function CustomPairsSection({ cfg, set }) {
                 border:'1px solid rgba(255,167,38,.28)', background:'rgba(255,167,38,.07)',
                 color:'var(--text2)', fontSize:10, lineHeight:1.6,
               }}>
-                ⚠️ These assets are preloaded as a watchlist. The current scanner uses Binance Spot candles, so tokenized stocks and commodity feeds need a compatible market-data provider before they can generate scan signals.
+                ℹ️ Stocks use real NASDAQ/NYSE OHLCV candles through Twelve Data. Add your TWELVE_DATA_API_KEY in Vercel Environment Variables to enable live scanning. Crypto continues using Binance. Commodity feeds remain separate and are not enabled yet.
               </div>
             )}
           </>
