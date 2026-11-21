@@ -47,8 +47,21 @@ export default function CustomPairsSection({ cfg, set }) {
   const [categoryInput, setCategoryInput] = useState('')
   const [showNewCategory, setShowNewCategory] = useState(false)
 
-  const groups = Array.isArray(cfg.assetGroups) && cfg.assetGroups.length
-    ? cfg.assetGroups : DEFAULT_GROUPS
+  const savedGroups = Array.isArray(cfg.assetGroups) ? cfg.assetGroups : []
+  const groups = DEFAULT_GROUPS.map(def => {
+    const existing = savedGroups.find(group => group.id === def.id)
+    if (!existing) return def
+    return {
+      ...def, ...existing,
+      assets: [
+        ...def.assets.map(base => {
+          const savedAsset = (existing.assets || []).find(a => a.id === base.id || a.symbol === base.symbol)
+          return savedAsset ? { ...base, ...savedAsset, scanSymbol: savedAsset.scanSymbol || base.scanSymbol, status: base.scanSymbol ? 'supported' : (savedAsset.status || base.status) } : base
+        }),
+        ...(existing.assets || []).filter(a => !def.assets.some(base => base.id === a.id || base.symbol === a.symbol)),
+      ],
+    }
+  }).concat(savedGroups.filter(group => !DEFAULT_GROUPS.some(def => def.id === group.id)))
   useEffect(() => {
     if (!Array.isArray(cfg.assetGroups) || cfg.assetGroups.length === 0) {
       set('assetGroups', DEFAULT_GROUPS)
