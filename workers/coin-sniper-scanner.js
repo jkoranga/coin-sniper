@@ -481,7 +481,11 @@ async function scanCron(env) {
       const htfMap = {};
       for (const pattern of consumer.patterns) {
         for (const condition of pattern.conditions || []) {
-          if (!condition.htfTf || condition.htfTf === task.timeframe) continue;
+          if (!condition.htfTf) continue;
+          if (condition.htfTf === task.timeframe) {
+            htfMap[condition.htfTf] = candles;
+            continue;
+          }
           const htf = candleMap.get(task.symbol + "|" + condition.htfTf);
           if (htf) htfMap[condition.htfTf] = htf;
         }
