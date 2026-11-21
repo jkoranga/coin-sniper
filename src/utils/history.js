@@ -7,8 +7,35 @@ export const TF_COLORS = {
   '30m':'#38d9a9','1h':'#4dabf7','4h':'#9775fa','1d':'#f783ac',
 }
 
+function historySignalKey(h) {
+  return [
+    String(h?.symbol || '').trim().toUpperCase(),
+    String(h?.timeframe || '').trim().toLowerCase(),
+    String(h?.scannerId ?? h?.scannerName ?? '').trim().toLowerCase(),
+    String(h?.side || '').trim().toLowerCase(),
+  ].join('__')
+}
+
+function normalizeHistoryData(raw) {
+  const data = raw && typeof raw === 'object' && !Array.isArray(raw) ? raw : {}
+  const normalized = {}
+  for (const [tf, rows] of Object.entries(data)) {
+    const unique = new Map()
+    for (const row of (Array.isArray(rows) ? rows : [])) {
+      if (!row?.symbol) continue
+      const key = historySignalKey({ ...row, timeframe: row.timeframe || tf })
+      const old = unique.get(key)
+      if (!old || Number(row.time || 0) >= Number(old.time || 0)) {
+        unique.set(key, { ...row, timeframe: row.timeframe || tf, id: old?.id ?? row.id ?? key })
+      }
+    }
+    normalized[tf] = [...unique.values()].sort((a,b) => Number(b.time || 0) - Number(a.time || 0)).slice(0, HISTORY_CAP)
+  }
+  return normalized
+}
+
 export function historyLoad() {
-  try { return JSON.parse(localStorage.getItem(HISTORY_KEY) || '{}') } catch { return {} }
+  try { return normalizeHistoryData(JSON.parse(localStorage.getItem(HISTORY_KEY) || '{}')) } catch { return {} }
 }
 export function historySave(data) {
   try {
@@ -36,13 +63,15 @@ export function historyAddAlerts(alerts) {
       ema20:   a.details?.ema20        ?? null,
       adx:     a.details?.adx          ?? null,
       volume:  a.volume                ?? 0,
-      scannerId: a.scannerId,
+      scannerId: a.scannerId ?? a.scannerName,
     }
     // Keep one latest history row per symbol + pattern + direction + timeframe.
-    const isSame = h => h.symbol === a.symbol && h.scannerId === a.scannerId && h.side === a.side
-    const existing = data[tf].find(isSame)
-    record.id = existing?.id ?? record.id
-    data[tf] = [record, ...data[tf].filter(h => !isSame(h))].slice(0, HISTORY_CAP)
+    const key = historySignalKey(record)
+    const existing = data[tf].find(h => historySignalKey({ ...h, timeframe: h.timeframe || tf }) === key)
+    record.id = existing?.id ?? record.id ?? key
+    record.firstSeen = existing?.firstSeen ?? a.firstSeen ?? a.time
+    record.lastSeen = Math.max(Number(existing?.lastSeen || existing?.time || 0), Number(a.lastSeen || a.time || 0))
+    data[tf] = [record, ...data[tf].filter(h => historySignalKey({ ...h, timeframe: h.timeframe || tf }) !== key)].slice(0, HISTORY_CAP)
   }
   historySave(data)
 }
