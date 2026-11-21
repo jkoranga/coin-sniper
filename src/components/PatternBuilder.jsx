@@ -216,6 +216,11 @@ function blankCond() {
     rangeFrom: -1,   // start offset (most recent), e.g. -1
     rangeTo: -5,     // end offset (oldest), e.g. -5
     rangeMode: 'all', // 'all' | 'any'
+    // Historical range comparison: current candles vs an older reference window
+    histCompare: false,
+    histCurrentFrom: 1, histCurrentTo: 2,
+    histPreviousFrom: 3, histPreviousTo: 20,
+    histCurrentMatch: 'any', histPreviousMode: 'max',
     // HTF: if set, this condition is evaluated on Higher-Timeframe candles instead
     htfTf: null,     // e.g. '1h', '4h', '1d' — null means use current TF candles
   }
@@ -557,13 +562,82 @@ function CondCard({ cond, idx, total, color, onChange, onRemove, onCopy, onMoveU
             </div>
           )}
 
+          {/* HISTORICAL RANGE COMPARISON */}
+          <div style={{
+            display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+            padding: '8px 10px', borderRadius: 8,
+            background: cond.histCompare ? 'rgba(0,230,118,0.10)' : 'rgba(0,0,0,0.12)',
+            border: `1px solid ${cond.histCompare ? 'rgba(0,230,118,0.45)' : 'var(--border)'}`,
+          }}>
+            <div>
+              <div style={{ fontSize: 11, fontWeight: 800, color: cond.histCompare ? '#00e676' : 'var(--text2)' }}>Historical Range Comparison</div>
+              <div style={{ fontSize: 9, color: 'var(--text3)', fontFamily: 'var(--mono)', marginTop: 2 }}>
+                Current candles vs an older candle / EMA / RSI range
+              </div>
+            </div>
+            <button onClick={() => { s('histCompare', !cond.histCompare); if (!cond.histCompare) s('rangeCheck', false) }} style={{
+              padding: '5px 10px', borderRadius: 7, cursor: 'pointer', fontSize: 10, fontWeight: 800,
+              border: `1px solid ${cond.histCompare ? '#00e676' : 'var(--border)'}`,
+              background: cond.histCompare ? 'rgba(0,230,118,0.16)' : 'var(--bg3)',
+              color: cond.histCompare ? '#00e676' : 'var(--text3)',
+            }}>{cond.histCompare ? 'ON' : 'OFF'}</button>
+          </div>
+          {cond.histCompare && (
+            <div style={{ padding: 10, borderRadius: 8, background: 'rgba(0,230,118,0.05)', border: '1px solid rgba(0,230,118,0.25)', display: 'flex', flexDirection: 'column', gap: 9 }}>
+              <div style={{ fontSize: 9, color: 'var(--text3)', fontFamily: 'var(--mono)' }}>CANDLE INDEX: 1 = latest closed candle · 2 = previous candle · current running candle is excluded</div>
+              <div style={{ display: 'flex', gap: 8 }}>
+                <div style={{ flex: 1 }}>
+                  <Lbl>CURRENT FROM</Lbl>
+                  <select value={cond.histCurrentFrom ?? 1} onChange={e => s('histCurrentFrom', +e.target.value)} style={{ width: '100%', padding: 7, borderRadius: 7, background: 'var(--bg3)', color: 'var(--text)', border: '1px solid var(--border)' }}>
+                    {Array.from({length:20},(_,i)=>i+1).map(v=><option key={v} value={v}>{v}</option>)}
+                  </select>
+                </div>
+                <div style={{ flex: 1 }}>
+                  <Lbl>CURRENT TO</Lbl>
+                  <select value={cond.histCurrentTo ?? 2} onChange={e => s('histCurrentTo', +e.target.value)} style={{ width: '100%', padding: 7, borderRadius: 7, background: 'var(--bg3)', color: 'var(--text)', border: '1px solid var(--border)' }}>
+                    {Array.from({length:20},(_,i)=>i+1).map(v=><option key={v} value={v}>{v}</option>)}
+                  </select>
+                </div>
+              </div>
+              <div style={{ display: 'flex', gap: 8 }}>
+                <div style={{ flex: 1 }}>
+                  <Lbl>PREVIOUS FROM</Lbl>
+                  <select value={cond.histPreviousFrom ?? 3} onChange={e => s('histPreviousFrom', +e.target.value)} style={{ width: '100%', padding: 7, borderRadius: 7, background: 'var(--bg3)', color: 'var(--text)', border: '1px solid var(--border)' }}>
+                    {Array.from({length:20},(_,i)=>i+1).map(v=><option key={v} value={v}>{v}</option>)}
+                  </select>
+                </div>
+                <div style={{ flex: 1 }}>
+                  <Lbl>PREVIOUS TO</Lbl>
+                  <select value={cond.histPreviousTo ?? 20} onChange={e => s('histPreviousTo', +e.target.value)} style={{ width: '100%', padding: 7, borderRadius: 7, background: 'var(--bg3)', color: 'var(--text)', border: '1px solid var(--border)' }}>
+                    {Array.from({length:20},(_,i)=>i+1).map(v=><option key={v} value={v}>{v}</option>)}
+                  </select>
+                </div>
+              </div>
+              <div>
+                <Lbl>PREVIOUS RANGE COMPARE</Lbl>
+                <div style={{ display: 'flex', gap: 5, flexWrap: 'wrap' }}>
+                  {[['every','Every candle'],['max','Maximum'],['min','Minimum'],['avg','Average']].map(([v,l])=><Pill key={v} sm active={(cond.histPreviousMode ?? 'max')===v} color="#00e676" onClick={()=>s('histPreviousMode',v)}>{l}</Pill>)}
+                </div>
+              </div>
+              <div>
+                <Lbl>CURRENT RANGE MATCH</Lbl>
+                <div style={{ display: 'flex', gap: 6 }}>
+                  {[['any','ANY current candle'],['all','ALL current candles']].map(([v,l])=><Pill key={v} active={(cond.histCurrentMatch ?? 'any')===v} color="#00e676" onClick={()=>s('histCurrentMatch',v)}>{l}</Pill>)}
+                </div>
+              </div>
+              <div style={{ fontSize: 10, fontFamily: 'var(--mono)', color: '#00e676', padding: '6px 8px', borderRadius: 6, background: 'rgba(0,230,118,0.08)' }}>
+                {cond.lhsField || 'Field'} [{cond.histCurrentFrom ?? 1}–{cond.histCurrentTo ?? 2}] {cond.op} previous [{cond.histPreviousFrom ?? 3}–{cond.histPreviousTo ?? 20}] · {(cond.histPreviousMode ?? 'max').toUpperCase()} · {(cond.histCurrentMatch ?? 'any').toUpperCase()}
+              </div>
+            </div>
+          )}
+
           {/* LEFT SIDE — show candle offset only when range is OFF */}
           <div style={{ padding: '7px 8px', borderRadius: 7, background: 'rgba(0,0,0,0.18)' }}>
             <Lbl>LEFT — candle field</Lbl>
             <FSelect
-              value={cond.lhsField} offset={cond.rangeCheck ? 0 : cond.lhsOffset}
-              onField={v => s('lhsField', v)} onOffset={cond.rangeCheck ? null : v => s('lhsOffset', v)}
-              color={color} hideOffset={!!cond.rangeCheck}
+              value={cond.lhsField} offset={(cond.rangeCheck || cond.histCompare) ? 0 : cond.lhsOffset}
+              onField={v => s('lhsField', v)} onOffset={(cond.rangeCheck || cond.histCompare) ? null : v => s('lhsOffset', v)}
+              color={color} hideOffset={!!(cond.rangeCheck || cond.histCompare)}
             />
           </div>
 
