@@ -63,11 +63,12 @@ export async function fetchDeltaSymbols() {
 // ── Fetch OHLCV candles ───────────────────────────────────────────────────────
 export async function fetchDeltaCandles(symbol, interval = '15m', limit = 60, ticker = null) {
   const iv = INTERVAL_MAP[interval] || '15'
+  const requestLimit = Math.min(1000, Math.max(3, limit + 5))
 
   // Bybit kline endpoint — open CORS, no auth, rate-limit generous
   const URLS = [
-    `${BYBIT}/v5/market/kline?category=linear&symbol=${symbol}&interval=${iv}&limit=${limit + 5}`,
-    `${BYBIT2}/v5/market/kline?category=linear&symbol=${symbol}&interval=${iv}&limit=${limit + 5}`,
+    `${BYBIT}/v5/market/kline?category=linear&symbol=${symbol}&interval=${iv}&limit=${requestLimit}`,
+    `${BYBIT2}/v5/market/kline?category=linear&symbol=${symbol}&interval=${iv}&limit=${requestLimit}`,
     `/api/delta-candles?symbol=${symbol}&resolution=${iv}&limit=${limit}`,
   ]
 
