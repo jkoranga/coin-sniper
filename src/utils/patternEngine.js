@@ -270,13 +270,28 @@ export function compilePattern(pattern, _htfCandlesMap) {
           return Math.abs(a - b) >= 1e-9
         }
         const previousMode = cond.histPreviousMode ?? 'max'
+        const pctDiffMode = (cond.histCompareMode ?? 'value') === 'pctdiff'
+        const pctThreshold = Number.parseFloat(cond.histPctThreshold) || 0
+        const compareCurrentToPrevious = (currentValue, previousValue) => {
+          if (pctDiffMode) {
+            if (previousValue === 0) return null
+            const differencePct = ((currentValue - previousValue) / previousValue) * 100
+            return compare(differencePct, pctThreshold)
+          }
+          return compare(currentValue, previousValue)
+        }
         const currentResults = currentValues.map(currentValue => {
-          if (previousMode === 'every') return previousValues.every(previousValue => compare(currentValue, previousValue))
+          if (previousMode === 'every') {
+            const checks = previousValues.map(previousValue => compareCurrentToPrevious(currentValue, previousValue))
+            if (checks.some(result => result == null)) return null
+            return checks.every(Boolean)
+          }
           const reference = previousMode === 'min' ? Math.min(...previousValues)
             : previousMode === 'avg' ? previousValues.reduce((a,b)=>a+b,0) / previousValues.length
             : Math.max(...previousValues)
-          return compare(currentValue, reference)
+          return compareCurrentToPrevious(currentValue, reference)
         })
+        if (currentResults.some(result => result == null)) return null
         return (cond.histCurrentMatch ?? 'any') === 'all'
           ? currentResults.every(Boolean)
           : currentResults.some(Boolean)
