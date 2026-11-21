@@ -108,7 +108,7 @@ export async function fetchDeltaCandles(symbol, interval = '15m', limit = 60, ti
           .filter(c => c.close > 0)
           .sort((a, b) => a.time - b.time)
           .slice(-limit)
-        if (raw.length >= 3) return attachIndicators(raw)
+        if (raw.length >= 3) return attachIndicators(raw, ticker)
       }
     } catch (e) {
       console.warn(`[Sniper] Candle fetch failed for ${symbol}:`, e.message)
