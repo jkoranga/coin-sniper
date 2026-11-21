@@ -727,7 +727,6 @@ function ManualSection() {
           ['Full Body %','|Close − Open| / (High − Low) × 100. Body share of candle range; 100% means no wick.',''],
           ['Body Size %','|Close − Open| / |Open| × 100. Direction-neutral body size relative to Open; use Is Green / Is Red to identify direction.',''],
           ['Range H-L','High − Low. Absolute candle range in price units.',''],
-          ['Upper Wick','High − max(Close, Open). Absolute upper-wick size in price units.',''],
           ['Green Bar Lower Wick %','Green candles only: (Open − Low) / |Open| × 100. Returns no value for red / doji candles.',''],
           ['Red Bar Lower Wick %','Red candles only: (Close − Low) / |Close| × 100. Returns no value for green / doji candles.',''],
           ['Is Green / Is Red','1 when Close > Open / Close < Open respectively; otherwise 0.',''],
