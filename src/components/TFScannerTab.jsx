@@ -10,6 +10,7 @@ import {
 import { compilePattern } from './PatternBuilder.jsx'
 import { requiredCandleCount } from '../utils/patternEngine.js'
 import { historyAddAlerts } from '../App.jsx'
+import { DEFAULT_GROUPS } from './sections/CustomPairsSection.jsx'
 
 // ── TradingView link ──────────────────────────────────────
 const TF_MAP = {'1m':'1','3m':'3','5m':'5','15m':'15','30m':'30','1h':'60','4h':'240','1d':'D','1D':'D'}
@@ -656,6 +657,16 @@ export default function TFScannerTab({ timeframe, tabColor, settings, update, sa
   const displayedCount = filteredAlerts.filter(a => resultFilter==='all'?true:a.side===resultFilter).length
 
   const customPairs = useMemo(()=>[...new Set(settings.customPairs||[])],[settings.customPairs])
+  // Always expose the built-in Crypto, Stocks and Commodity groups on Dashboard,
+  // including for existing accounts that have not opened Custom Pairs settings yet.
+  const assetGroups = useMemo(() => {
+    const saved = Array.isArray(settings.assetGroups) ? settings.assetGroups : []
+    const builtIns = DEFAULT_GROUPS.map(def => {
+      const existing = saved.find(group => group.id === def.id)
+      return existing ? { ...def, ...existing, assets: Array.isArray(existing.assets) ? existing.assets : def.assets } : def
+    })
+    return [...builtIns, ...saved.filter(group => !DEFAULT_GROUPS.some(def => def.id === group.id))]
+  }, [settings.assetGroups])
 
   const SCAN_MODES=[
     {id:'single',icon:'⚡',label:'Single',col:'var(--amber)',  bd:'var(--amber)',  bg:'rgba(255,180,0,.1)'},
@@ -908,7 +919,7 @@ export default function TFScannerTab({ timeframe, tabColor, settings, update, sa
             </div>
           </div>
           <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(125px,1fr))',gap:7}}>
-            {(settings.assetGroups || []).map(group => {
+            {assetGroups.map(group => {
               const selected = draftCategoryIds.includes(group.id)
               const count = (group.assets || []).filter(a => a.scanSymbol).length
               return <button key={group.id} onClick={() => setDraftCategoryIds(prev => {
@@ -928,7 +939,7 @@ export default function TFScannerTab({ timeframe, tabColor, settings, update, sa
           <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',gap:8,marginTop:10,flexWrap:'wrap'}}>
             <span style={{fontSize:9,color:'var(--text3)'}}>Only assets with a connected market-data feed can be scanned.</span>
             <button onClick={() => {
-              const groups = settings.assetGroups || []
+              const groups = assetGroups
               const chosen = groups.filter(g => draftCategoryIds.includes(g.id))
               const pairs = [...new Set(chosen.flatMap(g => (g.assets || []).map(a => a.scanSymbol).filter(Boolean)))]
               update({
@@ -941,7 +952,7 @@ export default function TFScannerTab({ timeframe, tabColor, settings, update, sa
             }} disabled={draftCategoryIds.length===0} style={{
               padding:'8px 12px',borderRadius:8,cursor:'pointer',fontSize:10,fontWeight:800,
               border:'1px solid var(--green2)',background:'var(--green-dim)',color:'var(--green)',
-            }}>Apply Categories · Scan {((settings.assetGroups || []).filter(g => draftCategoryIds.includes(g.id)).flatMap(g => g.assets || []).filter(a => a.scanSymbol)).length}</button>
+            }}>Apply Categories · Scan {(assetGroups.filter(g => draftCategoryIds.includes(g.id)).flatMap(g => g.assets || []).filter(a => a.scanSymbol)).length}</button>
           </div>
         </div>
       )}
