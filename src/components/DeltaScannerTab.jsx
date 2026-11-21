@@ -659,7 +659,7 @@ export default function DeltaScannerTab({
       if (Number.isFinite(change24h)) for (const candle of hit.candles) candle.change24h = change24h
       return hit.candles
     }
-    const candles = (String(symbol).startsWith('STOCK:') || String(symbol).endsWith('USDT'))
+    const candles = (String(symbol).startsWith('STOCK:') || String(symbol).startsWith('ITICK:') || String(symbol).endsWith('USDT'))
       ? await fetchCandles(symbol, tf, limit, ticker)
       : await fetchDeltaCandles(symbol, tf, limit, ticker)
     const ttlMap = {'1m':60_000,'2m':120_000,'3m':180_000,'5m':300_000,'10m':600_000}
@@ -1164,14 +1164,14 @@ export default function DeltaScannerTab({
                     opacity:asset.scanSymbol?1:.55,
                   }}>
                     <div style={{fontSize:11,fontWeight:800}}>{chosen?'✓ ':''}{asset.symbol}</div>
-                    <div style={{fontSize:9,opacity:.7,marginTop:2}}>{asset.scanSymbol?'Available':'Provider needed'}</div>
+                    <div style={{fontSize:9,opacity:.7,marginTop:2}}>{asset.scanSymbol?(asset.scanSymbol.startsWith('ITICK:')?'iTick available':'Available'):'Provider needed'}</div>
                   </button>
                 })}
               </div>
             </>
           )}
           <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',gap:8,marginTop:11,flexWrap:'wrap'}}>
-            <span style={{fontSize:9,color:'var(--text3)'}}>Selected: {selectedAssetIds.size} · Commodity feed may require a provider.</span>
+            <span style={{fontSize:9,color:'var(--text3)'}}>Selected: {selectedAssetIds.size} · Gold/Silver via iTick; other futures require a verified contract feed.</span>
             <button onClick={()=>{
               const pairs=[...selectedAssetIds].filter(Boolean)
               update({customPairs:pairs,selectedAssetGroupIds:assetGroups.filter(g=>(g.assets||[]).some(a=>selectedAssetIds.has(a.scanSymbol||a.id))).map(g=>g.id)})
