@@ -575,6 +575,13 @@ export default function DeltaScannerTab({
   useEffect(() => { settingsRef.current = settings }, [settings])
   useEffect(() => { saveDeltaResults(timeframe, alerts) }, [timeframe, alerts])
 
+  // Clear results across all mounted timeframe tabs without stopping scanners.
+  useEffect(() => {
+    const clear = () => { setAlerts([]); setSelected(null) }
+    window.addEventListener('coinsniper:clear-results', clear)
+    return () => window.removeEventListener('coinsniper:clear-results', clear)
+  }, [])
+
   // Notify parent of current alert count (consistent with TFScannerTab)
   useEffect(() => {
     onAlertCount?.(timeframe, alerts.length)
