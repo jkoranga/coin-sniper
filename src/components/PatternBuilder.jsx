@@ -1753,6 +1753,12 @@ export default function PatternBuilderTab({ settings, update }) {
   const [confirmPurgeId, setConfirmPurgeId] = useState(null)
   const [confirmPurgeAll, setConfirmPurgeAll] = useState(false)
   const [purgeAllChecked, setPurgeAllChecked] = useState(false)
+  const [tfCopyOpen, setTfCopyOpen] = useState(false)
+  const [tfCopySourceId, setTfCopySourceId] = useState('')
+  const [tfCopySourceTf, setTfCopySourceTf] = useState('')
+  const [tfCopyTargetTf, setTfCopyTargetTf] = useState('15m')
+  const [tfCopyName, setTfCopyName] = useState('')
+  const [tfCopyError, setTfCopyError] = useState('')
 
   // Keep a ref to patterns so debounced save always uses the latest version
   const patternsRef = useRef(patterns)
@@ -1782,6 +1788,30 @@ export default function PatternBuilderTab({ settings, update }) {
   }
 
   function add() { const p = blankPattern(); setNewId(p.id); setOpenPatternId(p.id); savePatterns([...patterns, p]) }
+
+  const tfCopySource = patterns.find(p => p.id === tfCopySourceId) || null
+  function openTimeframeCopy() {
+    const first = patterns.find(p => !p.locked) || patterns[0]
+    setTfCopySourceId(first?.id || '')
+    setTfCopySourceTf(first?.tfs?.[0] || '1h')
+    setTfCopyTargetTf('15m')
+    setTfCopyName(first ? `${first.name} 15m` : '')
+    setTfCopyError('')
+    setTfCopyOpen(true)
+  }
+  function createTimeframeCopy() {
+    if (!tfCopySource) { setTfCopyError('Select a source pattern.'); return }
+    const name = tfCopyName.trim()
+    if (!name) { setTfCopyError('Enter a name for the copied pattern.'); return }
+    const sourceTf = tfCopySourceTf || tfCopySource.tfs?.[0] || null
+    const sameName = patterns.find(p => p.name.trim().toLowerCase() === name.toLowerCase())
+    const targetMatch = patterns.find(p => p.id !== tfCopySource.id && p.name.trim().toLowerCase() === name.toLowerCase() && (p.tfs || []).includes(tfCopyTargetTf))
+    if (targetMatch && !window.confirm(`“${name}” already has a ${tfCopyTargetTf.toUpperCase()} pattern. Replace it?`)) return
+    if (sameName && sameName.id !== targetMatch?.id && sameName.id !== tfCopySource.id) { setTfCopyError('This name is already used by another pattern. Choose a different name.'); return }
+    const copied = { ...tfCopySource, id:`custom_${uid()}`, name, tfs:[tfCopyTargetTf], conditions:(tfCopySource.conditions||[]).map(cond=>({...cond,id:uid(),htfTf:cond.htfTf && sourceTf && cond.htfTf===sourceTf ? tfCopyTargetTf : cond.htfTf})), createdAt:Date.now(), hiddenInBuilder:false }
+    const next = targetMatch ? patterns.map(p=>p.id===targetMatch.id?copied:p) : [...patterns,copied]
+    savePatterns(next); setNewId(copied.id); setOpenPatternId(copied.id); setTfCopyOpen(false)
+  }
 
   // upd() is called on every keystroke (name input, condition values).
   // Each call saves the full updated pattern list to state + Firebase immediately.
@@ -2140,6 +2170,27 @@ export default function PatternBuilderTab({ settings, update }) {
         </>
       )}
 
+      {/* Copy to timeframe modal */}
+      {tfCopyOpen && (
+        <>
+          <div onClick={() => setTfCopyOpen(false)} style={{ position:'fixed', inset:0, zIndex:399, background:'rgba(0,0,0,0.68)', backdropFilter:'blur(4px)' }} />
+          <div style={{ position:'fixed', left:'50%', top:'50%', transform:'translate(-50%,-50%)', zIndex:400, width:'min(360px,92vw)', borderRadius:15, padding:18, background:'var(--bg1)', border:'1.5px solid rgba(0,230,118,0.45)', boxShadow:'0 20px 60px rgba(0,0,0,0.75)' }}>
+            <div style={{ fontWeight:900, fontSize:15, color:G, marginBottom:5 }}>⧉ Copy to Timeframe</div>
+            <div style={{ fontSize:10, color:'var(--text3)', fontFamily:'var(--mono)', lineHeight:1.6, marginBottom:14 }}>Copies the complete pattern and its conditions. The original remains unchanged.</div>
+            <div style={{ display:'flex', flexDirection:'column', gap:10 }}>
+              <div><Lbl>SOURCE PATTERN</Lbl><select value={tfCopySourceId} onChange={e=>{const p=patterns.find(x=>x.id===e.target.value);setTfCopySourceId(e.target.value);setTfCopySourceTf(p?.tfs?.[0]||'1h');setTfCopyName(p? p.name+' '+tfCopyTargetTf:'');setTfCopyError('')}} style={{width:'100%',background:'var(--bg3)',color:'var(--text)',border:'1px solid var(--border2)',borderRadius:8,padding:9,fontSize:12}}>{patterns.map(p=><option key={p.id} value={p.id}>{p.icon||'⭐'} {p.name} · {(p.tfs||[]).join(', ')}</option>)}</select></div>
+              <div style={{display:'flex',gap:8}}>
+                <div style={{flex:1}}><Lbl>SOURCE TIMEFRAME</Lbl><select value={tfCopySourceTf} onChange={e=>setTfCopySourceTf(e.target.value)} style={{width:'100%',background:'var(--bg3)',color:'var(--text)',border:'1px solid var(--border2)',borderRadius:8,padding:9,fontSize:12}}>{(tfCopySource?.tfs?.length?tfCopySource.tfs:TF_LIST).map(tf=><option key={tf} value={tf}>{tf.toUpperCase()}</option>)}</select></div>
+                <div style={{flex:1}}><Lbl>TARGET TIMEFRAME</Lbl><select value={tfCopyTargetTf} onChange={e=>{setTfCopyTargetTf(e.target.value);if(tfCopySource)setTfCopyName(tfCopySource.name+' '+e.target.value);setTfCopyError('')}} style={{width:'100%',background:'var(--bg3)',color:'var(--text)',border:'1px solid var(--border2)',borderRadius:8,padding:9,fontSize:12}}>{TF_LIST.map(tf=><option key={tf} value={tf}>{tf.toUpperCase()}</option>)}</select></div>
+              </div>
+              <div><Lbl>NEW PATTERN NAME</Lbl><input value={tfCopyName} onChange={e=>{setTfCopyName(e.target.value);setTfCopyError('')}} placeholder="Enter copied pattern name" style={{width:'100%',boxSizing:'border-box',background:'var(--bg3)',color:'var(--text)',border:'1px solid var(--border2)',borderRadius:8,padding:10,fontSize:12}} /></div>
+              {tfCopyError && <div style={{color:'var(--red)',fontSize:10,fontFamily:'var(--mono)'}}>⚠ {tfCopyError}</div>}
+              <div style={{display:'flex',gap:8,marginTop:3}}><button onClick={createTimeframeCopy} style={{flex:1,padding:10,borderRadius:8,cursor:'pointer',border:'1px solid rgba(0,230,118,0.55)',background:'rgba(0,230,118,0.12)',color:G,fontWeight:800,fontSize:11}}>✓ Create Copy</button><button onClick={()=>setTfCopyOpen(false)} style={{padding:'10px 14px',borderRadius:8,cursor:'pointer',border:'1px solid var(--border)',background:'var(--bg2)',color:'var(--text3)',fontSize:11}}>Cancel</button></div>
+            </div>
+          </div>
+        </>
+      )}
+
       {/* Header */}
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
         <div>
@@ -2184,6 +2235,8 @@ export default function PatternBuilderTab({ settings, update }) {
               display: 'flex', alignItems: 'center', gap: 4,
             }}
           >📤 {selectionMode && selectedIds.size > 0 ? `Export (${selectedIds.size})` : 'Export'}</button>
+          {/* Copy to timeframe */}
+          <button onClick={openTimeframeCopy} disabled={patterns.length===0} title="Copy a complete pattern to another timeframe" style={{padding:'4px 10px',borderRadius:7,cursor:patterns.length===0?'not-allowed':'pointer',fontSize:10,fontFamily:'var(--mono)',fontWeight:700,border:'1px solid rgba(0,230,118,0.4)',background:'rgba(0,230,118,0.08)',color:G,opacity:patterns.length===0?0.4:1,display:'flex',alignItems:'center',gap:4}}>⧉ TF Copy</button>
           {/* Import button */}
           <button
             onClick={() => { setImportError(''); setImportSuccess(''); setImportPopup(true) }}
