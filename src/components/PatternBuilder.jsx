@@ -14,8 +14,8 @@ const FIELDS = [
   // ── EMA (sorted by period) ─────────────────────────────────────────────────
   { id: 'ema5',      label: 'EMA 5',       short: 'EMA5',    group: 'EMA' },
   { id: 'ema9',      label: 'EMA 9',       short: 'EMA9',    group: 'EMA' },
+  { id: 'ema10',     label: 'EMA 10',      short: 'EMA10',   group: 'EMA' },
   { id: 'ema15',     label: 'EMA 15',      short: 'EMA15',   group: 'EMA' },
-  { id: 'ema16',     label: 'EMA 16',      short: 'EMA16',   group: 'EMA' },
   { id: 'ema20',     label: 'EMA 20',      short: 'EMA20',   group: 'EMA' },
   { id: 'ema25',     label: 'EMA 25',      short: 'EMA25',   group: 'EMA' },
   { id: 'ema30',     label: 'EMA 30',      short: 'EMA30',   group: 'EMA' },
