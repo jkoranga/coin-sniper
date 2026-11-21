@@ -239,6 +239,7 @@ export function compilePattern(pattern, _htfCandlesMap) {
         const pt = Math.max(1, Math.min(20, Math.round(cond.histPreviousTo ?? 20)))
         const cStart = Math.min(cf, ct), cEnd = Math.max(cf, ct)
         const pStart = Math.min(pf, pt), pEnd = Math.max(pf, pt)
+        if (pStart <= cEnd) return null // reference window must be older and non-overlapping
         // Convert user-facing candle numbers (1 = latest closed) to negative offsets.
         const currentValues = [], previousValues = []
         for (let n = cStart; n <= cEnd; n++) {
