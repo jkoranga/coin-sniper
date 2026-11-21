@@ -68,7 +68,7 @@ export function requiredCandleCount(items = []) {
     ]
     maxDepth = Math.max(maxDepth, ...offsets)
     for (const field of [c.lhsField, c.rhsField]) {
-      const match = typeof field === 'string' ? field.match(/^ema(\\d+)$/) : null
+      const match = typeof field === 'string' ? field.match(/^ema(\d+)$/) : null
       if (match) maxEma = Math.max(maxEma, Number(match[1]))
     }
   }
