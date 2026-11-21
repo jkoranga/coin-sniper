@@ -947,7 +947,19 @@ export default function TFScannerTab({ timeframe, tabColor, settings, update, sa
           </div>
           <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',gap:8,marginTop:10,flexWrap:'wrap'}}>
             <span style={{fontSize:9,color:'var(--text3)'}}>Only assets with a connected market-data feed can be scanned.</span>
-            <button onClick={() => {
+            <div style={{display:'flex',gap:6,flexWrap:'wrap'}}>
+              <button onClick={() => {
+                const allIds = assetGroups.map(g => g.id)
+                const allSelected = allIds.length > 0 && allIds.every(id => draftCategoryIds.includes(id))
+                setCategorySelectMode('multiple')
+                setDraftCategoryIds(allSelected ? [] : allIds)
+              }} style={{
+                padding:'8px 10px',borderRadius:8,cursor:'pointer',fontSize:10,fontWeight:800,
+                border:'1px solid var(--border)',background:'var(--bg2)',color:'var(--text2)',
+              }}>
+                {assetGroups.length > 0 && assetGroups.every(g => draftCategoryIds.includes(g.id)) ? 'Deselect All' : 'Select All'}
+              </button>
+              <button onClick={() => {
               const groups = assetGroups
               const chosen = groups.filter(g => draftCategoryIds.includes(g.id))
               const pairs = [...new Set(chosen.flatMap(g => (g.assets || []).map(a => a.scanSymbol).filter(Boolean)))]
@@ -962,6 +974,7 @@ export default function TFScannerTab({ timeframe, tabColor, settings, update, sa
               padding:'8px 12px',borderRadius:8,cursor:'pointer',fontSize:10,fontWeight:800,
               border:'1px solid var(--green2)',background:'var(--green-dim)',color:'var(--green)',
             }}>Apply Categories · Scan {(assetGroups.filter(g => draftCategoryIds.includes(g.id)).flatMap(g => g.assets || []).filter(a => a.scanSymbol)).length}</button>
+            </div>
           </div>
         </div>
       )}
