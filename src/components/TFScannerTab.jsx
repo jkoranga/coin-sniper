@@ -271,6 +271,12 @@ export default function TFScannerTab({ timeframe, tabColor, settings, update, sa
   const [singleSym,     setSingleSym]    = useState('')
   const [loopCount,     setLoopCount]    = useState(0)
   const [noPatternWarning, setNoPatternWarning] = useState(false)
+  const [showCategoryPicker, setShowCategoryPicker] = useState(false)
+  const [categorySelectMode, setCategorySelectMode] = useState('single')
+  const [draftCategoryIds, setDraftCategoryIds] = useState(
+    Array.isArray(settings.selectedAssetGroupIds) && settings.selectedAssetGroupIds.length
+      ? settings.selectedAssetGroupIds : ['crypto']
+  )
 
   const timerRef    = useRef(null)
   const idRef       = useRef(0)
@@ -856,7 +862,16 @@ export default function TFScannerTab({ timeframe, tabColor, settings, update, sa
         paddingBottom:2,
       }}>
         {SCAN_MODES.map(m=>(
-          <button key={m.id} onClick={()=>setScanMode(m.id)} style={{
+          <button key={m.id} onClick={()=>{
+            if (m.id === 'custom') {
+              setScanMode('custom')
+              setDraftCategoryIds(Array.isArray(settings.selectedAssetGroupIds) && settings.selectedAssetGroupIds.length ? settings.selectedAssetGroupIds : ['crypto'])
+              setShowCategoryPicker(v => !v)
+            } else {
+              setShowCategoryPicker(false)
+              setScanMode(m.id)
+            }
+          }} style={{
             display:'flex',alignItems:'center',gap:4,padding:'5px 11px',borderRadius:20,cursor:'pointer',
             border:`1.5px solid ${scanMode===m.id?m.bd:'var(--border)'}`,
             background:scanMode===m.id?m.bg:'var(--bg2)',
@@ -870,6 +885,66 @@ export default function TFScannerTab({ timeframe, tabColor, settings, update, sa
           </button>
         ))}
       </div>
+
+      {showCategoryPicker && scanMode === 'custom' && (
+        <div style={{
+          marginBottom:12, padding:12, borderRadius:12,
+          background:'var(--bg1)', border:'1px solid var(--border)',
+        }}>
+          <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',gap:8,marginBottom:10}}>
+            <div style={{fontSize:12,fontWeight:800,color:'var(--text)'}}>Choose Asset Categories</div>
+            <div style={{display:'flex',gap:4}}>
+              {['single','multiple'].map(mode => (
+                <button key={mode} onClick={() => {
+                  setCategorySelectMode(mode)
+                  if (mode === 'single' && draftCategoryIds.length > 1) setDraftCategoryIds([draftCategoryIds[0]])
+                }} style={{
+                  padding:'5px 8px',borderRadius:7,fontSize:9,fontWeight:800,cursor:'pointer',
+                  border:categorySelectMode===mode?'1px solid var(--green2)':'1px solid var(--border)',
+                  background:categorySelectMode===mode?'var(--green-dim)':'var(--bg2)',
+                  color:categorySelectMode===mode?'var(--green)':'var(--text3)',
+                }}>{mode === 'single' ? 'Single' : 'Multiple'}</button>
+              ))}
+            </div>
+          </div>
+          <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(125px,1fr))',gap:7}}>
+            {(settings.assetGroups || []).map(group => {
+              const selected = draftCategoryIds.includes(group.id)
+              const count = (group.assets || []).filter(a => a.scanSymbol).length
+              return <button key={group.id} onClick={() => setDraftCategoryIds(prev => {
+                if (categorySelectMode === 'single') return [group.id]
+                return selected ? prev.filter(id => id !== group.id) : [...prev, group.id]
+              })} style={{
+                padding:'9px',borderRadius:9,textAlign:'left',cursor:'pointer',
+                border:selected?'1.5px solid var(--green)':'1px solid var(--border)',
+                background:selected?'var(--green-dim)':'var(--bg2)',
+                color:selected?'var(--green)':'var(--text2)',
+              }}>
+                <div style={{fontSize:11,fontWeight:800}}>{selected?'✓ ':''}{group.name}</div>
+                <div style={{fontSize:9,opacity:.75,marginTop:3}}>{group.assets?.length || 0} assets · {count} scan-ready</div>
+              </button>
+            })}
+          </div>
+          <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',gap:8,marginTop:10,flexWrap:'wrap'}}>
+            <span style={{fontSize:9,color:'var(--text3)'}}>Only assets with a connected market-data feed can be scanned.</span>
+            <button onClick={() => {
+              const groups = settings.assetGroups || []
+              const chosen = groups.filter(g => draftCategoryIds.includes(g.id))
+              const pairs = [...new Set(chosen.flatMap(g => (g.assets || []).map(a => a.scanSymbol).filter(Boolean)))]
+              update({
+                selectedAssetGroupIds: draftCategoryIds,
+                customPairs: pairs,
+                scanMode: 'custom',
+                [`scanMode_${timeframe}`]: 'custom',
+              })
+              setShowCategoryPicker(false)
+            }} disabled={draftCategoryIds.length===0} style={{
+              padding:'8px 12px',borderRadius:8,cursor:'pointer',fontSize:10,fontWeight:800,
+              border:'1px solid var(--green2)',background:'var(--green-dim)',color:'var(--green)',
+            }}>Apply Categories · Scan {((settings.assetGroups || []).filter(g => draftCategoryIds.includes(g.id)).flatMap(g => g.assets || []).filter(a => a.scanSymbol)).length}</button>
+          </div>
+        </div>
+      )}
 
       {/* ── Single sym input ── */}
       {scanMode==='single'&&(
