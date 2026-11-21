@@ -695,7 +695,7 @@ export default function DeltaScannerTab({
         setProgressSym(sym)
 
         try {
-          const candles = await fetchCached(sym, timeframe, requiredCandleCount(activePatterns), symObj)
+          const candles = await fetchCached(sym, timeframe, requiredCandleCount(activePatterns.flatMap(pattern => (pattern.conditions || []).filter(cond => !cond.htfTf || cond.htfTf === timeframe))), symObj)
           if (!candles || candles.length < 10) { done++; setProgress(Math.round(done/symList.length*100)); continue }
 
           // HTF candles needed by any condition
