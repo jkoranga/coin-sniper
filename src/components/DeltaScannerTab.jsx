@@ -8,7 +8,8 @@ import { compilePattern } from './PatternBuilder.jsx'
 import { requiredCandleCount } from '../utils/patternEngine.js'
 import { historyAddAlerts } from '../utils/history.js'
 import { onAuthChanged, loadNotificationCooldownsFromCloud, saveNotificationCooldownsToCloud } from '../firebase.js'
-import { intervalToMs, sendTelegram, buildTelegramMsg, fmt, timeSince, fmtVol } from '../utils/scanner.js'
+import { intervalToMs, sendTelegram, buildTelegramMsg, fmt, timeSince, fmtVol, fetchCandles } from '../utils/scanner.js'
+import { DEFAULT_GROUPS } from './sections/CustomPairsSection.jsx'
 
 const DC  = '#ff6b00'
 const DD  = 'rgba(255,107,0,0.12)'
@@ -563,6 +564,18 @@ export default function DeltaScannerTab({
   const [selected,    setSelected]    = useState(null)
   const [noPatWarn,   setNoPatWarn]   = useState(false)
   const [selPatterns,  setSelPatterns]  = useState(new Set()) // selected pattern name filter
+  const [showCategoryPicker, setShowCategoryPicker] = useState(false)
+  const [activeCategoryId, setActiveCategoryId] = useState('crypto')
+  const [selectedAssetIds, setSelectedAssetIds] = useState(() => new Set(settings.customPairs || []))
+  const assetGroups = useMemo(() => {
+    const saved = Array.isArray(settings.assetGroups) ? settings.assetGroups : []
+    const builtIns = DEFAULT_GROUPS.map(def => {
+      const existing = saved.find(group => group.id === def.id)
+      return existing ? { ...def, ...existing, assets: Array.isArray(existing.assets) ? existing.assets : def.assets } : def
+    })
+    return [...builtIns, ...saved.filter(group => !DEFAULT_GROUPS.some(def => def.id === group.id))]
+  }, [settings.assetGroups])
+  const activeAssetGroup = assetGroups.find(group => group.id === activeCategoryId) || assetGroups[0]
 
   const abortRef    = useRef(null)
   const loopRef     = useRef(false)
@@ -647,7 +660,9 @@ export default function DeltaScannerTab({
       if (Number.isFinite(change24h)) for (const candle of hit.candles) candle.change24h = change24h
       return hit.candles
     }
-    const candles = await fetchDeltaCandles(symbol, tf, limit, ticker)
+    const candles = (String(symbol).startsWith('STOCK:') || String(symbol).endsWith('USDT'))
+      ? await fetchCandles(symbol, tf, limit, ticker)
+      : await fetchDeltaCandles(symbol, tf, limit, ticker)
     const ttlMap = {'1m':60_000,'2m':120_000,'3m':180_000,'5m':300_000,'10m':600_000}
     const ttl = ttlMap[settingsRef.current.cacheTtl || '3m'] || 180_000
     if (candles) cacheRef.current[key] = { candles, expiresAt: now + ttl }
@@ -1091,12 +1106,11 @@ export default function DeltaScannerTab({
           return (
             <button key={m.id} onClick={() => {
               setTfSetting('scanMode', m.id)
-              // If switching to custom mode, immediately load those pairs
               if (isCustom) {
-                const pairs = (settingsRef.current.customPairs || [])
-                if (pairs.length === 0) {
-                  // Will show warning inline below
-                } // scan runs via ▶ Scan button as normal
+                setShowCategoryPicker(v => !v)
+                setSelectedAssetIds(new Set(settingsRef.current.customPairs || []))
+              } else {
+                setShowCategoryPicker(false)
               }
             }} style={{
               display:'flex', alignItems:'center', gap:4, padding:'5px 11px', borderRadius:20, cursor:'pointer',
@@ -1121,40 +1135,61 @@ export default function DeltaScannerTab({
         })}
       </div>
 
-      {/* Custom mode — compact info bar, no symbol chips */}
-      {scanMode === 'custom' && (() => {
-        const pairs = settings.customPairs || []
-        if (pairs.length === 0) return (
-          <div style={{
-            marginBottom:10, padding:'10px 14px', borderRadius:10,
-            background:'rgba(179,136,255,0.07)', border:'1.5px solid rgba(179,136,255,0.4)',
-            display:'flex', alignItems:'center', gap:10,
-          }}>
-            <span style={{fontSize:18, flexShrink:0}}>⊞</span>
-            <div style={{flex:1}}>
-              <div style={{fontSize:12, fontWeight:700, color:PU, marginBottom:2}}>No Custom Pairs</div>
-              <div style={{fontSize:10, fontFamily:'var(--mono)', color:'var(--text3)', lineHeight:1.5}}>
-                Go to Settings → Custom Pairs to add up to 30 symbols.
+      {/* Custom asset category picker */}
+      {scanMode === 'custom' && (
+        <div style={{marginBottom:12,padding:12,borderRadius:12,background:'var(--bg1)',border:'1px solid var(--border)'}}>
+          <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',gap:8,marginBottom:10}}>
+            <div style={{fontSize:12,fontWeight:800,color:PU}}>Choose Asset Category</div>
+            <span style={{fontSize:10,color:'var(--text3)',fontFamily:'var(--mono)'}}>{(settings.customPairs||[]).length} selected</span>
+          </div>
+          <div style={{display:'flex',gap:7,overflowX:'auto',paddingBottom:7,marginBottom:9}}>
+            {assetGroups.map(group => (
+              <button key={group.id} onClick={()=>setActiveCategoryId(group.id)} style={{
+                flexShrink:0,padding:'8px 11px',borderRadius:9,cursor:'pointer',whiteSpace:'nowrap',
+                border:activeAssetGroup?.id===group.id?'1.5px solid var(--green)':'1px solid var(--border)',
+                background:activeAssetGroup?.id===group.id?'var(--green-dim)':'var(--bg2)',
+                color:activeAssetGroup?.id===group.id?'var(--green)':'var(--text2)',fontSize:11,fontWeight:800,
+              }}>{group.name} <span style={{opacity:.7}}>({group.assets?.length||0})</span></button>
+            ))}
+          </div>
+          {activeAssetGroup && (
+            <>
+              <div style={{fontSize:10,color:'var(--text3)',fontFamily:'var(--mono)',marginBottom:7}}>{activeAssetGroup.name.toUpperCase()} · SELECT ASSETS</div>
+              <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fill,minmax(105px,1fr))',gap:6,maxHeight:210,overflowY:'auto'}}>
+                {(activeAssetGroup.assets||[]).map(asset=>{
+                  const key=asset.scanSymbol || asset.id
+                  const chosen=selectedAssetIds.has(key)
+                  return <button key={asset.id} onClick={()=>setSelectedAssetIds(prev=>{
+                    const next=new Set(prev); if(next.has(key)) next.delete(key); else if(asset.scanSymbol) next.add(key); return next
+                  })} disabled={!asset.scanSymbol} style={{
+                    padding:'8px 9px',borderRadius:8,textAlign:'left',cursor:asset.scanSymbol?'pointer':'not-allowed',
+                    border:chosen?'1.5px solid var(--green)':'1px solid var(--border)',
+                    background:chosen?'var(--green-dim)':'var(--bg2)',color:chosen?'var(--green)':'var(--text2)',
+                    opacity:asset.scanSymbol?1:.55,
+                  }}>
+                    <div style={{fontSize:11,fontWeight:800}}>{chosen?'✓ ':''}{asset.symbol}</div>
+                    <div style={{fontSize:9,opacity:.7,marginTop:2}}>{asset.scanSymbol?'Available':'Provider needed'}</div>
+                  </button>
+                })}
               </div>
-            </div>
+            </>
+          )}
+          <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',gap:8,marginTop:11,flexWrap:'wrap'}}>
+            <span style={{fontSize:9,color:'var(--text3)'}}>Selected: {selectedAssetIds.size} · Commodity feed may require a provider.</span>
+            <button onClick={()=>{
+              const pairs=[...selectedAssetIds].filter(Boolean)
+              update({customPairs:pairs,selectedAssetGroupIds:assetGroups.filter(g=>(g.assets||[]).some(a=>selectedAssetIds.has(a.scanSymbol||a.id))).map(g=>g.id)})
+              setShowCategoryPicker(false)
+            }} style={{padding:'8px 12px',borderRadius:8,cursor:'pointer',fontSize:10,fontWeight:800,
+              border:'1px solid var(--green2)',background:'var(--green-dim)',color:'var(--green)'}}>
+              Apply Selection · {selectedAssetIds.size}
+            </button>
           </div>
-        )
-        return (
-          <div style={{
-            marginBottom:10, padding:'8px 12px', borderRadius:10,
-            background:'rgba(179,136,255,0.07)', border:'1.5px solid rgba(179,136,255,0.35)',
-            display:'flex', alignItems:'center', gap:10,
-          }}>
-            <span style={{fontSize:16, flexShrink:0}}>⊞</span>
-            <div style={{flex:1, fontFamily:'var(--mono)', fontSize:11, color:'var(--text3)', lineHeight:1.6}}>
-              <span style={{color:PU, fontWeight:800}}>{pairs.length} symbols</span>
-              {' · '}<span style={{color:DC, fontWeight:700}}>{activePatterns.length} pattern{activePatterns.length!==1?'s':''}</span>
-              {' · '}<span style={{color:'var(--text2)', fontWeight:700}}>{timeframe.toUpperCase()}</span>
-              <span style={{fontSize:10, color:'var(--text3)', marginLeft:6}}>· custom scan only</span>
-            </div>
+          <div style={{fontSize:10,fontFamily:'var(--mono)',color:'var(--text3)',marginTop:8}}>
+            {activePatterns.length} patterns · {timeframe.toUpperCase()} · Custom scan
           </div>
-        )
-      })()}
+        </div>
+      )}
 
       {/* Single sym input */}
       {scanMode === 'single' && (
