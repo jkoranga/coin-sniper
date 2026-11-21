@@ -7,7 +7,36 @@ const BASES = [
   'https://api4.binance.com',
 ]
 
+function decorateCandles(candles, ticker = null) {
+  attachEMA(candles, 10)
+  ;[5,9,10,15,16,20,25,30,40,50,60,75,80,100,120,150,200,300,600].forEach(n => attachEMAn(candles, n, 'ema' + n))
+  attachRSI(candles, 14)
+  attachDMI(candles, 14)
+  if (ticker && ticker.priceChangePercent != null) {
+    for (const candle of candles) candle.change24h = ticker.priceChangePercent
+  }
+  return candles
+}
+
 export async function fetchCandles(symbol, interval = '15m', limit = 60, ticker = null) {
+  // STOCK: prefix routes real US exchange OHLCV through the secure Twelve Data proxy.
+  if (String(symbol).startsWith('STOCK:')) {
+    const stockSymbol = String(symbol).slice(6)
+    const res = await fetch(`/api/stock-candles?symbol=${encodeURIComponent(stockSymbol)}&interval=${encodeURIComponent(interval)}&outputsize=${Math.min(5000, Math.max(60, limit))}`, {
+      signal: AbortSignal.timeout(12000),
+    })
+    const data = await res.json().catch(() => ({}))
+    if (!res.ok) throw new Error(data.error || `Stock data unavailable for ${stockSymbol}`)
+    if (!Array.isArray(data.values) || !data.values.length) throw new Error(`No stock candles for ${stockSymbol}`)
+    const candles = data.values.map(v => ({
+      time: Date.parse(v.datetime.replace(' ', 'T') + (data.meta?.exchange_timezone ? '' : 'Z')),
+      open: Number(v.open), high: Number(v.high), low: Number(v.low),
+      close: Number(v.close), volume: Number(v.volume || 0),
+    })).filter(c => [c.open,c.high,c.low,c.close].every(Number.isFinite))
+      .sort((a,b) => a.time-b.time)
+    return decorateCandles(candles, ticker)
+  }
+
   const path = `/api/v3/klines?symbol=${symbol}&interval=${interval}&limit=${limit}`
   for (const base of BASES) {
     try {
@@ -15,42 +44,10 @@ export async function fetchCandles(symbol, interval = '15m', limit = 60, ticker 
       if (!res.ok) continue
       const data = await res.json()
       const candles = data.map(([t, o, h, l, c, v]) => ({
-        time: t,
-        open: parseFloat(o),
-        high: parseFloat(h),
-        low: parseFloat(l),
-        close: parseFloat(c),
-        volume: parseFloat(v),
+        time: t, open: parseFloat(o), high: parseFloat(h), low: parseFloat(l),
+        close: parseFloat(c), volume: parseFloat(v),
       }))
-      // Attach EMAs (all periods) + RSI14 + DMI/ADX(14)
-      attachEMA(candles, 10)
-      attachEMAn(candles,   5, 'ema5')
-      attachEMAn(candles,   9, 'ema9')
-      attachEMAn(candles,  10, 'ema10')
-      attachEMAn(candles,  15, 'ema15')
-      attachEMAn(candles,  16, 'ema16')
-      attachEMAn(candles,  20, 'ema20')
-      attachEMAn(candles,  25, 'ema25')
-      attachEMAn(candles,  30, 'ema30')
-      attachEMAn(candles,  40, 'ema40')
-      attachEMAn(candles,  50, 'ema50')
-      attachEMAn(candles,  60, 'ema60')
-      attachEMAn(candles,  75, 'ema75')
-      attachEMAn(candles,  80, 'ema80')
-      attachEMAn(candles, 100, 'ema100')
-      attachEMAn(candles, 120, 'ema120')
-      attachEMAn(candles, 150, 'ema150')
-      attachEMAn(candles, 200, 'ema200')
-      attachEMAn(candles, 300, 'ema300')
-      attachEMAn(candles, 600, 'ema600')
-      attachRSI(candles, 14)
-      attachDMI(candles, 14)
-      // Attach 24h priceChangePercent to every candle if ticker provided
-      if (ticker && ticker.priceChangePercent != null) {
-        const pcp = ticker.priceChangePercent
-        for (const c of candles) c.change24h = pcp
-      }
-      return candles
+      return decorateCandles(candles, ticker)
     } catch { /* try next mirror */ }
   }
   throw new Error(`Failed to fetch ${symbol}`)
