@@ -239,7 +239,7 @@ function UserMenu({ user, onLogout, onGoToSettings }) {
             boxShadow:'0 8px 32px rgba(0,0,0,0.6)',
           }}>
             <div style={{ fontSize:10, fontFamily:'var(--mono)', color:'var(--text3)', padding:'4px 8px 8px' }}>
-              {user.email}
+              {user.email || `User ID: ${user.uid}`}
             </div>
             <button onClick={()=>{setOpen(false);onGoToSettings()}} style={{
               display:'block', width:'100%', padding:'8px 10px', borderRadius:8,
@@ -829,14 +829,28 @@ export default function App() {
 
   useEffect(() => {
     if (!checkConfigured()) { setAuthReady(true); return }
-    let unsub
-    // Catch the result of signInWithRedirect (used inside Android WebView /
-    // app-wrapper builds where signInWithPopup is blocked). onAuthChanged
-    // below will also fire once Firebase resolves this internally, but we
-    // call it explicitly first to surface any redirect-specific errors.
-    getGoogleRedirectResult().then(u => { if (u) setUser(u) }).catch(() => {})
-    onAuthChanged(u => { setUser(u); setAuthReady(true) }).then(fn => { unsub = fn })
-    return () => unsub?.()
+    let active = true
+    let unsub = () => {}
+    // Subscribe first so Firebase's persisted session is restored immediately;
+    // then consume any pending Google redirect result without racing the listener.
+    onAuthChanged(u => {
+      if (!active) return
+      setUser(u || null)
+      setAuthReady(true)
+    }).then(fn => {
+      if (active) unsub = fn
+      else fn?.()
+    }).catch(error => {
+      console.error('[CoinSniper] Auth listener failed:', error)
+      if (active) setAuthReady(true)
+    })
+    getGoogleRedirectResult().then(u => {
+      if (active && u) { setUser(u); setAuthReady(true) }
+    }).catch(error => {
+      console.error('[CoinSniper] Google redirect sign-in failed:', error)
+      if (active) setAuthReady(true)
+    })
+    return () => { active = false; unsub() }
   }, [])
 
   useEffect(() => {
@@ -1085,11 +1099,11 @@ export default function App() {
           {user
             ? <UserMenu user={user} onLogout={handleLogout} onGoToSettings={() => navigateTo('settings')} />
             : (
-              <button onClick={() => setShowLoginModal(true)} style={{
+              <button onClick={() => setShowLoginModal(true)} disabled={!authReady} style={{
                 padding:'5px 12px', borderRadius:8, cursor:'pointer',
                 border:`1.5px solid ${ORANGE_BORDER}`, background: ORANGE_DIM,
                 color: ORANGE, fontSize:11, fontFamily:'var(--mono)', fontWeight:700,
-              }}>Sign In</button>
+              }}>{authReady ? 'Sign In' : 'Checking…'}</button>
             )
           }
         </div>
