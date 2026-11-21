@@ -8,6 +8,7 @@ import {
   sendTelegram, buildTelegramMsg, fmt, timeSince, fmtVol,
 } from '../utils/scanner.js'
 import { compilePattern } from './PatternBuilder.jsx'
+import { requiredCandleCount } from '../utils/patternEngine.js'
 import { historyAddAlerts } from '../App.jsx'
 
 // ── TradingView link ──────────────────────────────────────
@@ -413,27 +414,9 @@ export default function TFScannerTab({ timeframe, tabColor, settings, update, sa
 
   // ── Fix 4: Dynamic candle limit — fetch only as many candles as needed ───────
   // Scans all active pattern conditions for the deepest lookback offset needed.
-  // Adds 30-candle buffer for EMA warmup. Minimum 40, maximum 200.
+  // Uses the shared condition-aware history calculation (up to 1,000 candles).
   function calcCandleLimit(scanners) {
-    let maxDepth = 0
-    for (const sc of scanners) {
-      for (const cond of (sc.conditions || [])) {
-        // LHS / RHS offsets
-        const lhsOff  = Math.abs(cond.lhsOffset  ?? 0)
-        const rhsOff  = Math.abs(cond.rhsOffset   ?? 0)
-        const pinOff  = Math.abs(cond.rhsPinnedOffset ?? 0)
-        // Range check depths
-        const rangeFrom = Math.abs(cond.rangeFrom ?? 0)
-        const rangeTo   = Math.abs(cond.rangeTo   ?? 0)
-        // Slope lookback: skip + len
-        const slopeDepth = (cond.slopeSkip ?? 0) + (cond.slopeLen ?? 0)
-        const depth = Math.max(lhsOff, rhsOff, pinOff, rangeFrom, rangeTo, slopeDepth)
-        if (depth > maxDepth) maxDepth = depth
-      }
-    }
-    // Warmup buffer: DMI/ADX needs period*2=28 candles, RSI needs 14.
-    // 60-candle floor ensures indicators always have enough history.
-    return Math.min(300, Math.max(60, maxDepth + 60))
+    return requiredCandleCount(scanners.flatMap(scanner => (scanner.conditions || []).filter(cond => !cond.htfTf || cond.htfTf === timeframe)))
   }
 
   function isDupe(symbol, scannerId, tf) {
@@ -472,12 +455,13 @@ export default function TFScannerTab({ timeframe, tabColor, settings, update, sa
               if (cond.htfTf && cond.enabled !== false) htfTfsNeeded.add(cond.htfTf)
             }
           }
-          // Pre-fetch each unique HTF TF (120 candles is enough for slope + range)
+          // Pre-fetch each HTF using its own deepest offset / EMA / slope requirements.
           const htfCandlesMap = {}
           for (const tf of htfTfsNeeded) {
             if (tf !== timeframe) {
               try {
-                const htfArr = await fetchCandlesCached(sym, tf, 120, null)
+                const htfConditions = scanners.flatMap(scanner => (scanner.conditions || []).filter(cond => cond.enabled !== false && cond.htfTf === tf))
+                const htfArr = await fetchCandlesCached(sym, tf, requiredCandleCount(htfConditions), tkrs[sym] || null)
                 if (htfArr && htfArr.length >= 2) htfCandlesMap[tf] = htfArr
               } catch { /* skip — condition will gracefully return null */ }
             } else {
