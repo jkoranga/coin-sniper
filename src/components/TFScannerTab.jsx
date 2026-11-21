@@ -273,7 +273,6 @@ export default function TFScannerTab({ timeframe, tabColor, settings, update, sa
   const [loopCount,     setLoopCount]    = useState(0)
   const [noPatternWarning, setNoPatternWarning] = useState(false)
   const [showCategoryPicker, setShowCategoryPicker] = useState(false)
-  const [categorySelectMode, setCategorySelectMode] = useState('single')
   const [draftCategoryIds, setDraftCategoryIds] = useState(
     Array.isArray(settings.selectedAssetGroupIds) && settings.selectedAssetGroupIds.length
       ? settings.selectedAssetGroupIds : ['crypto']
@@ -912,56 +911,49 @@ export default function TFScannerTab({ timeframe, tabColor, settings, update, sa
           background:'var(--bg1)', border:'1px solid var(--border)',
         }}>
           <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',gap:8,marginBottom:10}}>
-            <div style={{fontSize:12,fontWeight:800,color:'var(--text)'}}>Choose Asset Categories</div>
-            <div style={{display:'flex',gap:4}}>
-              {['single','multiple'].map(mode => (
-                <button key={mode} onClick={() => {
-                  setCategorySelectMode(mode)
-                  if (mode === 'single' && draftCategoryIds.length > 1) setDraftCategoryIds([draftCategoryIds[0]])
-                }} style={{
-                  padding:'5px 8px',borderRadius:7,fontSize:9,fontWeight:800,cursor:'pointer',
-                  border:categorySelectMode===mode?'1px solid var(--green2)':'1px solid var(--border)',
-                  background:categorySelectMode===mode?'var(--green-dim)':'var(--bg2)',
-                  color:categorySelectMode===mode?'var(--green)':'var(--text3)',
-                }}>{mode === 'single' ? 'Single' : 'Multiple'}</button>
-              ))}
+            <div>
+              <div style={{fontSize:12,fontWeight:800,color:'var(--text)'}}>Choose Asset Categories</div>
+              <div style={{fontSize:9,color:'var(--text3)',marginTop:3}}>Select one, multiple, or all categories</div>
             </div>
+            <label style={{display:'flex',alignItems:'center',gap:6,fontSize:10,fontWeight:800,color:'var(--green)',cursor:'pointer',whiteSpace:'nowrap'}}>
+              <input
+                type="checkbox"
+                checked={assetGroups.length>0 && assetGroups.every(g=>draftCategoryIds.includes(g.id))}
+                onChange={e=>setDraftCategoryIds(e.target.checked ? assetGroups.map(g=>g.id) : [])}
+                style={{width:16,height:16,accentColor:'var(--green)'}}
+              />
+              Select All
+            </label>
           </div>
           <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(125px,1fr))',gap:7}}>
             {assetGroups.map(group => {
               const selected = draftCategoryIds.includes(group.id)
               const count = (group.assets || []).filter(a => a.scanSymbol).length
-              return <button key={group.id} onClick={() => setDraftCategoryIds(prev => {
-                if (categorySelectMode === 'single') return [group.id]
-                return selected ? prev.filter(id => id !== group.id) : [...prev, group.id]
-              })} style={{
-                padding:'9px',borderRadius:9,textAlign:'left',cursor:'pointer',
-                border:selected?'1.5px solid var(--green)':'1px solid var(--border)',
-                background:selected?'var(--green-dim)':'var(--bg2)',
-                color:selected?'var(--green)':'var(--text2)',
-              }}>
-                <div style={{fontSize:11,fontWeight:800}}>{selected?'✓ ':''}{group.name}</div>
-                <div style={{fontSize:9,opacity:.75,marginTop:3}}>{group.assets?.length || 0} assets · {count} scan-ready</div>
-              </button>
+              return (
+                <label key={group.id} style={{
+                  display:'flex',alignItems:'flex-start',gap:8,padding:'10px 9px',borderRadius:9,cursor:'pointer',
+                  border:selected?'1.5px solid var(--green)':'1px solid var(--border)',
+                  background:selected?'var(--green-dim)':'var(--bg2)',
+                  color:selected?'var(--green)':'var(--text2)',
+                }}>
+                  <input
+                    type="checkbox"
+                    checked={selected}
+                    onChange={e=>setDraftCategoryIds(prev=>e.target.checked?[...prev,group.id]:prev.filter(id=>id!==group.id))}
+                    style={{width:16,height:16,margin:'1px 0 0',flexShrink:0,accentColor:'var(--green)'}}
+                  />
+                  <span style={{minWidth:0}}>
+                    <span style={{display:'block',fontSize:11,fontWeight:800}}>{group.name}</span>
+                    <span style={{display:'block',fontSize:9,opacity:.75,marginTop:3}}>{group.assets?.length || 0} assets · {count} scan-ready</span>
+                  </span>
+                </label>
+              )
             })}
           </div>
           <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',gap:8,marginTop:10,flexWrap:'wrap'}}>
             <span style={{fontSize:9,color:'var(--text3)'}}>Only assets with a connected market-data feed can be scanned.</span>
-            <div style={{display:'flex',gap:6,flexWrap:'wrap'}}>
-              <button onClick={() => {
-                const allIds = assetGroups.map(g => g.id)
-                const allSelected = allIds.length > 0 && allIds.every(id => draftCategoryIds.includes(id))
-                setCategorySelectMode('multiple')
-                setDraftCategoryIds(allSelected ? [] : allIds)
-              }} style={{
-                padding:'8px 10px',borderRadius:8,cursor:'pointer',fontSize:10,fontWeight:800,
-                border:'1px solid var(--border)',background:'var(--bg2)',color:'var(--text2)',
-              }}>
-                {assetGroups.length > 0 && assetGroups.every(g => draftCategoryIds.includes(g.id)) ? 'Deselect All' : 'Select All'}
-              </button>
-              <button onClick={() => {
-              const groups = assetGroups
-              const chosen = groups.filter(g => draftCategoryIds.includes(g.id))
+            <button onClick={() => {
+              const chosen = assetGroups.filter(g => draftCategoryIds.includes(g.id))
               const pairs = [...new Set(chosen.flatMap(g => (g.assets || []).map(a => a.scanSymbol).filter(Boolean)))]
               update({
                 selectedAssetGroupIds: draftCategoryIds,
@@ -973,8 +965,8 @@ export default function TFScannerTab({ timeframe, tabColor, settings, update, sa
             }} disabled={draftCategoryIds.length===0} style={{
               padding:'8px 12px',borderRadius:8,cursor:'pointer',fontSize:10,fontWeight:800,
               border:'1px solid var(--green2)',background:'var(--green-dim)',color:'var(--green)',
+              opacity:draftCategoryIds.length===0?.5:1,
             }}>Apply Categories · Scan {(assetGroups.filter(g => draftCategoryIds.includes(g.id)).flatMap(g => g.assets || []).filter(a => a.scanSymbol)).length}</button>
-            </div>
           </div>
         </div>
       )}
