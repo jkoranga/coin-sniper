@@ -458,6 +458,12 @@ function DetailSheet({ alert: a, onClose }) {
               </div>
             </div>
             <TvIcon symbol={a.symbol} timeframe={a.timeframe} sz={32}/>
+            <button onClick={onClose} aria-label="Close details" title="Close" style={{
+              width:30, height:30, borderRadius:8, flexShrink:0, cursor:'pointer',
+              display:'flex', alignItems:'center', justifyContent:'center',
+              background:'var(--bg2)', border:'1px solid var(--border2)',
+              color:'var(--text2)', fontSize:20, fontWeight:700, lineHeight:1,
+            }}>×</button>
             <span style={{
               padding:'4px 10px', borderRadius:7, fontSize:11, fontWeight:800,
               background:isBull?'rgba(0,230,118,0.12)':'rgba(255,60,80,0.12)',
