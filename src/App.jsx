@@ -753,16 +753,52 @@ export default function App() {
   React.useEffect(() => { ssSaveTab(activeTab) },      [activeTab])
   React.useEffect(() => { ssSaveTapped(userTappedTabs) }, [userTappedTabs])
   useEffect(() => {
-    window.history.pushState({ coinsSniper: true }, '')
-    function handlePop() {
-      window.history.pushState({ coinsSniper: true }, '')
-      if (showExitRef.current) { setShowExitWarning(false); return }
-      const tab = activeTabRef.current
-      if (tab !== HOME_TAB) { setActiveTab(HOME_TAB); setPrevTab(tab) }
-      else { setShowExitWarning(true) }
+    // Keep a history guard so browser/PWA back presses stay inside the app.
+    const armBackGuard = () => {
+      try { window.history.pushState({ coinsSniperBackGuard: true }, '', window.location.href) } catch (_) {}
     }
+    const handleBack = () => {
+      if (showExitRef.current) {
+        setShowExitWarning(false)
+        setExitHint('')
+      } else {
+        const tab = activeTabRef.current
+        if (tab !== HOME_TAB) {
+          setActiveTab(HOME_TAB)
+          setPrevTab(tab)
+        } else {
+          setShowExitWarning(true)
+        }
+      }
+      // Re-arm after the current navigation event has completed.
+      setTimeout(armBackGuard, 0)
+    }
+    const handlePop = () => handleBack()
+    const handleCordovaBack = e => {
+      e?.preventDefault?.()
+      handleBack()
+    }
+
+    armBackGuard()
     window.addEventListener('popstate', handlePop)
-    return () => window.removeEventListener('popstate', handlePop)
+    document.addEventListener('backbutton', handleCordovaBack, false)
+
+    // Capacitor Android hardware-back is a separate event from popstate.
+    let capacitorBackListener
+    try {
+      const appPlugin = window.Capacitor?.Plugins?.App
+      if (appPlugin?.addListener) {
+        const result = appPlugin.addListener('backButton', handleBack)
+        if (result?.then) result.then(listener => { capacitorBackListener = listener })
+        else capacitorBackListener = result
+      }
+    } catch (_) {}
+
+    return () => {
+      window.removeEventListener('popstate', handlePop)
+      document.removeEventListener('backbutton', handleCordovaBack, false)
+      try { capacitorBackListener?.remove?.() } catch (_) {}
+    }
   }, [])
 
   // Network detection — reload once connection is restored.
