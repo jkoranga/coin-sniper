@@ -45,7 +45,6 @@ const FIELDS = [
   { id: 'bodyPct',          label: 'Full Body %',              short: 'FullBody%', group: 'Calc', computed: c => c.high !== c.low ? Math.abs(c.close - c.open) / (c.high - c.low) * 100 : 0 },
   { id: 'bodySizePct',      label: 'Body Size %',              short: 'BodySize%', group: 'Calc', computed: c => c.open !== 0 ? Math.abs(c.close - c.open) / Math.abs(c.open) * 100 : null },
   { id: 'range',            label: 'Range H-L',                short: 'Range',     group: 'Calc', computed: c => c.high - c.low },
-  { id: 'upperWick',        label: 'Upper Wick',               short: 'UWick',     group: 'Calc', computed: c => c.high - Math.max(c.close, c.open) },
   { id: 'greenLowerWickPct',label: 'Green Bar Lower Wick %',   short: 'GreenLw%',  group: 'Calc', computed: c => c.close > c.open && c.open !== 0 ? (c.open - c.low) / Math.abs(c.open) * 100 : null },
   { id: 'redLowerWickPct',  label: 'Red Bar Lower Wick %',     short: 'RedLw%',    group: 'Calc', computed: c => c.close < c.open && c.close !== 0 ? (c.close - c.low) / Math.abs(c.close) * 100 : null },
   { id: 'greenUpperWickPct',label: 'Green Bar Upper Wick %',   short: 'GreenUw%', group: 'Calc', computed: c => c.close > c.open && c.open !== 0 ? (c.high - c.close) / Math.abs(c.open) * 100 : null },
