@@ -68,8 +68,8 @@ export default function CustomPairsSection({ cfg, set }) {
     if (duplicate) { setAssetInput(''); return }
     const asset = {
       id: symbol + '-' + Date.now(), symbol: symbol.replace(/USDT$/, ''),
-      name: symbol.replace(/USDT$/, ''), scanSymbol: active.kind === 'crypto' ? symbol : null,
-      status: active.kind === 'crypto' ? 'supported' : 'provider-required',
+      name: symbol.replace(/USDT$/, ''), scanSymbol: active.kind === 'crypto' ? symbol : active.kind === 'stock' ? 'STOCK:' + symbol : null,
+      status: active.kind === 'commodity' ? 'provider-required' : 'supported',
     }
     saveGroups(groups.map(g => g.id === active.id ? { ...g, assets: [...g.assets, asset] } : g))
     setAssetInput('')
