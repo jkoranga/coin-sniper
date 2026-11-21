@@ -5,6 +5,7 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react'
 import { fetchDeltaSymbols, fetchDeltaCandles, DELTA_FALLBACK_SYMBOLS as DELTA_FALLBACK_SYMBOLS_IMPORT } from '../utils/deltaScanner.js'
 import { compilePattern } from './PatternBuilder.jsx'
+import { requiredCandleCount } from '../utils/patternEngine.js'
 import { historyAddAlerts } from '../utils/history.js'
 import { onAuthChanged, loadNotificationCooldownsFromCloud, saveNotificationCooldownsToCloud } from '../firebase.js'
 import { intervalToMs, sendTelegram, buildTelegramMsg, fmt, timeSince, fmtVol } from '../utils/scanner.js'
@@ -612,12 +613,16 @@ export default function DeltaScannerTab({
   }, [settings.customPatterns, timeframe, scanMode])
 
   // ── Candle cache (60s TTL) ───────────────────────────────────────────────────
-  async function fetchCached(symbol, tf, limit) {
+  async function fetchCached(symbol, tf, limit, ticker = null) {
     const key = `${symbol}__${tf}__${limit}`
     const now = Date.now()
     const hit = cacheRef.current[key]
-    if (hit && now < hit.expiresAt) return hit.candles
-    const candles = await fetchDeltaCandles(symbol, tf, limit)
+    if (hit && now < hit.expiresAt) {
+      const change24h = Number(ticker?.dailyChangePct ?? ticker?.priceChangePercent)
+      if (Number.isFinite(change24h)) for (const candle of hit.candles) candle.change24h = change24h
+      return hit.candles
+    }
+    const candles = await fetchDeltaCandles(symbol, tf, limit, ticker)
     const ttlMap = {'1m':60_000,'2m':120_000,'3m':180_000,'5m':300_000,'10m':600_000}
     const ttl = ttlMap[settingsRef.current.cacheTtl || '3m'] || 180_000
     if (candles) cacheRef.current[key] = { candles, expiresAt: now + ttl }
@@ -690,7 +695,7 @@ export default function DeltaScannerTab({
         setProgressSym(sym)
 
         try {
-          const candles = await fetchCached(sym, timeframe, 80)  // 80 = DMI warmup safe floor
+          const candles = await fetchCached(sym, timeframe, requiredCandleCount(activePatterns), symObj)
           if (!candles || candles.length < 10) { done++; setProgress(Math.round(done/symList.length*100)); continue }
 
           // HTF candles needed by any condition
@@ -703,7 +708,8 @@ export default function DeltaScannerTab({
           for (const tf of htfNeeded) {
             if (tf === timeframe) { htfMap[tf] = candles; continue }
             try {
-              const c = await fetchCached(sym, tf, 120)
+              const htfConditions = activePatterns.flatMap(pattern => (pattern.conditions || []).filter(cond => cond.enabled !== false && cond.htfTf === tf))
+              const c = await fetchCached(sym, tf, requiredCandleCount(htfConditions), symObj)
               if (c && c.length >= 2) htfMap[tf] = c
             } catch {}
           }
