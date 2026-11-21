@@ -26,6 +26,7 @@ export async function fetchCandles(symbol, interval = '15m', limit = 60, ticker 
       attachEMA(candles, 10)
       attachEMAn(candles,   5, 'ema5')
       attachEMAn(candles,   9, 'ema9')
+      attachEMAn(candles,  10, 'ema10')
       attachEMAn(candles,  15, 'ema15')
       attachEMAn(candles,  16, 'ema16')
       attachEMAn(candles,  20, 'ema20')
