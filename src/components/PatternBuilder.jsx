@@ -648,19 +648,10 @@ function CondCard({ cond, idx, total, color, onChange, onRemove, onCopy, onMoveU
           <div>
             <Lbl>OPERATOR</Lbl>
             <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
-              {(cond.histCompare ? [...OPS, '% Diff'] : OPS).map(op => (
+              {OPS.map(op => (
                 <Pill key={op} active={cond.op === op} color={color} onClick={() => s('op', op)}>{op}</Pill>
               ))}
             </div>
-            {cond.histCompare && cond.op === '% Diff' && (
-              <div style={{ marginTop: 8 }}>
-                <Lbl>DIFFERENCE THRESHOLD</Lbl>
-                <NInput value={cond.histPctThreshold ?? 0} onChange={v=>s('histPctThreshold',v)} step="0.01" suffix="%" />
-                <div style={{ fontSize: 9, color: 'var(--text3)', fontFamily: 'var(--mono)', marginTop: 5 }}>
-                  Percentage difference ≥ {cond.histPctThreshold ?? 0}%
-                </div>
-              </div>
-            )}
           </div>
 
           {cond.histCompare && (
@@ -686,14 +677,14 @@ function CondCard({ cond, idx, total, color, onChange, onRemove, onCopy, onMoveU
             <Lbl>RIGHT — compare to</Lbl>
             <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap', marginBottom: 9 }}>
               {RHS_MODES.map(m => (
-                <Pill key={m.id} active={cond.rhsMode === m.id} color={color}
+                <Pill key={m.id} active={(cond.rhsMode ?? (cond.histCompare ? 'field' : 'number')) === m.id} color={color}
                   onClick={() => s('rhsMode', m.id)} sm>{m.label}</Pill>
               ))}
             </div>
 
             {/* hint */}
             <div style={{ fontSize: 9, fontFamily:'var(--mono)', color:'var(--text3)', marginBottom: 8, opacity:.75 }}>
-              {RHS_MODES.find(m => m.id === cond.rhsMode)?.hint}
+              {RHS_MODES.find(m => m.id === (cond.rhsMode ?? (cond.histCompare ? 'field' : 'number')))?.hint}
             </div>
 
             {/* PIN RHS OFFSET — only shown in range check mode, for field-based RHS */}
@@ -748,24 +739,24 @@ function CondCard({ cond, idx, total, color, onChange, onRemove, onCopy, onMoveU
             )}
 
             {/* Value inputs per mode */}
-            {cond.rhsMode === 'number' && (
+            {(cond.rhsMode ?? (cond.histCompare ? 'field' : 'number')) === 'number' && (
               <NInput value={cond.rhsNum} onChange={v => s('rhsNum', v)} />
             )}
 
-            {cond.rhsMode === 'field' && (
+            {(cond.rhsMode ?? (cond.histCompare ? 'field' : 'number')) === 'field' && (
               <FSelect
-                value={cond.rhsField || 'ema20'} offset={cond.rhsOffset ?? 0}
-                onField={v => s('rhsField', v)} onOffset={v => s('rhsOffset', v)}
-                color={color} hideOffset={!!cond.rangeCheck}
+                value={cond.rhsField || (cond.histCompare ? cond.lhsField : 'ema20')} offset={cond.histCompare ? 0 : (cond.rhsOffset ?? 0)}
+                onField={v => s('rhsField', v)} onOffset={cond.histCompare ? null : v => s('rhsOffset', v)}
+                color={color} hideOffset={!!(cond.rangeCheck || cond.histCompare)}
               />
             )}
 
-            {cond.rhsMode === 'mult' && (
+            {(cond.rhsMode ?? (cond.histCompare ? 'field' : 'number')) === 'mult' && (
               <div style={{ display: 'flex', flexDirection: 'column', gap: 7 }}>
                 <FSelect
-                  value={cond.rhsField || 'ema20'} offset={cond.rhsOffset ?? 0}
-                  onField={v => s('rhsField', v)} onOffset={v => s('rhsOffset', v)}
-                  color={color} hideOffset={!!cond.rangeCheck}
+                  value={cond.rhsField || (cond.histCompare ? cond.lhsField : 'ema20')} offset={cond.histCompare ? 0 : (cond.rhsOffset ?? 0)}
+                  onField={v => s('rhsField', v)} onOffset={cond.histCompare ? null : v => s('rhsOffset', v)}
+                  color={color} hideOffset={!!(cond.rangeCheck || cond.histCompare)}
                 />
                 <div style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
                   <span style={{ fontFamily:'var(--mono)', color:'var(--text3)', fontSize:13 }}>×</span>
@@ -775,23 +766,23 @@ function CondCard({ cond, idx, total, color, onChange, onRemove, onCopy, onMoveU
               </div>
             )}
 
-            {cond.rhsMode === 'pct' && (
+            {(cond.rhsMode ?? (cond.histCompare ? 'field' : 'number')) === 'pct' && (
               <div style={{ display: 'flex', flexDirection: 'column', gap: 7 }}>
                 <FSelect
-                  value={cond.rhsField || 'ema20'} offset={cond.rhsOffset ?? 0}
-                  onField={v => s('rhsField', v)} onOffset={v => s('rhsOffset', v)}
-                  color={color} hideOffset={!!cond.rangeCheck}
+                  value={cond.rhsField || (cond.histCompare ? cond.lhsField : 'ema20')} offset={cond.histCompare ? 0 : (cond.rhsOffset ?? 0)}
+                  onField={v => s('rhsField', v)} onOffset={cond.histCompare ? null : v => s('rhsOffset', v)}
+                  color={color} hideOffset={!!(cond.rangeCheck || cond.histCompare)}
                 />
                 <NInput value={cond.rhsPct ?? 0} onChange={v => s('rhsPct', v)} step="0.01" suffix="%" />
               </div>
             )}
 
-            {cond.rhsMode === 'pctdiff' && (
+            {(cond.rhsMode ?? (cond.histCompare ? 'field' : 'number')) === 'pctdiff' && (
               <div style={{ display: 'flex', flexDirection: 'column', gap: 7 }}>
                 <FSelect
-                  value={cond.rhsField || 'ema20'} offset={cond.rhsOffset ?? 0}
-                  onField={v => s('rhsField', v)} onOffset={v => s('rhsOffset', v)}
-                  color={color} hideOffset={!!cond.rangeCheck}
+                  value={cond.rhsField || (cond.histCompare ? cond.lhsField : 'ema20')} offset={cond.histCompare ? 0 : (cond.rhsOffset ?? 0)}
+                  onField={v => s('rhsField', v)} onOffset={cond.histCompare ? null : v => s('rhsOffset', v)}
+                  color={color} hideOffset={!!(cond.rangeCheck || cond.histCompare)}
                 />
                 <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
                   <span style={{ fontSize:11, fontFamily:'var(--mono)', color:'var(--text3)' }}>{cond.op}</span>
@@ -804,7 +795,7 @@ function CondCard({ cond, idx, total, color, onChange, onRemove, onCopy, onMoveU
             )}
 
 
-            {cond.rhsMode === 'slope' && (
+            {(cond.rhsMode ?? (cond.histCompare ? 'field' : 'number')) === 'slope' && (
               <div style={{ display: 'flex', flexDirection: 'column', gap: 9 }}>
                 {/* Which field to measure slope of — same as LHS, just show info */}
                 <div style={{
