@@ -72,6 +72,7 @@ export function requiredCandleCount(items = []) {
       Math.abs(Number(c.rhsPinnedOffset) || 0),
       Math.abs(Number(c.rangeFrom) || 0),
       Math.abs(Number(c.rangeTo) || 0),
+      c.histCompare ? Math.max(Number(c.histCurrentTo) || 0, Number(c.histPreviousTo) || 0) : 0,
       (Number(c.slopeSkip) || 0) + (Number(c.slopeLen) || 0),
     ]
     maxDepth = Math.max(maxDepth, ...offsets)
@@ -105,6 +106,15 @@ export function condFormula(c) {
 
   const lhsF = FIELD_MAP[c.lhsField]?.short || c.lhsField
   const op   = c.op
+
+  if (c.histCompare) {
+    const f = FIELD_MAP[c.lhsField]?.short || c.lhsField || '?'
+    const cf = c.histCurrentFrom ?? 1, ct = c.histCurrentTo ?? 2
+    const pf = c.histPreviousFrom ?? 3, pt = c.histPreviousTo ?? 20
+    const mode = (c.histPreviousMode ?? 'max').toUpperCase()
+    const match = (c.histCurrentMatch ?? 'any').toUpperCase()
+    return `${htfPfx}${match} ${f}[${cf}–${ct}] ${c.op} PREV[${pf}–${pt}] ${mode}`
+  }
 
   // Range mode: prefix with "ALL/ANY [from..to]"
   if (c.rangeCheck) {
@@ -220,6 +230,52 @@ export function compilePattern(pattern, _htfCandlesMap) {
       const accessors = resolveAccessors(cond)
       if (!accessors) return null
       const { arr, L, getC: gC, getVal: gV } = accessors
+
+      // ── Historical range comparison: current window vs older reference window ──
+      if (cond.histCompare) {
+        const cf = Math.max(1, Math.min(20, Math.round(cond.histCurrentFrom ?? 1)))
+        const ct = Math.max(1, Math.min(20, Math.round(cond.histCurrentTo ?? 2)))
+        const pf = Math.max(1, Math.min(20, Math.round(cond.histPreviousFrom ?? 3)))
+        const pt = Math.max(1, Math.min(20, Math.round(cond.histPreviousTo ?? 20)))
+        const cStart = Math.min(cf, ct), cEnd = Math.max(cf, ct)
+        const pStart = Math.min(pf, pt), pEnd = Math.max(pf, pt)
+        // Convert user-facing candle numbers (1 = latest closed) to negative offsets.
+        const currentValues = [], previousValues = []
+        for (let n = cStart; n <= cEnd; n++) {
+          const off = -n, candle = gC(off)
+          if (!candle) return null
+          const value = gV(candle, cond.lhsField, L - 1 + off)
+          if (value == null || !Number.isFinite(Number(value))) return null
+          currentValues.push(Number(value))
+        }
+        for (let n = pStart; n <= pEnd; n++) {
+          const off = -n, candle = gC(off)
+          if (!candle) return null
+          const value = gV(candle, cond.lhsField, L - 1 + off)
+          if (value == null || !Number.isFinite(Number(value))) return null
+          previousValues.push(Number(value))
+        }
+        const op = OP_SYM[cond.op] || cond.op
+        const compare = (a, b) => {
+          if (op === '>') return a > b
+          if (op === '>=') return a >= b
+          if (op === '<') return a < b
+          if (op === '<=') return a <= b
+          if (op === '==') return Math.abs(a - b) < 1e-9
+          return Math.abs(a - b) >= 1e-9
+        }
+        const previousMode = cond.histPreviousMode ?? 'max'
+        const currentResults = currentValues.map(currentValue => {
+          if (previousMode === 'every') return previousValues.every(previousValue => compare(currentValue, previousValue))
+          const reference = previousMode === 'min' ? Math.min(...previousValues)
+            : previousMode === 'avg' ? previousValues.reduce((a,b)=>a+b,0) / previousValues.length
+            : Math.max(...previousValues)
+          return compare(currentValue, reference)
+        })
+        return (cond.histCurrentMatch ?? 'any') === 'all'
+          ? currentResults.every(Boolean)
+          : currentResults.some(Boolean)
+      }
 
       // ── Range check: apply condition to every candle in [rangeFrom..rangeTo] ──
       // Uses resolved candle array (HTF or base) via gC / gV / L
