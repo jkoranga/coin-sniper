@@ -588,14 +588,14 @@ function CondCard({ cond, idx, total, color, onChange, onRemove, onCopy, onMoveU
               <div style={{ display: 'flex', gap: 8 }}>
                 <div style={{ flex: 1 }}>
                   <Lbl>CURRENT FROM</Lbl>
-                  <select value={cond.histCurrentFrom ?? 1} onChange={e => { const v=+e.target.value; const ct = Math.max(v + 1, cond.histCurrentTo ?? 2); const pf = Math.max(ct + 1, cond.histPreviousFrom ?? 3); onChange({ ...cond, histCurrentFrom: v, histCurrentTo: ct, histPreviousFrom: pf, histPreviousTo: Math.max(pf, cond.histPreviousTo ?? 20) }) }} style={{ width: '100%', padding: 7, borderRadius: 7, background: 'var(--bg3)', color: 'var(--text)', border: '1px solid var(--border)' }}>
-                    {Array.from({length:17},(_,i)=>i+1).map(v=><option key={v} value={v}>{v}</option>)}
+                  <select value={cond.histCurrentFrom ?? 1} onChange={e => { const v=+e.target.value; const ct = Math.max(v, cond.histCurrentTo ?? 2); const pf = Math.max(ct + 1, cond.histPreviousFrom ?? 3); onChange({ ...cond, histCurrentFrom: v, histCurrentTo: ct, histPreviousFrom: pf, histPreviousTo: Math.max(pf, cond.histPreviousTo ?? 20) }) }} style={{ width: '100%', padding: 7, borderRadius: 7, background: 'var(--bg3)', color: 'var(--text)', border: '1px solid var(--border)' }}>
+                    {Array.from({length:18},(_,i)=>i+1).map(v=><option key={v} value={v}>{v}</option>)}
                   </select>
                 </div>
                 <div style={{ flex: 1 }}>
                   <Lbl>CURRENT TO</Lbl>
                   <select value={cond.histCurrentTo ?? 2} onChange={e => { const v=+e.target.value; onChange({ ...cond, histCurrentTo: v, histPreviousFrom: Math.max(v + 1, cond.histPreviousFrom ?? 3), histPreviousTo: Math.max(v + 2, cond.histPreviousTo ?? 20) }) }} style={{ width: '100%', padding: 7, borderRadius: 7, background: 'var(--bg3)', color: 'var(--text)', border: '1px solid var(--border)' }}>
-                    {Array.from({length:18},(_,i)=>i+1).filter(v=>v>(cond.histCurrentFrom ?? 1)).map(v=><option key={v} value={v}>{v}</option>)}
+                    {Array.from({length:18},(_,i)=>i+1).filter(v=>v>=(cond.histCurrentFrom ?? 1)).map(v=><option key={v} value={v}>{v}</option>)}
                   </select>
                 </div>
               </div>
