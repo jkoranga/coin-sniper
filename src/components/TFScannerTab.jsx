@@ -414,7 +414,7 @@ export default function TFScannerTab({ timeframe, tabColor, settings, update, sa
 
   // ── Fix 4: Dynamic candle limit — fetch only as many candles as needed ───────
   // Scans all active pattern conditions for the deepest lookback offset needed.
-  // Adds 30-candle buffer for EMA warmup. Minimum 40, maximum 200.
+  // Uses the shared condition-aware history calculation (up to 1,000 candles).
   function calcCandleLimit(scanners) {
     return requiredCandleCount(scanners)
   }
@@ -455,7 +455,7 @@ export default function TFScannerTab({ timeframe, tabColor, settings, update, sa
               if (cond.htfTf && cond.enabled !== false) htfTfsNeeded.add(cond.htfTf)
             }
           }
-          // Pre-fetch each unique HTF TF (120 candles is enough for slope + range)
+          // Pre-fetch each HTF using its own deepest offset / EMA / slope requirements.
           const htfCandlesMap = {}
           for (const tf of htfTfsNeeded) {
             if (tf !== timeframe) {
