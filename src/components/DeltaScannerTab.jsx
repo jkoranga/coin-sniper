@@ -564,7 +564,6 @@ export default function DeltaScannerTab({
   const [selected,    setSelected]    = useState(null)
   const [noPatWarn,   setNoPatWarn]   = useState(false)
   const [selPatterns,  setSelPatterns]  = useState(new Set()) // selected pattern name filter
-  const [showCategoryPicker, setShowCategoryPicker] = useState(false)
   const [activeCategoryId, setActiveCategoryId] = useState('crypto')
   const [selectedAssetIds, setSelectedAssetIds] = useState(() => new Set(settings.customPairs || []))
   const assetGroups = useMemo(() => {
@@ -1107,10 +1106,7 @@ export default function DeltaScannerTab({
             <button key={m.id} onClick={() => {
               setTfSetting('scanMode', m.id)
               if (isCustom) {
-                setShowCategoryPicker(v => !v)
                 setSelectedAssetIds(new Set(settingsRef.current.customPairs || []))
-              } else {
-                setShowCategoryPicker(false)
               }
             }} style={{
               display:'flex', alignItems:'center', gap:4, padding:'5px 11px', borderRadius:20, cursor:'pointer',
@@ -1179,7 +1175,6 @@ export default function DeltaScannerTab({
             <button onClick={()=>{
               const pairs=[...selectedAssetIds].filter(Boolean)
               update({customPairs:pairs,selectedAssetGroupIds:assetGroups.filter(g=>(g.assets||[]).some(a=>selectedAssetIds.has(a.scanSymbol||a.id))).map(g=>g.id)})
-              setShowCategoryPicker(false)
             }} style={{padding:'8px 12px',borderRadius:8,cursor:'pointer',fontSize:10,fontWeight:800,
               border:'1px solid var(--green2)',background:'var(--green-dim)',color:'var(--green)'}}>
               Apply Selection · {selectedAssetIds.size}
