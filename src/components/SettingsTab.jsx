@@ -723,7 +723,7 @@ function ManualSection() {
           ['+DI 14 / -DI 14','Directional movement values. +DI stronger than -DI can indicate upward directional pressure; inverse can indicate downward pressure.',''],
           ['ADX 14','Trend-strength measure; it does not tell bullish or bearish direction by itself. 25 is a common strength reference, not a guaranteed signal.',''],
           ['Change %','(Close[0] / Close[-1] − 1) × 100. Signed candle-to-candle close change.',''],
-          ['24h Change%','Exchange ticker rolling 24-hour price change; distinct from the selected candle's Change %.',''],
+          ['24h Change%','Exchange ticker rolling 24-hour price change; distinct from the selected candle Change %.',''],
           ['Full Body %','|Close − Open| / (High − Low) × 100. Body share of candle range; 100% means no wick.',''],
           ['Body Size %','|Close − Open| / |Open| × 100. Direction-neutral body size relative to Open; use Is Green / Is Red to identify direction.',''],
           ['Range H-L','High − Low. Absolute candle range in price units.',''],
