@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react'
+import React, { useEffect, useMemo, useState } from 'react'
 import { SectionHeader, SectionCard } from '../UI'
 import { TOP_SYMBOLS } from '../../utils/scanner.js'
 
@@ -49,6 +49,11 @@ export default function CustomPairsSection({ cfg, set }) {
 
   const groups = Array.isArray(cfg.assetGroups) && cfg.assetGroups.length
     ? cfg.assetGroups : DEFAULT_GROUPS
+  useEffect(() => {
+    if (!Array.isArray(cfg.assetGroups) || cfg.assetGroups.length === 0) {
+      set('assetGroups', DEFAULT_GROUPS)
+    }
+  }, [cfg.assetGroups, set])
   const active = groups.find(g => g.id === activeId) || groups[0]
   const supportedSymbols = useMemo(() => (active?.assets || [])
     .map(a => a.scanSymbol).filter(Boolean), [active])
