@@ -655,7 +655,7 @@ function CondCard({ cond, idx, total, color, onChange, onRemove, onCopy, onMoveU
           </div>
 
           {!cond.histCompare && (
-          {/* RIGHT SIDE — mode select */}
+
           <div style={{ padding: '7px 8px', borderRadius: 7, background: 'rgba(0,0,0,0.18)' }}>
             <Lbl>RIGHT — compare to</Lbl>
             <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap', marginBottom: 9 }}>
