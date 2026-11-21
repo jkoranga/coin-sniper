@@ -55,7 +55,7 @@ const FIELDS = [
 const FIELD_MAP = Object.fromEntries(FIELDS.map(f => [f.id, f]))
 const FIELD_GROUPS = FIELDS.reduce((g, f) => { (g[f.group] = g[f.group] || []).push(f); return g }, {})
 
-const OPS = ['>', '>=', '<', '<=', '=', '≠']
+const OPS = ['>', '>=', '<', '<=', '=', '≠', '% Diff']
 const OP_SYM = { '=': '==', '≠': '!=' }
 
 // RHS modes
@@ -617,23 +617,6 @@ function CondCard({ cond, idx, total, color, onChange, onRemove, onCopy, onMoveU
                 </div>
               </div>
               <div>
-                <Lbl>COMPARISON TYPE</Lbl>
-                <div style={{ display: 'flex', gap: 5, flexWrap: 'wrap' }}>
-                  {[['value','Value'],['pctdiff','% Diff']].map(([v,l]) => (
-                    <Pill key={v} sm active={(cond.histCompareMode ?? 'value')===v} color="#00e676" onClick={()=>s('histCompareMode',v)}>{l}</Pill>
-                  ))}
-                </div>
-                {(cond.histCompareMode ?? 'value') === 'pctdiff' && (
-                  <div style={{ marginTop: 8 }}>
-                    <Lbl>DIFFERENCE THRESHOLD</Lbl>
-                    <NInput value={cond.histPctThreshold ?? 0} onChange={v=>s('histPctThreshold',v)} step="0.01" suffix="%" />
-                    <div style={{ fontSize: 9, color: 'var(--text3)', fontFamily: 'var(--mono)', marginTop: 5 }}>
-                      ((Current − Previous) / Previous) × 100 {cond.op} {cond.histPctThreshold ?? 0}%
-                    </div>
-                  </div>
-                )}
-              </div>
-              <div>
                 <Lbl>PREVIOUS RANGE COMPARE</Lbl>
                 <div style={{ display: 'flex', gap: 5, flexWrap: 'wrap' }}>
                   {[['every','Every candle'],['max','Maximum'],['min','Minimum'],['avg','Average']].map(([v,l])=><Pill key={v} sm active={(cond.histPreviousMode ?? 'max')===v} color="#00e676" onClick={()=>s('histPreviousMode',v)}>{l}</Pill>)}
@@ -646,7 +629,7 @@ function CondCard({ cond, idx, total, color, onChange, onRemove, onCopy, onMoveU
                 </div>
               </div>
               <div style={{ fontSize: 10, fontFamily: 'var(--mono)', color: '#00e676', padding: '6px 8px', borderRadius: 6, background: 'rgba(0,230,118,0.08)' }}>
-                {cond.lhsField || 'Field'} [{cond.histCurrentFrom ?? 1}–{cond.histCurrentTo ?? 2}] {cond.op} {(cond.histCompareMode ?? 'value') === 'pctdiff' ? `${cond.histPctThreshold ?? 0}% difference vs ${cond.rhsField || cond.lhsField || 'Previous field'}` : `previous [${cond.histPreviousFrom ?? 3}–${cond.histPreviousTo ?? 20}]`} · {(cond.histPreviousMode ?? 'max').toUpperCase()} · {(cond.histCurrentMatch ?? 'any').toUpperCase()}
+                {cond.lhsField || 'Field'} [{cond.histCurrentFrom ?? 1}–{cond.histCurrentTo ?? 2}] {cond.op === '% Diff' ? `${cond.histPctOp || '>='} ${cond.histPctThreshold ?? 0}% difference vs ${cond.rhsField || cond.lhsField || 'Previous field'}` : `${cond.op} previous [${cond.histPreviousFrom ?? 3}–${cond.histPreviousTo ?? 20}]`} · {(cond.histPreviousMode ?? 'max').toUpperCase()} · {(cond.histCurrentMatch ?? 'any').toUpperCase()}
               </div>
             </div>
           )}
@@ -669,6 +652,23 @@ function CondCard({ cond, idx, total, color, onChange, onRemove, onCopy, onMoveU
                 <Pill key={op} active={cond.op === op} color={color} onClick={() => s('op', op)}>{op}</Pill>
               ))}
             </div>
+            {cond.histCompare && cond.op === '% Diff' && (
+              <div style={{ marginTop: 8 }}>
+                <Lbl>DIFFERENCE COMPARATOR</Lbl>
+                <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
+                  {['>','>=','<','<=','=','≠'].map(op => (
+                    <Pill key={op} sm active={(cond.histPctOp || '>=') === op} color="#00e676" onClick={() => s('histPctOp',op)}>{op}</Pill>
+                  ))}
+                </div>
+                <div style={{ marginTop: 8 }}>
+                  <Lbl>DIFFERENCE THRESHOLD</Lbl>
+                  <NInput value={cond.histPctThreshold ?? 0} onChange={v=>s('histPctThreshold',v)} step="0.01" suffix="%" />
+                  <div style={{ fontSize: 9, color: 'var(--text3)', fontFamily: 'var(--mono)', marginTop: 5 }}>
+                    ((Current − Previous) / Previous) × 100 {cond.histPctOp || '>='} {cond.histPctThreshold ?? 0}%
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
 
           {cond.histCompare && (
