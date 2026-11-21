@@ -1728,33 +1728,41 @@ function HintsAccordion() {
       background: open ? 'rgba(179,136,255,0.07)' : 'rgba(179,136,255,0.03)',
       overflow: 'hidden', transition: 'border-color .18s, background .18s',
     }}>
-      {/* Toggle row */}
-      <button
-        onClick={() => setOpen(o => !o)}
-        style={{
-          width: '100%', display: 'flex', alignItems: 'center', gap: 8,
-          padding: '8px 12px', background: 'none', border: 'none', cursor: 'pointer',
-        }}
-      >
+      <button onClick={() => setOpen(o => !o)} style={{
+        width: '100%', display: 'flex', alignItems: 'center', gap: 8,
+        padding: '8px 12px', background: 'none', border: 'none', cursor: 'pointer',
+      }}>
         <span style={{ fontSize: 13 }}>💡</span>
         <span style={{ flex: 1, fontFamily: 'var(--mono)', fontWeight: 800, fontSize: 10,
-          letterSpacing: '.07em', color: A, textAlign: 'left' }}>QUICK REFERENCE</span>
+          letterSpacing: '.07em', color: A, textAlign: 'left' }}>QUICK REFERENCE · FORMULAS &amp; LOGIC</span>
         <span style={{ fontSize: 10, color: A, opacity: .7, transition: 'transform .18s',
           display: 'inline-block', transform: open ? 'rotate(180deg)' : 'rotate(0deg)' }}>▼</span>
       </button>
-      {/* Content */}
       {open && (
-        <div style={{
-          padding: '2px 12px 11px', borderTop: '1px solid rgba(179,136,255,0.15)',
-          fontSize: 10, fontFamily: 'var(--mono)', color: A, lineHeight: 1.85,
-        }}>
-          <b>× Mult</b>: EMA20[0] &gt; EMA20[-2] × 1.5 &nbsp;·&nbsp;
-          <b>± %</b>: EMA20[0] &gt; EMA20[-2] + 0.35% &nbsp;·&nbsp;
-          <b>% Diff</b>: how many % LHS is above/below RHS<br/>
-          <b>Slope %</b>: how much field rose over N candles &nbsp;·&nbsp; bullish = op &gt; 0 &nbsp;·&nbsp; bearish = op &lt; 0<br/>
-          <b>Change%</b>: candle-to-candle % &nbsp;·&nbsp; <b>24h%</b>: Binance 24h change<br/>
-          <b>DMI/ADX</b>: +DI &gt; -DI = bullish &nbsp;·&nbsp; ADX &gt; 25 = strong trend<br/>
-          Tap <b style={{color: BLU}}>AND</b>/<b style={{color:AMB}}>OR</b> badge between conditions to switch logic · <b>⧉</b> copies a condition
+        <div style={{ padding: '4px 12px 12px', borderTop: '1px solid rgba(179,136,255,0.15)',
+          fontSize: 10, fontFamily: 'var(--mono)', color: A, lineHeight: 1.8 }}>
+          <div style={{fontWeight:800,color:'var(--text)',margin:'5px 0 2px'}}>RIGHT-SIDE (RHS) MODES</div>
+          <div><b>Value:</b> LHS compared with a fixed number. <code>RSI &gt; 50</code></div>
+          <div><b>Field:</b> compare two fields. <code>Close &gt; EMA20</code></div>
+          <div><b>× Mult:</b> RHS × multiplier. <code>EMA10 &gt; EMA20 × 1.5</code></div>
+          <div><b>± %:</b> RHS × (1 + percent/100). <code>Close &gt; EMA20 + 1%</code></div>
+          <div><b>% Diff:</b> ((LHS / RHS) − 1) × 100. Positive = LHS above RHS; negative = below.</div>
+          <div><b>Slope %:</b> ((Field[now] / Field[past]) − 1) × 100. Past = N candles back; Skip shifts both points older.</div>
+          <div style={{fontWeight:800,color:'var(--text)',margin:'8px 0 2px'}}>CANDLE &amp; RANGE LOGIC</div>
+          <div><b>Offset:</b> [0] latest candle, [-1] previous, [-2] two candles back.</div>
+          <div><b>Range ALL:</b> condition must pass on every candle in the selected offset window.</div>
+          <div><b>Range ANY:</b> condition must pass on at least one candle in that window.</div>
+          <div><b>AND / OR:</b> AND requires both linked conditions; OR requires either. Use the bracket/group control to combine conditions as a group.</div>
+          <div><b>HTF:</b> condition reads candles from the selected higher timeframe. If HTF candles are unavailable, that condition does not pass.</div>
+          <div style={{fontWeight:800,color:'var(--text)',margin:'8px 0 2px'}}>CANDLE CALCULATIONS</div>
+          <div><b>Change %:</b> (Close[0] / Close[-1] − 1) × 100.</div>
+          <div><b>Full Body %:</b> |Close − Open| / (High − Low) × 100. Body share of the full candle range.</div>
+          <div><b>Body Size %:</b> |Close − Open| / |Open| × 100. Direction-neutral size; use Is Green / Is Red to select candle direction.</div>
+          <div><b>Green Lower Wick %:</b> (Open − Low) / |Open| × 100; available only on green candles.</div>
+          <div><b>Red Lower Wick %:</b> (Close − Low) / |Close| × 100; available only on red candles.</div>
+          <div><b>24h Change%:</b> exchange ticker's rolling 24-hour price change; not the candle change.</div>
+          <div><b>+DI / −DI:</b> directional movement; <b>ADX</b> measures trend strength, not direction by itself.</div>
+          <div style={{marginTop:7,color:'var(--text2)'}}>Tip: percentage and size fields are magnitudes unless the field is Change % or a signed slope / % Diff. A condition with unavailable data cannot trigger.</div>
         </div>
       )}
     </div>
