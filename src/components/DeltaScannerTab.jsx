@@ -72,20 +72,32 @@ function saveDedupCooldowns(cooldowns) {
 }
 
 function deltaResultKey(a) {
-  return [a.exchange || 'delta', a.symbol, a.timeframe, a.scannerId, a.side].join('__')
+  // Normalize identity values so the same signal is recognized consistently
+  // in every timeframe tab, including older saved rows with scannerName only.
+  const symbol = String(a?.symbol || '').trim().toUpperCase()
+  const timeframe = String(a?.timeframe || '').trim().toLowerCase()
+  const pattern = String(a?.scannerId ?? a?.scannerName ?? '').trim().toLowerCase()
+  const side = String(a?.side || '').trim().toLowerCase()
+  return [String(a?.exchange || 'delta').trim().toLowerCase(), symbol, timeframe, pattern, side].join('__')
 }
 
 function normalizeDeltaResults(items) {
   const unique = new Map()
   for (const item of (Array.isArray(items) ? items : [])) {
-    if (!item?.symbol || !item?.scannerId || !item?.timeframe) continue
+    if (!item?.symbol || !item?.timeframe || !(item?.scannerId || item?.scannerName)) continue
     const key = deltaResultKey(item)
     const old = unique.get(key)
-    if (!old || Number(item.time || 0) >= Number(old.time || 0)) {
-      unique.set(key, { ...item, id: old?.id ?? item.id ?? key })
+    if (!old || Number(item.lastSeen || item.time || 0) >= Number(old.lastSeen || old.time || 0)) {
+      unique.set(key, {
+        ...item,
+        scannerId: item.scannerId ?? old?.scannerId ?? item.scannerName,
+        id: old?.id ?? item.id ?? key,
+        firstSeen: old?.firstSeen ?? item.firstSeen ?? item.time,
+        lastSeen: Math.max(Number(old?.lastSeen || old?.time || 0), Number(item.lastSeen || item.time || 0)),
+      })
     }
   }
-  return [...unique.values()].sort((a,b) => Number(b.time || 0) - Number(a.time || 0)).slice(0, DELTA_RESULTS_CAP)
+  return [...unique.values()].sort((a,b) => Number(b.lastSeen || b.time || 0) - Number(a.lastSeen || a.time || 0)).slice(0, DELTA_RESULTS_CAP)
 }
 
 function loadDeltaResults(tf) {
