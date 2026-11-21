@@ -4,6 +4,10 @@
 import { initializeApp, getApps } from 'firebase/app'
 import {
   getAuth,
+  setPersistence,
+  indexedDBLocalPersistence,
+  browserLocalPersistence,
+  browserSessionPersistence,
   GoogleAuthProvider,
   signInWithPopup,
   signInWithRedirect,
@@ -41,6 +45,22 @@ export const isConfigured = true
 export function checkConfigured() { return true }
 
 // ── Auth ──────────────────────────────────────────────────
+// Explicitly persist sessions across reloads. Prefer IndexedDB (more reliable
+// in modern mobile browsers/WebViews), then fall back to browser storage.
+let persistencePromise
+async function ensureAuthPersistence() {
+  if (!persistencePromise) {
+    persistencePromise = (async () => {
+      for (const persistence of [indexedDBLocalPersistence, browserLocalPersistence, browserSessionPersistence]) {
+        try { await setPersistence(auth, persistence); return true } catch (e) {
+          console.warn('[CoinSniper] Auth persistence fallback:', e?.code || e?.message || e)
+        }
+      }
+      return false
+    })()
+  }
+  return persistencePromise
+}
 
 // Detect Android WebView / in-app browser wrappers (TWA, Capacitor, Cordova,
 // app-converter shells, Instagram/Facebook in-app browser, etc). Google
@@ -60,6 +80,7 @@ function isInAppOrWebView() {
 }
 
 export async function loginWithGoogle() {
+  await ensureAuthPersistence()
   const provider = new GoogleAuthProvider()
   if (isInAppOrWebView()) {
     // Redirect flow: navigates away to Google, then back to this page.
@@ -85,12 +106,14 @@ export async function getGoogleRedirectResult() {
 }
 
 export async function loginWithEmail(email, password) {
-  const result = await signInWithEmailAndPassword(auth, email, password)
+  await ensureAuthPersistence()
+  const result = await signInWithEmailAndPassword(auth, email.trim(), password)
   return result.user
 }
 
 export async function signUpWithEmail(email, password, displayName) {
-  const result = await createUserWithEmailAndPassword(auth, email, password)
+  await ensureAuthPersistence()
+  const result = await createUserWithEmailAndPassword(auth, email.trim(), password)
   if (displayName?.trim()) {
     await updateProfile(result.user, { displayName: displayName.trim() })
   }
