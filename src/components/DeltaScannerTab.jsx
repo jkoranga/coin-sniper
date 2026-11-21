@@ -584,7 +584,9 @@ export default function DeltaScannerTab({
     })
     return [...builtIns, ...saved.filter(group => !DEFAULT_GROUPS.some(def => def.id === group.id))]
   }, [settings.assetGroups])
-  const activeAssetGroup = assetGroups.find(group => group.id === activeCategoryId) || assetGroups[0]
+  const activeAssetGroup = activeCategoryId === '__all__'
+    ? { id:'__all__', name:'All Categories', assets:assetGroups.flatMap(group => group.assets || []) }
+    : assetGroups.find(group => group.id === activeCategoryId) || assetGroups[0]
 
   const abortRef    = useRef(null)
   const loopRef     = useRef(false)
@@ -1116,6 +1118,7 @@ export default function DeltaScannerTab({
             <button key={m.id} onClick={() => {
               if (isCustom) {
                 setSelectedAssetIds(new Set(settingsRef.current.customPairs || []))
+                setActiveCategoryId('__all__')
                 setTfSetting('scanMode', 'custom')
                 setShowCustomPicker(v => !v)
               } else {
@@ -1153,12 +1156,18 @@ export default function DeltaScannerTab({
             <span style={{fontSize:10,color:'var(--text3)',fontFamily:'var(--mono)'}}>{(settings.customPairs||[]).length} selected</span>
           </div>
           <div style={{display:'flex',gap:7,overflowX:'auto',paddingBottom:7,marginBottom:9}}>
+            <button onClick={()=>setActiveCategoryId('__all__')} style={{
+              flexShrink:0,padding:'8px 11px',borderRadius:9,cursor:'pointer',whiteSpace:'nowrap',
+              border:activeCategoryId==='__all__'?'1.5px solid var(--green)':'1px solid var(--border)',
+              background:activeCategoryId==='__all__'?'var(--green-dim)':'var(--bg2)',
+              color:activeCategoryId==='__all__'?'var(--green)':'var(--text2)',fontSize:11,fontWeight:800,
+            }}>All <span style={{opacity:.7}}>({assetGroups.reduce((n,g)=>n+(g.assets?.length||0),0)})</span></button>
             {assetGroups.map(group => (
               <button key={group.id} onClick={()=>setActiveCategoryId(group.id)} style={{
                 flexShrink:0,padding:'8px 11px',borderRadius:9,cursor:'pointer',whiteSpace:'nowrap',
-                border:activeAssetGroup?.id===group.id?'1.5px solid var(--green)':'1px solid var(--border)',
-                background:activeAssetGroup?.id===group.id?'var(--green-dim)':'var(--bg2)',
-                color:activeAssetGroup?.id===group.id?'var(--green)':'var(--text2)',fontSize:11,fontWeight:800,
+                border:activeCategoryId===group.id?'1.5px solid var(--green)':'1px solid var(--border)',
+                background:activeCategoryId===group.id?'var(--green-dim)':'var(--bg2)',
+                color:activeCategoryId===group.id?'var(--green)':'var(--text2)',fontSize:11,fontWeight:800,
               }}>{group.name} <span style={{opacity:.7}}>({group.assets?.length||0})</span></button>
             ))}
           </div>
