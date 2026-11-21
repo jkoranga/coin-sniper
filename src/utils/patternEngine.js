@@ -48,6 +48,9 @@ const FIELDS = [
   // Green: wick is Open-Low, normalized by Open. Red: wick is Close-Low, normalized by Close.
   { id: 'greenLowerWickPct', label: 'Green Bar Lower Wick %', short: 'GreenLw%', group: 'Calc', computed: c => c.close > c.open && c.open !== 0 ? (c.open - c.low) / Math.abs(c.open) * 100 : null },
   { id: 'redLowerWickPct',   label: 'Red Bar Lower Wick %',   short: 'RedLw%',   group: 'Calc', computed: c => c.close < c.open && c.close !== 0 ? (c.close - c.low) / Math.abs(c.close) * 100 : null },
+  // Upper-wick percentages mirror the lower-wick reference convention: green uses Open, red uses Close.
+  { id: 'greenUpperWickPct', label: 'Green Bar Upper Wick %', short: 'GreenUw%', group: 'Calc', computed: c => c.close > c.open && c.open !== 0 ? (c.high - c.close) / Math.abs(c.open) * 100 : null },
+  { id: 'redUpperWickPct',   label: 'Red Bar Upper Wick %',   short: 'RedUw%',   group: 'Calc', computed: c => c.close < c.open && c.close !== 0 ? (c.high - c.open) / Math.abs(c.close) * 100 : null },
   // Legacy absolute-size fields remain evaluable for already-saved patterns.
   { id: 'body',       label: 'Legacy Body Size',  short: 'Body',  group: 'Calc', computed: c => Math.abs(c.close - c.open) },
   { id: 'lowerWick', label: 'Legacy Lower Wick', short: 'LWick', group: 'Calc', computed: c => Math.min(c.close, c.open) - c.low },
