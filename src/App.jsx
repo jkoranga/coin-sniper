@@ -607,7 +607,7 @@ function PatternsModal({ open, onClose, settings, update, onGoToBuilder }) {
                           <div style={{fontWeight:800, fontSize:14, color: pColor,
                             whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis', flex:1, minWidth:0}}>{p.name}</div>
                           {isLocked && (
-                            <span style={{fontSize:11, flexShrink:0, padding:'1px 6px', borderRadius:5,
+                            <span style={{flexShrink:0, padding:'1px 6px', borderRadius:5,
                               background:'rgba(255,200,0,0.15)', border:'1px solid rgba(255,200,0,0.5)',
                               color:'rgb(255,200,0)', fontFamily:'var(--mono)', fontSize:9, fontWeight:800}}>🔒 LOCKED</span>
                           )}

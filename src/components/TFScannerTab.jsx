@@ -377,6 +377,20 @@ export default function TFScannerTab({ timeframe, tabColor, settings, update, sa
 
   useEffect(() => { scannersRef.current = activeScanners }, [activeScanners])
 
+  // A timeframe without active patterns must never keep an auto/loop timer alive.
+  useEffect(() => {
+    if (activeScanners.length > 0) return
+    loopRef.current = false
+    abortRef.current?.abort()
+    clearTimeout(timerRef.current)
+    scanningRef.current = false
+    setScanning(false)
+    setEnabled(false)
+    setLoopMode(false)
+    setNextScanAt(null)
+    setProgressSym('')
+  }, [activeScanners.length])
+
   // Notify parent of alert count
   useEffect(() => {
     onAlertCount?.(timeframe, alerts.length)
@@ -567,7 +581,7 @@ export default function TFScannerTab({ timeframe, tabColor, settings, update, sa
 
   // Auto-scan interval
   useEffect(() => {
-    if (!enabled||loopMode) { clearTimeout(timerRef.current); setNextScanAt(null); return }
+    if (!enabled||loopMode||activeScanners.length===0) { clearTimeout(timerRef.current); setNextScanAt(null); return }
     let cancelled = false
 
     // Recursive setTimeout chain: next scan only schedules AFTER current scan finishes.
@@ -593,7 +607,7 @@ export default function TFScannerTab({ timeframe, tabColor, settings, update, sa
       clearTimeout(timerRef.current)
       setNextScanAt(null)
     }
-  }, [enabled, loopMode, settings.scanInterval]) // eslint-disable-line
+  }, [enabled, loopMode, settings.scanInterval, activeScanners.length]) // eslint-disable-line
 
   function toggleLoop(v) {
     setLoopMode(v)
@@ -685,7 +699,7 @@ export default function TFScannerTab({ timeframe, tabColor, settings, update, sa
                   display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
                 }}
               >
-                <span style={{ fontSize: 15 }}>🔬</span> Open Patterns
+                <span style={{ fontSize: 18, lineHeight: 1 }}>＋</span> Add Pattern
               </button>
               <button
                 onClick={() => setNoPatternWarning(false)}
@@ -802,6 +816,36 @@ export default function TFScannerTab({ timeframe, tabColor, settings, update, sa
           )}
         </div>
       </div>
+
+      {/* ── Empty state: no active patterns for this timeframe ── */}
+      {activeScanners.length === 0 && (
+        <div style={{
+          display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center',
+          textAlign:'center', padding:'30px 18px', margin:'8px 0 16px',
+          borderRadius:16, border:'1px dashed var(--border2)', background:'var(--bg2)',
+        }}>
+          <div style={{
+            width:48, height:48, borderRadius:15, display:'flex', alignItems:'center', justifyContent:'center',
+            background:'rgba(255,200,0,0.10)', border:'1px solid rgba(255,200,0,0.28)',
+            color:'rgb(255,200,0)', fontSize:28, fontWeight:500, marginBottom:10,
+          }}>＋</div>
+          <div style={{fontSize:14,fontWeight:800,color:'var(--text)',marginBottom:5}}>No Active Patterns</div>
+          <div style={{fontSize:11,color:'var(--text3)',fontFamily:'var(--mono)',lineHeight:1.6,marginBottom:14,maxWidth:260}}>
+            Add a pattern for {timeframe.toUpperCase()} to start scanning this timeframe.
+          </div>
+          <button
+            onClick={() => onGoToPatterns?.()}
+            style={{
+              display:'inline-flex',alignItems:'center',justifyContent:'center',gap:7,
+              minWidth:160,padding:'11px 20px',borderRadius:10,cursor:'pointer',
+              border:'1.5px solid rgba(255,200,0,0.55)',background:'rgba(255,200,0,0.13)',
+              color:'rgb(255,200,0)',fontFamily:'var(--mono)',fontSize:12,fontWeight:800,
+            }}
+          >
+            <span style={{fontSize:18,lineHeight:1}}>＋</span> Add Pattern
+          </button>
+        </div>
+      )}
 
       {/* ── Scan mode pills — single scrollable row ── */}
       <div style={{
