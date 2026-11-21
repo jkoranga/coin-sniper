@@ -112,11 +112,12 @@ export function condFormula(c) {
 
   if (c.histCompare) {
     const f = FIELD_MAP[c.lhsField]?.short || c.lhsField || '?'
+    const rf = FIELD_MAP[c.rhsField || c.lhsField]?.short || c.rhsField || c.lhsField || '?'
     const cf = c.histCurrentFrom ?? 1, ct = c.histCurrentTo ?? 2
     const pf = c.histPreviousFrom ?? 3, pt = c.histPreviousTo ?? 20
     const mode = (c.histPreviousMode ?? 'max').toUpperCase()
     const match = (c.histCurrentMatch ?? 'any').toUpperCase()
-    return `${htfPfx}${match} ${f}[${cf}–${ct}] ${c.op} PREV[${pf}–${pt}] ${mode}`
+    return `${htfPfx}${match} ${f}[${cf}–${ct}] ${c.op} ${rf} PREV[${pf}–${pt}] ${mode}`
   }
 
   // Range mode: prefix with "ALL/ANY [from..to]"
@@ -255,7 +256,7 @@ export function compilePattern(pattern, _htfCandlesMap) {
         for (let n = pStart; n <= pEnd; n++) {
           const off = -n, candle = gC(off)
           if (!candle) return null
-          const value = gV(candle, cond.lhsField, L - 1 + off)
+          const value = gV(candle, cond.rhsField || cond.lhsField, L - 1 + off)
           if (value == null || !Number.isFinite(Number(value))) return null
           previousValues.push(Number(value))
         }
