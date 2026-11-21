@@ -72,7 +72,7 @@ export function requiredCandleCount(items = []) {
       if (match) maxEma = Math.max(maxEma, Number(match[1]))
     }
   }
-  return Math.min(1000, Math.max(60, maxDepth + 60, maxEma ? maxEma + 400 : 60))
+  return Math.min(1000, Math.max(60, maxDepth + 60, maxEma ? maxEma + maxDepth + 400 : 60))
 }
 
 
