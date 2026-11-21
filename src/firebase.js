@@ -189,7 +189,7 @@ export async function loadNotificationCooldownsFromCloud(uid) {
 
 // ── Scan Settings (separate doc — real-time sync) ────────────────────────────
 const SCAN_FIELDS = [
-  'timeframe','scanInterval','symbolSet','customPairs',
+  'timeframe','scanInterval','symbolSet','customPairs','assetGroups',
   'scanMode','dedupInterval','volumeFilter','resultFilter',
   'patternsMode','autoScan','viewMode','scannerEnabled',
 ]
