@@ -1146,7 +1146,7 @@ export default function SettingsTab({ settings, set, update, reset, clearSortOve
       </Accordion>
 
       <Accordion title="Alerts & Notifications" icon="◈" defaultOpen={false} accentColor="rgba(255,167,38,0.5)" openKey={openKey}>
-        <AlertsSection cfg={settings} set={set}/>
+        <AlertsSection cfg={settings} set={set} update={update} user={user} saveNowWithPatch={saveNowWithPatch}/>
       </Accordion>
 
       <Accordion title="Appearance" icon="◑" defaultOpen={false} openKey={openKey}>
