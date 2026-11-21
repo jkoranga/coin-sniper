@@ -55,7 +55,7 @@ const FIELDS = [
 const FIELD_MAP = Object.fromEntries(FIELDS.map(f => [f.id, f]))
 const FIELD_GROUPS = FIELDS.reduce((g, f) => { (g[f.group] = g[f.group] || []).push(f); return g }, {})
 
-const OPS = ['>', '>=', '<', '<=', '=', '≠', '% Diff']
+const OPS = ['>', '>=', '<', '<=', '=', '≠']
 const OP_SYM = { '=': '==', '≠': '!=' }
 
 // RHS modes
@@ -648,24 +648,16 @@ function CondCard({ cond, idx, total, color, onChange, onRemove, onCopy, onMoveU
           <div>
             <Lbl>OPERATOR</Lbl>
             <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
-              {OPS.map(op => (
+              {(cond.histCompare ? [...OPS, '% Diff'] : OPS).map(op => (
                 <Pill key={op} active={cond.op === op} color={color} onClick={() => s('op', op)}>{op}</Pill>
               ))}
             </div>
             {cond.histCompare && cond.op === '% Diff' && (
               <div style={{ marginTop: 8 }}>
-                <Lbl>DIFFERENCE COMPARATOR</Lbl>
-                <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
-                  {['>','>=','<','<=','=','≠'].map(op => (
-                    <Pill key={op} sm active={(cond.histPctOp || '>=') === op} color="#00e676" onClick={() => s('histPctOp',op)}>{op}</Pill>
-                  ))}
-                </div>
-                <div style={{ marginTop: 8 }}>
-                  <Lbl>DIFFERENCE THRESHOLD</Lbl>
-                  <NInput value={cond.histPctThreshold ?? 0} onChange={v=>s('histPctThreshold',v)} step="0.01" suffix="%" />
-                  <div style={{ fontSize: 9, color: 'var(--text3)', fontFamily: 'var(--mono)', marginTop: 5 }}>
-                    ((Current − Previous) / Previous) × 100 {cond.histPctOp || '>='} {cond.histPctThreshold ?? 0}%
-                  </div>
+                <Lbl>DIFFERENCE THRESHOLD</Lbl>
+                <NInput value={cond.histPctThreshold ?? 0} onChange={v=>s('histPctThreshold',v)} step="0.01" suffix="%" />
+                <div style={{ fontSize: 9, color: 'var(--text3)', fontFamily: 'var(--mono)', marginTop: 5 }}>
+                  Percentage difference ≥ {cond.histPctThreshold ?? 0}%
                 </div>
               </div>
             )}
