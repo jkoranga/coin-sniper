@@ -928,7 +928,7 @@ function normalizePattern(p) {
 }
 
 // ── Pattern editor ────────────────────────────────────────────────────────────
-function PatternEditor({ pattern: rawPattern, onChange, onDelete, onMirrorPattern, onCopyPattern, defaultOpen, allPatternNames, onOpenChange, outerStyle }) {
+function PatternEditor({ pattern: rawPattern, onChange, onDelete, onMirrorPattern, onCopyPattern, onCopyToTimeframe, defaultOpen, allPatternNames, onOpenChange, outerStyle }) {
   // Stamp missing fields (id, htfTf, etc.) onto conditions from old saved patterns
   const pattern = React.useMemo(() => normalizePattern(rawPattern), [rawPattern])
   function wrappedOnChange(updated) { onChange(normalizePattern(updated)) }
@@ -1315,13 +1315,28 @@ function PatternEditor({ pattern: rawPattern, onChange, onDelete, onMirrorPatter
             color: BLU, fontSize: 11, fontFamily: 'var(--mono)', fontWeight: 700,
           }}>⇄ Mirror</button>
 
-          {/* Copy */}
-          <button onClick={() => setCopyPopup(true)} title="Copy pattern" style={{
-            display: 'flex', alignItems: 'center', gap: 5,
-            padding: '4px 10px', borderRadius: 7, cursor: 'pointer',
-            border: '1px solid rgba(255,200,0,0.35)', background: 'rgba(255,200,0,0.08)',
-            color: 'rgb(255,200,0)', fontSize: 11, fontFamily: 'var(--mono)', fontWeight: 700,
-          }}>⧉ Copy</button>
+          {/* Compact copy menu: keeps both copy actions beside Mirror on mobile */}
+          <select
+            defaultValue=""
+            aria-label="Copy options"
+            title="Copy pattern"
+            onChange={e => {
+              const action = e.target.value
+              e.target.value = ''
+              if (action === 'copy') setCopyPopup(true)
+              if (action === 'tf') onCopyToTimeframe?.(pattern)
+            }}
+            style={{
+              maxWidth: 112, minWidth: 88, padding: '5px 6px', borderRadius: 7,
+              cursor: 'pointer', border: '1px solid rgba(255,200,0,0.35)',
+              background: 'rgba(255,200,0,0.08)', color: 'rgb(255,200,0)',
+              fontSize: 10, fontFamily: 'var(--mono)', fontWeight: 700,
+            }}
+          >
+            <option value="" disabled>⧉ Copy ▾</option>
+            <option value="copy">Copy Pattern</option>
+            <option value="tf">Copy to Another TF</option>
+          </select>
 
           {/* 👁 Preview conditions */}
           <button onClick={() => setPreviewPopup(true)} title="Preview all conditions" style={{
@@ -1793,12 +1808,12 @@ export default function PatternBuilderTab({ settings, update }) {
   function add() { const p = blankPattern(); setNewId(p.id); setOpenPatternId(p.id); savePatterns([...patterns, p]) }
 
   const tfCopySource = patterns.find(p => p.id === tfCopySourceId) || null
-  function openTimeframeCopy() {
-    const first = patterns.find(p => !p.locked) || patterns[0]
-    setTfCopySourceId(first?.id || '')
-    setTfCopySourceTf(first?.tfs?.[0] || '1h')
+  function openTimeframeCopy(sourcePattern) {
+    const source = sourcePattern || patterns.find(p => !p.locked) || patterns[0]
+    setTfCopySourceId(source?.id || '')
+    setTfCopySourceTf(source?.tfs?.[0] || '1h')
     setTfCopyTargetTf('15m')
-    setTfCopyName(first ? `${first.name} 15m` : '')
+    setTfCopyName(source ? `${source.name} 15m` : '')
     setTfCopyError('')
     setTfCopyOpen(true)
   }
@@ -1807,12 +1822,13 @@ export default function PatternBuilderTab({ settings, update }) {
     const name = tfCopyName.trim()
     if (!name) { setTfCopyError('Enter a name for the copied pattern.'); return }
     const sourceTf = tfCopySourceTf || tfCopySource.tfs?.[0] || null
-    const sameName = patterns.find(p => p.name.trim().toLowerCase() === name.toLowerCase())
-    const targetMatch = patterns.find(p => p.id !== tfCopySource.id && p.name.trim().toLowerCase() === name.toLowerCase() && (p.tfs || []).includes(tfCopyTargetTf))
-    if (targetMatch && !window.confirm(`“${name}” already has a ${tfCopyTargetTf.toUpperCase()} pattern. Replace it?`)) return
-    if (sameName && sameName.id !== targetMatch?.id && sameName.id !== tfCopySource.id) { setTfCopyError('This name is already used by another pattern. Choose a different name.'); return }
+    const duplicate = patterns.find(p => p.id !== tfCopySource.id && p.name.trim().toLowerCase() === name.toLowerCase())
+    if (duplicate) {
+      setTfCopyError(`“${name}” already exists. Please rename this copy before creating it.`)
+      return
+    }
     const copied = { ...tfCopySource, id:`custom_${uid()}`, name, tfs:[tfCopyTargetTf], conditions:(tfCopySource.conditions||[]).map(cond=>({...cond,id:uid(),htfTf:cond.htfTf && sourceTf && cond.htfTf===sourceTf ? tfCopyTargetTf : cond.htfTf})), createdAt:Date.now(), hiddenInBuilder:false }
-    const next = targetMatch ? patterns.map(p=>p.id===targetMatch.id?copied:p) : [...patterns,copied]
+    const next = [...patterns, copied]
     savePatterns(next); setNewId(copied.id); setOpenPatternId(copied.id); setTfCopyOpen(false)
   }
 
@@ -2181,7 +2197,7 @@ export default function PatternBuilderTab({ settings, update }) {
             <div style={{ fontWeight:900, fontSize:15, color:G, marginBottom:5 }}>⧉ Copy to Timeframe</div>
             <div style={{ fontSize:10, color:'var(--text3)', fontFamily:'var(--mono)', lineHeight:1.6, marginBottom:14 }}>Copies the complete pattern and its conditions. The original remains unchanged.</div>
             <div style={{ display:'flex', flexDirection:'column', gap:10 }}>
-              <div><Lbl>SOURCE PATTERN</Lbl><select value={tfCopySourceId} onChange={e=>{const p=patterns.find(x=>x.id===e.target.value);setTfCopySourceId(e.target.value);setTfCopySourceTf(p?.tfs?.[0]||'1h');setTfCopyName(p? p.name+' '+tfCopyTargetTf:'');setTfCopyError('')}} style={{width:'100%',background:'var(--bg3)',color:'var(--text)',border:'1px solid var(--border2)',borderRadius:8,padding:9,fontSize:12}}>{patterns.map(p=><option key={p.id} value={p.id}>{p.icon||'⭐'} {p.name} · {(p.tfs||[]).join(', ')}</option>)}</select></div>
+              <div style={{fontSize:10,color:'var(--text2)',fontFamily:'var(--mono)'}}>SOURCE: <b>{tfCopySource?.icon || '⭐'} {tfCopySource?.name || '—'}</b></div>
               <div style={{display:'flex',gap:8}}>
                 <div style={{flex:1}}><Lbl>SOURCE TIMEFRAME</Lbl><select value={tfCopySourceTf} onChange={e=>setTfCopySourceTf(e.target.value)} style={{width:'100%',background:'var(--bg3)',color:'var(--text)',border:'1px solid var(--border2)',borderRadius:8,padding:9,fontSize:12}}>{(tfCopySource?.tfs?.length?tfCopySource.tfs:TF_LIST).map(tf=><option key={tf} value={tf}>{tf.toUpperCase()}</option>)}</select></div>
                 <div style={{flex:1}}><Lbl>TARGET TIMEFRAME</Lbl><select value={tfCopyTargetTf} onChange={e=>{setTfCopyTargetTf(e.target.value);if(tfCopySource)setTfCopyName(tfCopySource.name+' '+e.target.value);setTfCopyError('')}} style={{width:'100%',background:'var(--bg3)',color:'var(--text)',border:'1px solid var(--border2)',borderRadius:8,padding:9,fontSize:12}}>{TF_LIST.map(tf=><option key={tf} value={tf}>{tf.toUpperCase()}</option>)}</select></div>
@@ -2494,6 +2510,7 @@ export default function PatternBuilderTab({ settings, update }) {
                     onChange={np => upd(origIdx, np)} onDelete={() => del(origIdx)}
                     onMirrorPattern={(name) => mirrorPattern(origIdx, name)}
                     onCopyPattern={(name) => copyPattern(origIdx, name)}
+                    onCopyToTimeframe={openTimeframeCopy}
                     allPatternNames={patterns.map(x => x.name)}
                     onOpenChange={(isNowOpen) => setOpenPatternId(isNowOpen ? p.id : null)}
                     outerStyle={{
