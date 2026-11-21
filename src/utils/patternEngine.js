@@ -48,6 +48,33 @@ const FIELDS = [
 ]
 const FIELD_MAP = Object.fromEntries(FIELDS.map(f => [f.id, f]))
 
+// Calculate the candle history needed by the selected conditions.
+// EMA history includes a 400-bar stabilization buffer (API limit is 1,000).
+export function requiredCandleCount(items = []) {
+  const list = Array.isArray(items) ? items : [items]
+  const conditions = list.flatMap(item =>
+    Array.isArray(item?.conditions) ? item.conditions : [item]
+  ).filter(Boolean)
+  let maxDepth = 0
+  let maxEma = 0
+  for (const c of conditions) {
+    const offsets = [
+      Math.abs(Number(c.lhsOffset) || 0),
+      Math.abs(Number(c.rhsOffset) || 0),
+      Math.abs(Number(c.rhsPinnedOffset) || 0),
+      Math.abs(Number(c.rangeFrom) || 0),
+      Math.abs(Number(c.rangeTo) || 0),
+      (Number(c.slopeSkip) || 0) + (Number(c.slopeLen) || 0),
+    ]
+    maxDepth = Math.max(maxDepth, ...offsets)
+    for (const field of [c.lhsField, c.rhsField]) {
+      const match = typeof field === 'string' ? field.match(/^ema(\\d+)$/) : null
+      if (match) maxEma = Math.max(maxEma, Number(match[1]))
+    }
+  }
+  return Math.min(1000, Math.max(60, maxDepth + 60, maxEma ? maxEma + 400 : 60))
+}
+
 
 
 const OP_SYM = { '=': '==', '≠': '!=' }
@@ -172,14 +199,19 @@ export function compilePattern(pattern, _htfCandlesMap) {
 
     // ── Resolve candle accessors for a condition (HTF or base) ────────────
     function resolveAccessors(cond) {
-      if (cond.htfTf && htfCandlesMap[cond.htfTf] && htfCandlesMap[cond.htfTf].length >= 2) {
-        return makeAccessors(htfCandlesMap[cond.htfTf])
+      if (cond.htfTf) {
+        const htf = htfCandlesMap[cond.htfTf]
+        // Never silently evaluate an HTF rule against the base timeframe.
+        if (!Array.isArray(htf) || htf.length < 2) return null
+        return makeAccessors(htf)
       }
       return base
     }
 
     function evalCond(cond) {
-      const { arr, L, getC: gC, getVal: gV } = resolveAccessors(cond)
+      const accessors = resolveAccessors(cond)
+      if (!accessors) return null
+      const { arr, L, getC: gC, getVal: gV } = accessors
 
       // ── Range check: apply condition to every candle in [rangeFrom..rangeTo] ──
       // Uses resolved candle array (HTF or base) via gC / gV / L
@@ -192,9 +224,9 @@ export function compilePattern(pattern, _htfCandlesMap) {
         for (let off = start; off <= end; off++) {
           const absIdx   = L - 1 + off
           const lhsCandle = gC(off)
-          if (!lhsCandle) continue
+          if (!lhsCandle) return null
           const lhsV = gV(lhsCandle, cond.lhsField, absIdx)
-          if (lhsV == null) continue
+          if (lhsV == null) return null
 
           let rhsV
           if (cond.rhsMode === 'number') {
@@ -206,7 +238,7 @@ export function compilePattern(pattern, _htfCandlesMap) {
             const nowV       = gV(nowCandle,  cond.lhsField, L - 1 + off - sk)
             const pastCandle = gC(off - sk - n)
             const pastV      = gV(pastCandle, cond.lhsField, L - 1 + off - sk - n)
-            if (nowV == null || pastV == null || pastV === 0) continue
+            if (nowV == null || pastV == null || pastV === 0) return null
             const slopePct = (nowV / pastV - 1) * 100
             const thresh   = parseFloat(cond.slopeNum) || 0
             const op = OP_SYM[cond.op] || cond.op
@@ -224,12 +256,12 @@ export function compilePattern(pattern, _htfCandlesMap) {
             const rhsAbsIdx = L - 1 + rhsOff
             const rhsCandle = gC(rhsOff)
             const rhsBase   = gV(rhsCandle, cond.rhsField || cond.lhsField, rhsAbsIdx)
-            if (rhsBase == null) continue
+            if (rhsBase == null) return null
             if (cond.rhsMode === 'field')      rhsV = rhsBase
             else if (cond.rhsMode === 'mult')  rhsV = rhsBase * (parseFloat(cond.rhsMult) || 1)
             else if (cond.rhsMode === 'pct')   rhsV = rhsBase * (1 + (parseFloat(cond.rhsPct) || 0) / 100)
             else if (cond.rhsMode === 'pctdiff') {
-              if (rhsBase === 0) continue
+              if (rhsBase === 0) return null
               const diff = (lhsV / rhsBase - 1) * 100
               const num  = parseFloat(cond.rhsNum) || 0
               const op   = OP_SYM[cond.op] || cond.op
@@ -255,7 +287,8 @@ export function compilePattern(pattern, _htfCandlesMap) {
           else                  r = Math.abs(lhsV - rhsV) >= 1e-9
           results.push(r)
         }
-        if (!results.length) return null
+        const expectedCount = end - start + 1
+        if (results.length !== expectedCount) return null
         return cond.rangeMode === 'any' ? results.some(Boolean) : results.every(Boolean)
       }
 
