@@ -2254,8 +2254,6 @@ export default function PatternBuilderTab({ settings, update }) {
               display: 'flex', alignItems: 'center', gap: 4,
             }}
           >📤 {selectionMode && selectedIds.size > 0 ? `Export (${selectedIds.size})` : 'Export'}</button>
-          {/* Copy to timeframe */}
-          <button onClick={openTimeframeCopy} disabled={patterns.length===0} title="Copy a complete pattern to another timeframe" style={{padding:'4px 10px',borderRadius:7,cursor:patterns.length===0?'not-allowed':'pointer',fontSize:10,fontFamily:'var(--mono)',fontWeight:700,border:'1px solid rgba(0,230,118,0.4)',background:'rgba(0,230,118,0.08)',color:G,opacity:patterns.length===0?0.4:1,display:'flex',alignItems:'center',gap:4}}>⧉ TF Copy</button>
           {/* Import button */}
           <button
             onClick={() => { setImportError(''); setImportSuccess(''); setImportPopup(true) }}
