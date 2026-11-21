@@ -416,7 +416,7 @@ export default function TFScannerTab({ timeframe, tabColor, settings, update, sa
   // Scans all active pattern conditions for the deepest lookback offset needed.
   // Uses the shared condition-aware history calculation (up to 1,000 candles).
   function calcCandleLimit(scanners) {
-    return requiredCandleCount(scanners)
+    return requiredCandleCount(scanners.flatMap(scanner => (scanner.conditions || []).filter(cond => !cond.htfTf || cond.htfTf === timeframe)))
   }
 
   function isDupe(symbol, scannerId, tf) {
