@@ -57,7 +57,7 @@ const CRITICAL_KEYS = new Set([
   // Scanner toggles & TF assignments
   'scannerEnabled', 'patternTfs',
   // Scan settings (Settings tab)
-  'symbolSet', 'scanInterval', 'dedupInterval', 'volumeFilter', 'assetGroups',
+  'symbolSet', 'scanInterval', 'dedupInterval', 'volumeFilter', 'assetGroups', 'selectedAssetGroupIds',
   'resultFilter', 'scanMode', 'patternsMode',
   'defaultSort', 'defaultSortDir',
   // Alert / notification settings
@@ -180,7 +180,7 @@ export function useSettings(firebaseUser) {
     const localScanAt = prev._scanSettingsAt || 0
     const cloudScanAt = clean._scanSettingsAt || 0
     if (localScanAt > cloudScanAt) {
-      const SF = ['timeframe','scanInterval','symbolSet','customPairs','assetGroups','scanMode','dedupInterval','volumeFilter','resultFilter','patternsMode','autoScan','viewMode','scannerEnabled']
+      const SF = ['timeframe','scanInterval','symbolSet','customPairs','assetGroups','selectedAssetGroupIds','scanMode','dedupInterval','volumeFilter','resultFilter','patternsMode','autoScan','viewMode','scannerEnabled']
       SF.forEach(k => { merged[k] = prev[k] })
       Object.keys(prev).forEach(k => {
         if (k.startsWith('scanMode_') || k.startsWith('dedupInterval_') ||
