@@ -1,4 +1,4 @@
-import { compilePattern } from "../src/utils/patternEngine.js";
+import { compilePattern, requiredCandleCount } from "../src/utils/patternEngine.js";
 import { fetchDeltaSymbols, fetchDeltaCandles } from "../src/utils/deltaScanner.js";
 import { buildTelegramMsg } from "../src/utils/scanner.js";
 
@@ -403,22 +403,23 @@ function interleaveAndMerge(configs, allSymbols) {
   return [...merged.values()];
 }
 function requiredHtf(tasks) {
-  const needed = new Set();
+  const needed = new Map();
   for (const task of tasks) {
     for (const consumer of task.consumers) {
       for (const pattern of consumer.patterns) {
         for (const condition of pattern.conditions || []) {
-          if (condition.htfTf && ALLOWED_TFS.includes(condition.htfTf) && condition.htfTf !== task.timeframe) {
-            needed.add(task.symbol + "|" + condition.htfTf);
+          if (condition.enabled !== false && condition.htfTf && ALLOWED_TFS.includes(condition.htfTf) && condition.htfTf !== task.timeframe) {
+            const key = task.symbol + "|" + condition.htfTf;
+            if (!needed.has(key)) {
+              needed.set(key, { key, symbol: task.symbol, timeframe: condition.htfTf, conditions: [] });
+            }
+            needed.get(key).conditions.push(condition);
           }
         }
       }
     }
   }
-  return [...needed].map(key => {
-    const [symbol, timeframe] = key.split("|");
-    return { key, symbol, timeframe };
-  });
+  return [...needed.values()];
 }
 async function scanCron(env) {
   const configs = await loadConfigs(env);
@@ -440,12 +441,33 @@ async function scanCron(env) {
   await env.SCANNER_KV.put("scheduler:cursor", String((cursor + selected.length) % allTasks.length));
 
   const htfTasks = requiredHtf(selected);
-  const fetchTasks = [...new Map([...selected.map(t => ({ key: t.key, symbol: t.symbol, timeframe: t.timeframe })), ...htfTasks]
-    .map(t => [t.key, t])).values()].slice(0, MAX_TOTAL_FETCHES);
+  const tickerBySymbol = new Map(selected.map(task => [task.symbol, task.ticker]));
+  const fetchTaskMap = new Map();
+  function addFetchTask(task, conditions, ticker) {
+    const limit = requiredCandleCount(conditions || []);
+    const existing = fetchTaskMap.get(task.key);
+    fetchTaskMap.set(task.key, {
+      key: task.key,
+      symbol: task.symbol,
+      timeframe: task.timeframe,
+      limit: Math.max(existing?.limit || 0, limit),
+      ticker: existing?.ticker || ticker || null,
+    });
+  }
+  for (const task of selected) {
+    const conditions = task.consumers.flatMap(consumer =>
+      consumer.patterns.flatMap(pattern => pattern.conditions || [])
+    );
+    addFetchTask(task, conditions, task.ticker);
+  }
+  for (const task of htfTasks) {
+    addFetchTask(task, task.conditions, tickerBySymbol.get(task.symbol));
+  }
+  const fetchTasks = [...fetchTaskMap.values()].slice(0, MAX_TOTAL_FETCHES);
 
   const candleMap = new Map();
   await Promise.all(fetchTasks.map(async task => {
-    const candles = await fetchDeltaCandles(task.symbol, task.timeframe, 80);
+    const candles = await fetchDeltaCandles(task.symbol, task.timeframe, task.limit, task.ticker);
     if (candles?.length >= 10) candleMap.set(task.key, candles);
   }));
 
