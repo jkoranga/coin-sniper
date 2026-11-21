@@ -456,7 +456,7 @@ async function scanCron(env) {
   }
   for (const task of selected) {
     const conditions = task.consumers.flatMap(consumer =>
-      consumer.patterns.flatMap(pattern => pattern.conditions || [])
+      consumer.patterns.flatMap(pattern => (pattern.conditions || []).filter(condition => !condition.htfTf || condition.htfTf === task.timeframe))
     );
     addFetchTask(task, conditions, task.ticker);
   }
