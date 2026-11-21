@@ -61,7 +61,7 @@ export async function fetchDeltaSymbols() {
 }
 
 // ── Fetch OHLCV candles ───────────────────────────────────────────────────────
-export async function fetchDeltaCandles(symbol, interval = '15m', limit = 60) {
+export async function fetchDeltaCandles(symbol, interval = '15m', limit = 60, ticker = null) {
   const iv = INTERVAL_MAP[interval] || '15'
 
   // Bybit kline endpoint — open CORS, no auth, rate-limit generous
@@ -91,7 +91,7 @@ export async function fetchDeltaCandles(symbol, interval = '15m', limit = 60) {
           .filter(c => c.close > 0)
           .sort((a, b) => a.time - b.time) // Bybit returns newest first
           .slice(-limit)
-        if (raw.length >= 3) return attachIndicators(raw)
+        if (raw.length >= 3) return attachIndicators(raw, ticker)
       }
 
       // Proxy/Delta shape: { result:[ {time,open,high,low,close,volume} ] }
@@ -119,20 +119,27 @@ export async function fetchDeltaCandles(symbol, interval = '15m', limit = 60) {
 }
 
 // ─── Indicators ───────────────────────────────────────────────────────────────
-function attachIndicators(candles) {
+function attachIndicators(candles, ticker = null) {
   const periods = [5,9,15,16,20,25,27,30,40,45,50,60,75,80,100,120,135,150,200,300,600]
   for (const p of periods) attachEMAn(candles, p, `ema${p}`)
   attachRSI(candles, 14)
   attachDMI(candles, 14)
+  const change24h = Number(ticker?.dailyChangePct ?? ticker?.priceChangePercent)
+  if (Number.isFinite(change24h)) for (const candle of candles) candle.change24h = change24h
   return candles
 }
 
 function attachEMAn(candles, period, key) {
+  if (!candles || candles.length < period) return
   const k = 2 / (period + 1)
-  let ema = null
-  for (const c of candles) {
-    ema = ema === null ? c.close : c.close * k + ema * (1 - k)
-    c[key] = ema
+  let seed = 0
+  for (let i = 0; i < period; i++) seed += candles[i].close
+  let ema = seed / period
+  for (let i = 0; i < period - 1; i++) candles[i][key] = null
+  candles[period - 1][key] = ema
+  for (let i = period; i < candles.length; i++) {
+    ema = candles[i].close * k + ema * (1 - k)
+    candles[i][key] = ema
   }
 }
 
