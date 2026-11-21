@@ -566,6 +566,7 @@ export default function DeltaScannerTab({
   const [selPatterns,  setSelPatterns]  = useState(new Set()) // selected pattern name filter
   const [activeCategoryId, setActiveCategoryId] = useState('crypto')
   const [selectedAssetIds, setSelectedAssetIds] = useState(() => new Set(settings.customPairs || []))
+  const [showCustomPicker, setShowCustomPicker] = useState(false)
   const assetGroups = useMemo(() => {
     const saved = Array.isArray(settings.assetGroups) ? settings.assetGroups : []
     const builtIns = DEFAULT_GROUPS.map(def => {
@@ -1113,9 +1114,13 @@ export default function DeltaScannerTab({
           const customCount = isCustom ? (settings.customPairs || []).length : 0
           return (
             <button key={m.id} onClick={() => {
-              setTfSetting('scanMode', m.id)
               if (isCustom) {
                 setSelectedAssetIds(new Set(settingsRef.current.customPairs || []))
+                setTfSetting('scanMode', 'custom')
+                setShowCustomPicker(v => !v)
+              } else {
+                setShowCustomPicker(false)
+                setTfSetting('scanMode', m.id)
               }
             }} style={{
               display:'flex', alignItems:'center', gap:4, padding:'5px 11px', borderRadius:20, cursor:'pointer',
@@ -1141,7 +1146,7 @@ export default function DeltaScannerTab({
       </div>
 
       {/* Custom asset category picker */}
-      {scanMode === 'custom' && (
+      {scanMode === 'custom' && showCustomPicker && (
         <div style={{marginBottom:12,padding:12,borderRadius:12,background:'var(--bg1)',border:'1px solid var(--border)'}}>
           <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',gap:8,marginBottom:10}}>
             <div style={{fontSize:12,fontWeight:800,color:PU}}>Choose Asset Category</div>
