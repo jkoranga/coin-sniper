@@ -38,11 +38,18 @@ const FIELDS = [
   { id: 'change24h',  label: '24h Change%', short: '24h%',    group: 'Calc',
     // Binance 24h priceChangePercent — attached to last candle by fetchCandles when ticker passed
     computed: c => c.change24h ?? null },
-  { id: 'bodyPct',   label: 'Body %',      short: 'Body%',   group: 'Calc', computed: c => c.high !== c.low ? Math.abs(c.close - c.open) / (c.high - c.low) * 100 : 0 },
-  { id: 'body',      label: 'Body Size',   short: 'Body',    group: 'Calc', computed: c => Math.abs(c.close - c.open) },
-  { id: 'range',     label: 'Range H-L',   short: 'Range',   group: 'Calc', computed: c => c.high - c.low },
-  { id: 'upperWick', label: 'Upper Wick',  short: 'UWick',   group: 'Calc', computed: c => c.high - Math.max(c.close, c.open) },
-  { id: 'lowerWick', label: 'Lower Wick',  short: 'LWick',   group: 'Calc', computed: c => Math.min(c.close, c.open) - c.low },
+  { id: 'bodyPct',   label: 'Full Body %',             short: 'FullBody%', group: 'Calc', computed: c => c.high !== c.low ? Math.abs(c.close - c.open) / (c.high - c.low) * 100 : 0 },
+  // New percentage-based body size; legacy "body" remains below for saved-pattern compatibility.
+  { id: 'bodySizePct', label: 'Body Size %',              short: 'BodySize%', group: 'Calc', computed: c => c.open !== 0 ? Math.abs(c.close - c.open) / Math.abs(c.open) * 100 : null },
+  { id: 'range',      label: 'Range H-L',                 short: 'Range',    group: 'Calc', computed: c => c.high - c.low },
+  { id: 'upperWick',  label: 'Upper Wick',                short: 'UWick',    group: 'Calc', computed: c => c.high - Math.max(c.close, c.open) },
+  // Direction-specific lower-wick percentages use the candle's closing-side reference:
+  // Green: wick is Open-Low, normalized by Open. Red: wick is Close-Low, normalized by Close.
+  { id: 'greenLowerWickPct', label: 'Green Bar Lower Wick %', short: 'GreenLw%', group: 'Calc', computed: c => c.close > c.open && c.open !== 0 ? (c.open - c.low) / Math.abs(c.open) * 100 : null },
+  { id: 'redLowerWickPct',   label: 'Red Bar Lower Wick %',   short: 'RedLw%',   group: 'Calc', computed: c => c.close < c.open && c.close !== 0 ? (c.close - c.low) / Math.abs(c.close) * 100 : null },
+  // Legacy absolute-size fields remain evaluable for already-saved patterns.
+  { id: 'body',       label: 'Legacy Body Size',  short: 'Body',  group: 'Calc', computed: c => Math.abs(c.close - c.open) },
+  { id: 'lowerWick', label: 'Legacy Lower Wick', short: 'LWick', group: 'Calc', computed: c => Math.min(c.close, c.open) - c.low },
   { id: 'isGreen',   label: 'Is Green',    short: 'Green?',  group: 'Calc', computed: c => c.close > c.open ? 1 : 0 },
   { id: 'isRed',     label: 'Is Red',      short: 'Red?',    group: 'Calc', computed: c => c.close < c.open ? 1 : 0 },
 ]
