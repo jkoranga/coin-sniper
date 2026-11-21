@@ -1,111 +1,207 @@
-import React, { useState } from 'react'
+import React, { useMemo, useState } from 'react'
 import { SectionHeader, SectionCard } from '../UI'
 import { TOP_SYMBOLS } from '../../utils/scanner.js'
 
+const STOCK_TOKENS = [
+  ['AAPL', 'Apple'], ['MSFT', 'Microsoft'], ['NVDA', 'NVIDIA'], ['AMZN', 'Amazon'],
+  ['GOOGL', 'Alphabet'], ['META', 'Meta'], ['TSLA', 'Tesla'], ['AVGO', 'Broadcom'],
+  ['BRK.B', 'Berkshire Hathaway'], ['JPM', 'JPMorgan'], ['WMT', 'Walmart'],
+  ['LLY', 'Eli Lilly'], ['V', 'Visa'], ['XOM', 'Exxon Mobil'], ['ORCL', 'Oracle'],
+  ['COST', 'Costco'], ['NFLX', 'Netflix'], ['AMD', 'AMD'], ['MA', 'Mastercard'],
+  ['PLTR', 'Palantir'],
+]
+
+const DEFAULT_GROUPS = [
+  {
+    id: 'crypto', name: 'Crypto', kind: 'crypto', locked: true,
+    assets: TOP_SYMBOLS.slice(0, 30).map(symbol => ({
+      id: symbol, symbol: symbol.replace(/USDT$/, ''), name: symbol.replace(/USDT$/, ''),
+      scanSymbol: symbol, status: 'supported',
+    })),
+  },
+  {
+    id: 'stock-token', name: 'Stock Token', kind: 'stock', locked: true,
+    assets: STOCK_TOKENS.map(([symbol, name]) => ({
+      id: symbol, symbol, name, scanSymbol: null, status: 'provider-required',
+    })),
+  },
+  {
+    id: 'commodity', name: 'Commodity', kind: 'commodity', locked: true,
+    assets: [
+      { id: 'GOLD', symbol: 'GOLD', name: 'Gold', scanSymbol: null, status: 'provider-required' },
+      { id: 'SILVER', symbol: 'SILVER', name: 'Silver', scanSymbol: null, status: 'provider-required' },
+      { id: 'OIL', symbol: 'OIL', name: 'Oil', scanSymbol: null, status: 'provider-required' },
+    ],
+  },
+]
+
+const buttonStyle = {
+  padding: '7px 11px', borderRadius: 7, border: '1px solid var(--border)',
+  background: 'var(--bg2)', color: 'var(--text2)', fontSize: 11,
+  fontWeight: 700, cursor: 'pointer',
+}
+
 export default function CustomPairsSection({ cfg, set }) {
-  const [input, setInput] = useState('')
+  const [activeId, setActiveId] = useState('crypto')
+  const [assetInput, setAssetInput] = useState('')
+  const [categoryInput, setCategoryInput] = useState('')
+  const [showNewCategory, setShowNewCategory] = useState(false)
 
-  function addPair() {
-    const raw = input.trim().toUpperCase()
-    if (!raw) return
-    const pair = raw.endsWith('USDT') ? raw : `${raw}USDT`
-    if (cfg.customPairs.includes(pair)) { setInput(''); return }
-    set('customPairs', [...cfg.customPairs, pair])
-    setInput('')
+  const groups = Array.isArray(cfg.assetGroups) && cfg.assetGroups.length
+    ? cfg.assetGroups : DEFAULT_GROUPS
+  const active = groups.find(g => g.id === activeId) || groups[0]
+  const supportedSymbols = useMemo(() => (active?.assets || [])
+    .map(a => a.scanSymbol).filter(Boolean), [active])
+
+  function saveGroups(next) { set('assetGroups', next) }
+
+  function addAsset() {
+    const raw = assetInput.trim().toUpperCase()
+    if (!raw || !active) return
+    const symbol = active.kind === 'crypto' && !raw.endsWith('USDT') ? raw + 'USDT' : raw
+    const duplicate = active.assets.some(a => a.symbol === symbol || a.scanSymbol === symbol)
+    if (duplicate) { setAssetInput(''); return }
+    const asset = {
+      id: symbol + '-' + Date.now(), symbol: symbol.replace(/USDT$/, ''),
+      name: symbol.replace(/USDT$/, ''), scanSymbol: active.kind === 'crypto' ? symbol : null,
+      status: active.kind === 'crypto' ? 'supported' : 'provider-required',
+    }
+    saveGroups(groups.map(g => g.id === active.id ? { ...g, assets: [...g.assets, asset] } : g))
+    setAssetInput('')
   }
 
-  function removePair(p) {
-    set('customPairs', cfg.customPairs.filter(x => x !== p))
+  function removeAsset(assetId) {
+    saveGroups(groups.map(g => g.id === active.id
+      ? { ...g, assets: g.assets.filter(a => a.id !== assetId) } : g))
   }
 
-  function addTop30() {
-    const current = new Set(cfg.customPairs)
-    const toAdd = TOP_SYMBOLS.slice(0, 30).filter(p => !current.has(p))
-    if (toAdd.length === 0) return
-    set('customPairs', [...cfg.customPairs, ...toAdd])
+  function createCategory() {
+    const name = categoryInput.trim()
+    if (!name) return
+    const id = 'custom-' + Date.now()
+    saveGroups([...groups, { id, name, kind: 'custom', locked: false, assets: [] }])
+    setActiveId(id)
+    setCategoryInput('')
+    setShowNewCategory(false)
   }
 
-  function clearAll() {
-    set('customPairs', [])
+  function deleteCategory(group) {
+    if (group.locked || !window.confirm('Delete category "' + group.name + '" and its assets?')) return
+    const next = groups.filter(g => g.id !== group.id)
+    saveGroups(next)
+    setActiveId(next[0]?.id || 'crypto')
   }
 
-  const hasAllTop30 = TOP_SYMBOLS.slice(0, 30).every(p => cfg.customPairs.includes(p))
+  function useForScanner() {
+    if (!supportedSymbols.length) return
+    set('customPairs', [...new Set(supportedSymbols)])
+    set('scanMode', 'custom')
+  }
+
+  const isCrypto = active?.kind === 'crypto'
+  const scanCount = supportedSymbols.length
 
   return (
     <div>
-      <SectionHeader title="Custom Pairs" sub="Add trading pairs to scan (USDT auto-appended)" />
-
+      <SectionHeader title="Custom Pairs" sub="Organize assets into reusable groups · select supported pairs for scanning" />
       <SectionCard>
-        <div style={{ display: 'flex', gap: 8, marginBottom: 10 }}>
-          <input
-            className="field"
-            placeholder="BTC / BTCUSDT…"
-            value={input}
-            onChange={e => setInput(e.target.value)}
-            onKeyDown={e => e.key === 'Enter' && addPair()}
-          />
-          <button onClick={addPair} style={{
-            padding: '6px 16px', borderRadius: 6, flexShrink: 0,
-            border: '1px solid var(--green2)', background: 'var(--green-dim)',
-            color: 'var(--green)', fontSize: 13, fontWeight: 700, cursor: 'pointer',
-          }}>Add</button>
+        <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', gap:8, marginBottom:10 }}>
+          <div style={{ fontSize:11, color:'var(--text3)', fontFamily:'var(--mono)' }}>ASSET CATEGORIES</div>
+          <button onClick={() => setShowNewCategory(v => !v)} style={{
+            ...buttonStyle, border:'1px solid var(--green2)', color:'var(--green)',
+            background:'var(--green-dim)', fontSize:12,
+          }}>＋ Add Category</button>
         </div>
 
-        {/* Quick-add buttons */}
-        <div style={{ display:'flex', gap:6, marginBottom:14, flexWrap:'wrap' }}>
-          <button
-            onClick={addTop30}
-            disabled={hasAllTop30}
-            style={{
-              padding:'5px 12px', borderRadius:6, fontSize:12, fontFamily:'var(--mono)',
-              border:'1px solid rgba(0,184,217,0.5)', background:'rgba(0,184,217,0.08)',
-              color: hasAllTop30 ? 'var(--text3)' : 'var(--accent)',
-              cursor: hasAllTop30 ? 'default' : 'pointer', fontWeight:700, opacity: hasAllTop30 ? 0.5 : 1,
-            }}
-          >
-            ⊞ Add Top 30
-          </button>
-          {cfg.customPairs.length > 0 && (
-            <button
-              onClick={clearAll}
-              style={{
-                padding:'5px 12px', borderRadius:6, fontSize:12, fontFamily:'var(--mono)',
-                border:'1px solid rgba(255,71,87,0.4)', background:'var(--red-dim)',
-                color:'var(--red)', cursor:'pointer', fontWeight:700,
-              }}
-            >
-              ✕ Clear All
-            </button>
-          )}
-        </div>
-
-        {cfg.customPairs.length === 0 ? (
-          <div style={{ textAlign: 'center', padding: '20px 0', color: 'var(--text3)', fontFamily: 'var(--font-mono)', fontSize: 12 }}>
-            No custom pairs added yet — tap "Add Top 30" to get started
-          </div>
-        ) : (
-          <div style={{ display: 'flex', flexWrap:'wrap', gap: 6 }}>
-            {cfg.customPairs.map(p => (
-              <div key={p} style={{
-                display: 'inline-flex', alignItems: 'center', gap:6,
-                padding: '5px 10px', borderRadius: 16,
-                background: 'var(--bg2)', border: '1px solid var(--border)',
-              }}>
-                <span style={{ fontFamily: 'var(--font-mono)', fontSize: 12, color: 'var(--text)', fontWeight: 600 }}>{p.replace('USDT','')}</span>
-                <button onClick={() => removePair(p)} style={{
-                  width: 16, height: 16, borderRadius: 3, border: 'none',
-                  background: 'transparent', color: 'var(--text3)', fontSize: 13,
-                  display: 'flex', alignItems: 'center', justifyContent: 'center',
-                  cursor: 'pointer', padding:0, lineHeight:1,
-                }}>×</button>
-              </div>
-            ))}
+        {showNewCategory && (
+          <div style={{ display:'flex', gap:7, marginBottom:12 }}>
+            <input className="field" placeholder="New category name…" value={categoryInput}
+              onChange={e => setCategoryInput(e.target.value)}
+              onKeyDown={e => e.key === 'Enter' && createCategory()} />
+            <button onClick={createCategory} disabled={!categoryInput.trim()} style={buttonStyle}>Create</button>
           </div>
         )}
 
-        <div style={{ marginTop: 12, fontSize: 11, color: 'var(--text3)', fontFamily: 'var(--font-mono)' }}>
-          {cfg.customPairs.length} pair{cfg.customPairs.length !== 1 ? 's' : ''} · Stored in localStorage
+        <div style={{ display:'flex', gap:7, overflowX:'auto', paddingBottom:8, marginBottom:10 }}>
+          {groups.map(group => (
+            <button key={group.id} onClick={() => setActiveId(group.id)} style={{
+              ...buttonStyle, flexShrink:0, whiteSpace:'nowrap',
+              border: active?.id === group.id ? '1.5px solid var(--green)' : '1px solid var(--border)',
+              background: active?.id === group.id ? 'var(--green-dim)' : 'var(--bg2)',
+              color: active?.id === group.id ? 'var(--green)' : 'var(--text2)',
+            }}>{group.name} <span style={{opacity:.7}}>({group.assets.length})</span></button>
+          ))}
         </div>
+
+        {active && (
+          <>
+            <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', gap:8, marginBottom:10 }}>
+              <div>
+                <div style={{ fontSize:14, fontWeight:800, color:'var(--text)' }}>{active.name}</div>
+                <div style={{ fontSize:10, color:'var(--text3)', fontFamily:'var(--mono)', marginTop:2 }}>
+                  {isCrypto ? 'BINANCE SPOT PAIRS' : active.kind === 'stock' ? 'TOKENIZED STOCK WATCHLIST' : active.kind === 'commodity' ? 'COMMODITY WATCHLIST' : 'CUSTOM ASSET GROUP'}
+                </div>
+              </div>
+              {!active.locked && <button onClick={() => deleteCategory(active)} style={{
+                ...buttonStyle, color:'var(--red)', borderColor:'var(--red2)', background:'var(--red-dim)',
+              }}>Delete</button>}
+            </div>
+
+            <div style={{ display:'flex', gap:7, marginBottom:10 }}>
+              <input className="field"
+                placeholder={isCrypto ? 'BTC / BTCUSDT…' : 'Add asset symbol…'}
+                value={assetInput} onChange={e => setAssetInput(e.target.value)}
+                onKeyDown={e => e.key === 'Enter' && addAsset()} />
+              <button onClick={addAsset} style={{...buttonStyle, color:'var(--green)', borderColor:'var(--green2)'}}>＋ Add</button>
+            </div>
+
+            <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', gap:8, flexWrap:'wrap', marginBottom:10 }}>
+              <span style={{ fontSize:10, color:'var(--text3)', fontFamily:'var(--mono)' }}>
+                {active.assets.length} assets · {scanCount} Binance-scannable
+              </span>
+              {scanCount > 0 && (
+                <button onClick={useForScanner} style={{
+                  ...buttonStyle, color:'var(--green)', borderColor:'var(--green2)', background:'var(--green-dim)',
+                }}>Use {scanCount} in Scanner →</button>
+              )}
+            </div>
+
+            <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fill,minmax(118px,1fr))', gap:6 }}>
+              {active.assets.map(asset => (
+                <div key={asset.id} style={{
+                  display:'flex', alignItems:'center', justifyContent:'space-between', gap:5,
+                  minWidth:0, padding:'7px 8px', borderRadius:8,
+                  background:'var(--bg2)', border:'1px solid var(--border)',
+                }}>
+                  <div style={{ minWidth:0 }}>
+                    <div style={{ fontSize:11, fontWeight:800, color:'var(--text)', overflow:'hidden', textOverflow:'ellipsis' }}>{asset.symbol}</div>
+                    <div style={{ fontSize:9, color:asset.status === 'supported' ? 'var(--green)' : 'var(--amber)', marginTop:2 }}>
+                      {asset.status === 'supported' ? 'Binance pair' : 'Provider needed'}
+                    </div>
+                  </div>
+                  <button onClick={() => removeAsset(asset.id)} aria-label={'Remove ' + asset.symbol} style={{
+                    border:0, background:'transparent', color:'var(--text3)', fontSize:16, cursor:'pointer', padding:'0 2px',
+                  }}>×</button>
+                </div>
+              ))}
+              {active.assets.length === 0 && (
+                <div style={{ gridColumn:'1 / -1', textAlign:'center', padding:18, color:'var(--text3)', fontSize:11 }}>
+                  No assets yet. Add a symbol above.
+                </div>
+              )}
+            </div>
+
+            {!isCrypto && (
+              <div style={{
+                marginTop:12, padding:'9px 10px', borderRadius:8,
+                border:'1px solid rgba(255,167,38,.28)', background:'rgba(255,167,38,.07)',
+                color:'var(--text2)', fontSize:10, lineHeight:1.6,
+              }}>
+                ⚠️ These assets are preloaded as a watchlist. The current scanner uses Binance Spot candles, so tokenized stocks and commodity feeds need a compatible market-data provider before they can generate scan signals.
+              </div>
+            )}
+          </>
+        )}
       </SectionCard>
     </div>
   )
