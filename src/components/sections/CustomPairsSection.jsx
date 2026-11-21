@@ -28,9 +28,9 @@ export const DEFAULT_GROUPS = [
   {
     id: 'commodity', name: 'Commodity', kind: 'commodity', locked: true,
     assets: [
-      { id: 'GOLD', symbol: 'GOLD', name: 'Gold', scanSymbol: null, status: 'provider-required' },
-      { id: 'SILVER', symbol: 'SILVER', name: 'Silver', scanSymbol: null, status: 'provider-required' },
-      { id: 'OIL', symbol: 'OIL', name: 'Oil', scanSymbol: null, status: 'provider-required' },
+      { id: 'GOLD', symbol: 'XAU/USD', name: 'Gold Spot', scanSymbol: 'ITICK:FOREX:GB:XAUUSD', status: 'supported' },
+      { id: 'SILVER', symbol: 'XAG/USD', name: 'Silver Spot', scanSymbol: 'ITICK:FOREX:GB:XAGUSD', status: 'supported' },
+      { id: 'OIL', symbol: 'Oil', name: 'Crude Oil Futures', scanSymbol: null, status: 'provider-required' },
     ],
   },
 ]
@@ -181,7 +181,7 @@ export default function CustomPairsSection({ cfg, set }) {
                   <div style={{ minWidth:0 }}>
                     <div style={{ fontSize:11, fontWeight:800, color:'var(--text)', overflow:'hidden', textOverflow:'ellipsis' }}>{asset.symbol}</div>
                     <div style={{ fontSize:9, color:asset.status === 'supported' ? 'var(--green)' : 'var(--amber)', marginTop:2 }}>
-                      {asset.status === 'supported' ? (active.kind === 'stock' ? 'US stock data' : 'Binance pair') : 'Provider needed'}
+                      {asset.status === 'supported' ? (active.kind === 'stock' ? 'Twelve Data' : active.kind === 'commodity' ? 'iTick live data' : 'Binance pair') : 'Provider needed'}
                     </div>
                   </div>
                   <button onClick={() => removeAsset(asset.id)} aria-label={'Remove ' + asset.symbol} style={{
@@ -202,7 +202,7 @@ export default function CustomPairsSection({ cfg, set }) {
                 border:'1px solid rgba(255,167,38,.28)', background:'rgba(255,167,38,.07)',
                 color:'var(--text2)', fontSize:10, lineHeight:1.6,
               }}>
-                ℹ️ Stocks use real NASDAQ/NYSE OHLCV candles through Twelve Data. Add your TWELVE_DATA_API_KEY in Vercel Environment Variables to enable live scanning. Crypto continues using Binance. Commodity feeds remain separate and are not enabled yet.
+                ℹ️ Crypto: Binance · US Stocks: Twelve Data · Gold/Silver spot: iTick. Add ITICK_API_KEY in Vercel Environment Variables. Crude Oil futures are listed but need a verified iTick contract code/plan.
               </div>
             )}
           </>
