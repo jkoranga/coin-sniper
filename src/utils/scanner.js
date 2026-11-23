@@ -40,10 +40,10 @@ export async function fetchCandles(symbol, interval = '15m', limit = 60, ticker 
     if (!res.ok) throw new Error(data.error || `Stock data unavailable for ${stockSymbol}`)
     if (!Array.isArray(data.values) || !data.values.length) throw new Error(`No stock candles for ${stockSymbol}`)
     const candles = data.values.map(v => ({
-      time: Date.parse(v.datetime.replace(' ', 'T') + (data.meta?.exchange_timezone ? '' : 'Z')),
+      time: Date.parse(String(v.datetime).replace(' ', 'T') + 'Z'),
       open: Number(v.open), high: Number(v.high), low: Number(v.low),
       close: Number(v.close), volume: Number(v.volume || 0),
-    })).filter(c => [c.open,c.high,c.low,c.close].every(Number.isFinite))
+    })).filter(c => Number.isFinite(c.time) && [c.open,c.high,c.low,c.close].every(Number.isFinite) && c.high >= Math.max(c.open,c.close,c.low) && c.low <= Math.min(c.open,c.close,c.high))
       .sort((a,b) => a.time-b.time)
     return decorateCandles(candles, ticker)
   }
@@ -58,6 +58,8 @@ export async function fetchCandles(symbol, interval = '15m', limit = 60, ticker 
         time: t, open: parseFloat(o), high: parseFloat(h), low: parseFloat(l),
         close: parseFloat(c), volume: parseFloat(v),
       }))
+      if (!Array.isArray(data) || !data.length) continue
+      if (candles.some(c => !Number.isFinite(c.time) || ![c.open,c.high,c.low,c.close,c.volume].every(Number.isFinite))) continue
       return decorateCandles(candles, ticker)
     } catch { /* try next mirror */ }
   }
