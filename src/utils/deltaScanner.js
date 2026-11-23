@@ -4,7 +4,7 @@
 // Their API is fully open CORS — works from browser AND Vercel with no auth.
 
 const BYBIT  = 'https://api.bybit.com'
-const BYBIT2 = 'https://api-testnet.bybit.com' // fallback
+const BINANCE_FUTURES = 'https://fapi.binance.com' // production futures fallback (not testnet)
 
 const INTERVAL_MAP = {
   '1m':'1','3m':'3','5m':'5','15m':'15','30m':'30',
@@ -26,7 +26,7 @@ async function loadDeltaSymbols() {
   // Bybit /v5/market/tickers has live price + volume (turnover24h) for all linear perps
   const URLS = [
     `${BYBIT}/v5/market/tickers?category=linear`,
-    `${BYBIT2}/v5/market/tickers?category=linear`,
+    `${BINANCE_FUTURES}/fapi/v1/ticker/24hr`,
     `/api/delta-symbols`,
   ]
 
@@ -61,6 +61,20 @@ async function loadDeltaSymbols() {
         }
       }
 
+      // Binance USDT-margined futures fallback: same contract class as Bybit linear.
+      if (Array.isArray(data) && data.some(p=>p.symbol && p.quoteVolume != null)) {
+        const products=data.filter(p=>p.symbol?.endsWith('USDT') && Number(p.quoteVolume)>0)
+          .map(p=>({symbol:p.symbol,name:p.symbol.replace('USDT',''),
+            markPrice:Number(p.lastPrice)||0,dailyChangePct:Number(p.priceChangePercent)||0,
+            volume:Number(p.quoteVolume)||0}))
+          .sort((a,b)=>b.volume-a.volume)
+        if (products.length) {
+          const result={symbols:products,fallback:true,error:null,source:'binance-futures'}
+          symbolCache=result;symbolCacheExpiresAt=Date.now()+60_000
+          return result
+        }
+      }
+
       // Proxy/fallback shape: { products:[...] }
       if (Array.isArray(data.products) && data.products.length > 0) {
         const result = { symbols: data.products, fallback: Boolean(data.fallback), error: null }
@@ -84,7 +98,7 @@ export async function fetchDeltaCandles(symbol, interval = '15m', limit = 60, ti
   // Bybit kline endpoint — open CORS, no auth, rate-limit generous
   const URLS = [
     `${BYBIT}/v5/market/kline?category=linear&symbol=${symbol}&interval=${iv}&limit=${requestLimit}`,
-    `${BYBIT2}/v5/market/kline?category=linear&symbol=${symbol}&interval=${iv}&limit=${requestLimit}`,
+    `${BINANCE_FUTURES}/fapi/v1/klines?symbol=${encodeURIComponent(symbol)}&interval=${interval === '1d' || interval === 'Day' ? '1d' : interval}&limit=${requestLimit}`,
     `/api/delta-candles?symbol=${symbol}&resolution=${iv}&limit=${limit}`,
   ]
 
@@ -109,6 +123,15 @@ export async function fetchDeltaCandles(symbol, interval = '15m', limit = 60, ti
           .sort((a, b) => a.time - b.time) // Bybit returns newest first
           .slice(-limit)
         if (raw.length >= 3) return attachIndicators(raw, ticker)
+      }
+
+      // Binance Futures kline fallback; never request stock/commodity endpoints for crypto.
+      if (Array.isArray(data) && Array.isArray(data[0]) && data.length>=3) {
+        const raw=data.map(row=>({time:Number(row[0]),open:Number(row[1]),high:Number(row[2]),
+          low:Number(row[3]),close:Number(row[4]),volume:Number(row[5])}))
+          .filter(row=>Number.isFinite(row.close)&&row.close>0)
+          .sort((a,b)=>a.time-b.time).slice(-limit)
+        if(raw.length>=3)return attachIndicators(raw,ticker)
       }
 
       // Proxy/Delta shape: { result:[ {time,open,high,low,close,volume} ] }
