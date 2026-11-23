@@ -593,7 +593,7 @@ export default function DeltaScannerTab({
     if (savedCustomLists.some(item => item.name === name && item.name !== oldName)) { setListNameError('This list name already exists. Choose another name.'); return }
     const other = savedCustomLists.filter(item => item.name !== oldName && item.name !== name)
     update({ namedCustomLists: [...other, { name, pairs }], activeCustomListName: name,
-      customPairs: pairs, selectedAssetGroupIds: assetGroups.filter(g=>(g.assets||[]).some(a=>selectedAssetIds.has(a.scanSymbol||a.id))).map(g=>g.id) })
+      customPairs: pairs, customSelectionType:'namedList', selectedAssetGroupIds: assetGroups.filter(g=>(g.assets||[]).some(a=>selectedAssetIds.has(a.scanSymbol||a.id))).map(g=>g.id) })
     setListNameError('')
     setCreatingCustomList(false)
     setShowCustomPicker(false)
@@ -715,6 +715,7 @@ export default function DeltaScannerTab({
   }, [])
 
   useEffect(() => { loadSymbols() }, [loadSymbols])
+  useEffect(() => { const id=setInterval(loadSymbols,60 * 60 * 1000); return ()=>clearInterval(id) }, [loadSymbols])
   // Daily snapshot of ranked 24h USDT turnover. Keep the last valid snapshot if the provider fails.
   useEffect(() => {
     if (!symbols.length || symFallback || loadingSyms) return
@@ -726,6 +727,12 @@ export default function DeltaScannerTab({
     const snapshot = {updatedAt:now,symbols:ranked}
     setDailyCryptoTop(snapshot)
     try { localStorage.setItem('cs_daily_crypto_top_v1',JSON.stringify(snapshot)) } catch {}
+    if (settingsRef.current.customSelectionType === 'cryptoPreset') {
+      const limit = Number(settingsRef.current.customCryptoLimit) || 30
+      const pairs = ranked.slice(0,limit)
+      update({customPairs:pairs})
+      setSelectedAssetIds(new Set(pairs))
+    }
   }, [symbols,symFallback,loadingSyms,dailyCryptoTop?.updatedAt])
   const rankedCryptoSymbols = useMemo(() => {
     const ranked = dailyCryptoTop?.symbols || []
@@ -736,7 +743,7 @@ export default function DeltaScannerTab({
     setCustomCryptoLimit(count)
     const pairs=rankedCryptoSymbols.slice(0,count)
     setSelectedAssetIds(new Set(pairs))
-    update({customCryptoLimit:count,customPairs:pairs,activeCustomListName:'',
+    update({customCryptoLimit:count,customSelectionType:'cryptoPreset',customPairs:pairs,activeCustomListName:'',
       selectedAssetGroupIds:[]})
   }
 
@@ -1247,7 +1254,7 @@ export default function DeltaScannerTab({
       }}>
         {SCAN_MODES.map(m => {
           const isCustom = m.id === 'custom'
-          const customCount = isCustom && customPanel==='preset' && activeCategoryId==='crypto' && !settings.activeCustomListName ? (settings.customCryptoLimit || customCryptoLimit) : null
+          const customCount = isCustom && settings.customSelectionType==='cryptoPreset' && !settings.activeCustomListName ? (settings.customCryptoLimit || customCryptoLimit) : null
           return (
             <button key={m.id} onClick={() => {
               if (isCustom) {
@@ -1289,7 +1296,7 @@ export default function DeltaScannerTab({
             setShowCustomPicker(true)
             setCustomListName(item.name)
             setSelectedAssetIds(new Set(item.pairs||[]))
-            update({activeCustomListName:item.name,customPairs:item.pairs||[]})
+            update({activeCustomListName:item.name,customPairs:item.pairs||[],customSelectionType:'namedList'})
           }}
           style={{flexShrink:0,maxWidth:165,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap',
             padding:'5px 10px',borderRadius:20,cursor:'pointer',fontSize:11,
@@ -1343,7 +1350,7 @@ export default function DeltaScannerTab({
             {savedCustomLists.map(item=><div key={item.name} style={{display:'inline-flex',alignItems:'center',border:'1px solid var(--border)',borderRadius:7,overflow:'hidden'}}>
               <button onClick={()=>{
                 setCreatingCustomList(false);setCustomListName(item.name);setSelectedAssetIds(new Set(item.pairs||[]))
-                update({customPairs:item.pairs||[],activeCustomListName:item.name});setListNameError('')
+                update({customPairs:item.pairs||[],activeCustomListName:item.name,customSelectionType:'namedList'});setListNameError('')
               }} style={{padding:'6px 9px',cursor:'pointer',fontSize:10,border:0,
                 background:settings.activeCustomListName===item.name?'var(--green-dim)':'var(--bg2)',color:'var(--text)'}}>
                 {item.name} ({(item.pairs||[]).length})
@@ -1482,7 +1489,7 @@ export default function DeltaScannerTab({
               <button onClick={()=>{
               if(customPanel==='lists' && creatingCustomList) {setListNameError('Name and save this new list first.');return}
               const pairs=[...selectedAssetIds].filter(Boolean)
-              update({customPairs:pairs,...(!creatingCustomList && settings.activeCustomListName ? {namedCustomLists:savedCustomLists.map(item=>item.name===settings.activeCustomListName?{...item,pairs}:item)} : {}),selectedAssetGroupIds:assetGroups.filter(g=>(g.assets||[]).some(a=>selectedAssetIds.has(a.scanSymbol||a.id))).map(g=>g.id)})
+              update({customPairs:pairs,customSelectionType:customPanel==='lists'?'namedList':'manual',...(!creatingCustomList && settings.activeCustomListName ? {namedCustomLists:savedCustomLists.map(item=>item.name===settings.activeCustomListName?{...item,pairs}:item)} : {}),selectedAssetGroupIds:assetGroups.filter(g=>(g.assets||[]).some(a=>selectedAssetIds.has(a.scanSymbol||a.id))).map(g=>g.id)})
             }} style={{padding:'8px 12px',borderRadius:8,cursor:'pointer',fontSize:10,fontWeight:800,
               border:'1px solid var(--green2)',background:'var(--green-dim)',color:'var(--green)'}}>
               Apply Selection · {selectedAssetIds.size}
