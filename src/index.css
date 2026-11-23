@@ -710,3 +710,27 @@ input,select,textarea{font-family:var(--mono);font-size:14px;color:var(--text)}
     outline-offset: 2px;
   }
 }
+
+/* Desktop readability and interaction refinements; mobile styles remain unchanged. */
+@media (min-width: 1024px) {
+  .content-scroll-v2 { line-height: 1.55; }
+  .section-card, .scanner-def-card, .alert-card {
+    transition: border-color .18s ease, box-shadow .18s ease;
+  }
+  .section-card:hover, .scanner-def-card:hover {
+    border-color: var(--border2);
+    box-shadow: 0 7px 28px rgba(0,0,0,.09);
+  }
+  .setting-row > div:not(.row-label) { flex-wrap: wrap; row-gap: 10px; }
+  .text-input, .select-input, .field { min-height: 40px; }
+  .btn-primary, .btn-secondary, .btn-danger { min-height: 40px; }
+  .price-row, .pr-header { font-variant-numeric: tabular-nums; }
+  .empty-state { padding-block: 30px; line-height: 1.6; }
+  .bottom-nav-v2 { backdrop-filter: blur(14px); }
+}
+@media (min-width: 1440px) {
+  .content-scroll-v2 { max-width: 1560px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .section-card, .scanner-def-card, .alert-card, .bottom-tab { transition: none !important; }
+}
