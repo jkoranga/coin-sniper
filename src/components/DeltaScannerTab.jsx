@@ -535,13 +535,13 @@ export default function DeltaScannerTab({
   // Per-tab settings keys
   const tfKey       = k => `delta_${k}_${tfProp}`
   const scanMode    = settings[tfKey('scanMode')]     ?? 'all'
-  const dedupInt    = settings[tfKey('dedupInt')]     ?? settings.dedupInterval ?? '3m'
-  const resultFilter= settings[tfKey('resultFilter')] ?? 'all'
-  const volumeFilter= settings[tfKey('volumeFilter')] ?? settings.volumeFilter ?? '1m'
-  const sortBy      = settings[tfKey('sortBy')]       ?? settings.defaultSort       ?? 'time'
-  const sortDir     = settings[tfKey('sortDir')]      ?? settings.defaultSortDir    ?? 'desc'
-  const viewMode    = settings[tfKey('viewMode')]     ?? settings.defaultViewMode   ?? 'list'
-  const setTfSetting = (k, v) => update({ [tfKey(k)]: v })
+  const dedupInt    = settings.dedupInterval ?? '15m'
+  const resultFilter= settings.defaultResultFilter ?? 'all'
+  const volumeFilter= settings.volumeFilter ?? 'all'
+  const sortBy      = settings.defaultSort       ?? 'time'
+  const sortDir     = settings.defaultSortDir    ?? 'desc'
+  const viewMode    = settings.defaultViewMode   ?? 'list'
+  const setTfSetting = (k, v) => update({ [({volumeFilter:'volumeFilter',dedupInt:'dedupInterval',sortBy:'defaultSort',sortDir:'defaultSortDir',viewMode:'defaultViewMode',resultFilter:'defaultResultFilter'})[k] || tfKey(k)]: v })
 
   // Ephemeral state
   const [timeframe,   setTimeframe]   = useState(tfProp || '15m')
@@ -555,8 +555,8 @@ export default function DeltaScannerTab({
   const [alerts,      setAlerts]      = useState(() => loadDeltaResults(tfProp || '15m'))
   const [errors,      setErrors]      = useState([])
   const [lastScan,    setLastScan]    = useState(null)
-  const [autoEnabled, setAutoEnabled] = useState(false)
-  const [loopMode,    setLoopMode]    = useState(false)
+  const autoEnabled = settings.autoScan ?? true
+  const loopMode = settings.loopScan ?? false
   const [loopCount,   setLoopCount]   = useState(0)
   const [nextScanAt,  setNextScanAt]  = useState(null)
   const [singleSym,   setSingleSym]   = useState('')
@@ -792,8 +792,8 @@ export default function DeltaScannerTab({
         ? await fetchCandles(symbol, tf, fetchLimit, ticker)
         : await fetchDeltaCandles(symbol, tf, fetchLimit, ticker)
       const ttlMap = {'1m':60_000,'2m':120_000,'3m':180_000,'5m':300_000,'10m':600_000}
-      const ttl = ttlMap[settingsRef.current.cacheTtl || '3m'] || 180_000
-      if (candles) cacheRef.current[key] = { candles, expiresAt: Date.now() + ttl }
+      const ttl = Math.min(ttlMap[settingsRef.current.cacheTtl || '1m'] || 60_000, intervalToMs(settingsRef.current.scanInterval || '3m'))
+      if (candles && (!cacheRef.current[key] || cacheRef.current[key].expiresAt <= Date.now() || cacheRef.current[key].candles.length <= candles.length)) cacheRef.current[key] = { candles, expiresAt: Date.now() + ttl }
       return candles
     })()
     const inflightEntry = {promise:request,limit:Math.max(requestedLimit,hit?.candles?.length||0)}
@@ -847,7 +847,8 @@ export default function DeltaScannerTab({
       // All/Bull/Bear share the same Settings-driven asset universe.
       const countBySet = { top30: 30, top100: 100, top200: 200, top250: 250, top500: 500 }
       const count = countBySet[cfg.symbolSet] || Infinity
-      const crypto = symbols.slice(0, count)
+      const bySymbol = new Map(symbols.map(s=>[s.symbol,s]))
+      const crypto = [...new Set([...rankedCryptoSymbols,...symbols.map(s=>s.symbol)])].map(s=>bySymbol.get(s)).filter(Boolean).slice(0,count)
       const mixed = cfg.allAssetScope === 'mixed'
         ? [...new Set(assetGroups.flatMap(g => g.assets || []).map(a => a.scanSymbol).filter(s => s && (s.startsWith('STOCK:') || s.startsWith('ITICK:'))))].map(symbol => ({ symbol }))
         : []
@@ -863,7 +864,7 @@ export default function DeltaScannerTab({
     setErrors([])
     // Keep existing results in Auto and Loop modes; repeated signals update in place.
 
-    const CONCURRENCY = Math.max(2, Math.min(12, Number(cfg.concurrency) || 8))
+    const CONCURRENCY = Math.max(2, Math.min(12, Number(cfg.concurrency) || 12))
     // Adaptive worker limit: start conservatively, expand on healthy responses,
     // and back off on rate limits/timeouts without changing the user's configured cap.
     let activeLimit = Math.min(CONCURRENCY, 4)
@@ -911,7 +912,7 @@ export default function DeltaScannerTab({
 
     async function worker(workerId) {
       while (true) {
-        while (workerId >= activeLimit && !abortRef.current.signal.aborted) {
+        while (cursor < symList.length && workerId >= activeLimit && !abortRef.current.signal.aborted) {
           await new Promise(resolve => setTimeout(resolve, 150))
         }
         if (abortRef.current.signal.aborted) return
@@ -1030,93 +1031,52 @@ export default function DeltaScannerTab({
       // Small 300ms breath between loop cycles, then immediately restart
       setTimeout(() => { if (loopRef.current) runScanRef.current(symOverride) }, 300)
     }
-  }, [activePatterns, symbols, timeframe, dedupInt, assetGroups]) // eslint-disable-line
+  }, [activePatterns, symbols, timeframe, dedupInt, assetGroups, rankedCryptoSymbols]) // eslint-disable-line
 
   // Keep runScan ref always current so effects/timers never call stale version
   const runScanRef = useRef(runScan)
   useEffect(() => { runScanRef.current = runScan }, [runScan])
 
-  // ── Auto scan interval ───────────────────────────────────────────────────────
-  // Pattern: scan immediately → wait interval → scan → wait → repeat
-  // Uses runScanRef so this effect never re-fires when scan function changes.
+  // Schedule only the active, ready timeframe; never overlap scans.
+  const initialScanRef = useRef(false)
+  const readyToScan = symbols.length > 0 || (scanMode === 'custom' && (settings.customPairs || []).length > 0)
   useEffect(() => {
-    if (!autoEnabled || loopMode) {
-      clearTimeout(timerRef.current)
-      setNextScanAt(null)
-      return
-    }
+    if (!isActive || !readyToScan) return
     let cancelled = false
-
-    const scheduleNext = () => {
+    const repeat = autoEnabled || loopMode
+    const schedule = ms => {
       if (cancelled) return
-      // Large multi-asset scans need a minimum pause to avoid provider quotas and UI thrashing.
-      const requestedMs = intervalToMs(settingsRef.current.scanInterval || '30s')
-      const assetCount = (settingsRef.current[`delta_scanMode_${timeframe}`] === 'custom'
-        ? (settingsRef.current.customPairs || []).length
-        : Math.min(symbols.length, ({top30:30,top100:100,top200:200,top250:250,top500:500})[settingsRef.current.symbolSet] || symbols.length))
-      const ms = assetCount > 20 ? Math.max(30_000, requestedMs) : requestedMs
-      setNextScanAt(Date.now() + ms)
+      setNextScanAt(Date.now()+ms)
       timerRef.current = setTimeout(async () => {
         if (cancelled) return
+        if (scanningRef.current) { schedule(500); return }
         setNextScanAt(null)
+        initialScanRef.current = true
         await runScanRef.current()
-        scheduleNext()
+        if (!cancelled && repeat) schedule(loopMode ? 300 : intervalToMs(settings.scanInterval || '3m'))
       }, ms)
     }
+    if (!initialScanRef.current && settings.scanOnLoad !== false) schedule(3000)
+    else if (repeat) schedule(loopMode ? 300 : intervalToMs(settings.scanInterval || '3m'))
+    return () => { cancelled = true; clearTimeout(timerRef.current); setNextScanAt(null) }
+  }, [isActive, readyToScan, autoEnabled, loopMode, settings.scanOnLoad, settings.scanInterval, timeframe])
 
-    ;(async () => {
-      if (cancelled) return
-      await runScanRef.current()
-      scheduleNext()
-    })()
-
-    return () => {
-      cancelled = true
-      clearTimeout(timerRef.current)
-      setNextScanAt(null)
-    }
-  }, [autoEnabled, loopMode, symbols.length, timeframe]) // eslint-disable-line
-
-  // ── Stop on tab deactivate ───────────────────────────────────────────────────
   useEffect(() => {
-    if (!isActive) {
-      abortRef.current?.abort(); loopRef.current = false
-      scanningRef.current = false; setScanning(false)
-    }
+    if (!isActive) { abortRef.current?.abort(); loopRef.current = false }
   }, [isActive])
 
-  // ── Auto-start when tab first tapped (triggerAutoScan flips true) ────────────
-  const prevTriggerRef = useRef(false)
-  useEffect(() => {
-    if (triggerAutoScan && !prevTriggerRef.current && !scanningRef.current) {
-      // Small delay so symbols have time to load first
-      const t = setTimeout(() => {
-        if (!scanningRef.current) {
-          setAutoEnabled(true)
-          // useEffect kickoff will run the initial scan + arm the interval
-        }
-      }, 300)
-      return () => clearTimeout(t)
-    }
-    prevTriggerRef.current = triggerAutoScan
-  }, [triggerAutoScan]) // eslint-disable-line
-
   function stopScan() {
-    loopRef.current = false; abortRef.current?.abort()
-    scanningRef.current = false; setScanning(false)
-    setAutoEnabled(false); setLoopMode(false)
-    setNextScanAt(null); clearTimeout(timerRef.current)
+    loopRef.current = false
+    abortRef.current?.abort()
+    update({autoScan:false,loopScan:false})
+    clearTimeout(timerRef.current); setNextScanAt(null)
   }
-
   function toggleLoop(on) {
-    setLoopMode(on)
-    if (on) { loopRef.current = true; setAutoEnabled(false); setLoopCount(0); runScan() }
-    else { loopRef.current = false; abortRef.current?.abort(); scanningRef.current = false; setScanning(false) }
+    update({loopScan:on,...(on?{autoScan:false}:{})})
   }
-
   function toggleAuto() {
-    if (autoEnabled) { stopScan() }
-    else { setAutoEnabled(true) }
+    if (autoEnabled) stopScan()
+    else { update({autoScan:true,loopScan:false}); if (!scanningRef.current) runScanRef.current() }
   }
 
   function toggleSort(col) {
