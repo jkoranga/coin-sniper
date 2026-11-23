@@ -901,7 +901,11 @@ export default function DeltaScannerTab({
 
     const scheduleNext = () => {
       if (cancelled) return
-      const ms = intervalToMs(settingsRef.current.scanInterval || '30s')
+      // Large multi-asset scans need a minimum pause to avoid provider quotas and UI thrashing.
+      const requestedMs = intervalToMs(settingsRef.current.scanInterval || '30s')
+      const assetCount = (settingsRef.current[`delta_scanMode_${timeframe}`] === 'custom'
+        ? (settingsRef.current.customPairs || []).length : symbols.length)
+      const ms = assetCount > 20 ? Math.max(30_000, requestedMs) : requestedMs
       setNextScanAt(Date.now() + ms)
       timerRef.current = setTimeout(async () => {
         if (cancelled) return
@@ -922,7 +926,7 @@ export default function DeltaScannerTab({
       clearTimeout(timerRef.current)
       setNextScanAt(null)
     }
-  }, [autoEnabled, loopMode]) // eslint-disable-line
+  }, [autoEnabled, loopMode, symbols.length, timeframe]) // eslint-disable-line
 
   // ── Stop on tab deactivate ───────────────────────────────────────────────────
   useEffect(() => {
