@@ -26,7 +26,6 @@ const RD2 = 'var(--red2)'
 const AM  = 'var(--amber)'
 
 const SCAN_MODES = [
-  {id:'single', icon:'⚡', label:'Single', col:'var(--amber)',  bd:'var(--amber)',  bg:'rgba(255,180,0,.1)'},
   {id:'all',    icon:'⬡',  label:'All',    col:CY,             bd:CY,              bg:CYD},
   {id:'bull',   icon:'🟢', label:'Bull',   col:GR,             bd:GR2,             bg:'var(--green-dim)'},
   {id:'bear',   icon:'🔴', label:'Bear',   col:RD,             bd:RD2,             bg:'var(--red-dim)'},
@@ -735,7 +734,14 @@ export default function DeltaScannerTab({
     } else if (scanMode === 'custom') {
       symList = [...new Set(cfg.customPairs || [])].map(s => ({ symbol: s }))
     } else {
-      symList = symbols
+      // All/Bull/Bear share the same Settings-driven asset universe.
+      const countBySet = { top30: 30, top100: 100, top200: 200, top250: 250, top500: 500 }
+      const count = countBySet[cfg.symbolSet] || Infinity
+      const crypto = symbols.slice(0, count)
+      const mixed = cfg.allAssetScope === 'mixed'
+        ? [...new Set(cfg.customPairs || [])].filter(s => String(s).startsWith('STOCK:') || String(s).startsWith('ITICK:')).map(symbol => ({ symbol }))
+        : []
+      symList = [...crypto, ...mixed]
     }
     if (!symList || symList.length === 0) return
 
@@ -904,7 +910,8 @@ export default function DeltaScannerTab({
       // Large multi-asset scans need a minimum pause to avoid provider quotas and UI thrashing.
       const requestedMs = intervalToMs(settingsRef.current.scanInterval || '30s')
       const assetCount = (settingsRef.current[`delta_scanMode_${timeframe}`] === 'custom'
-        ? (settingsRef.current.customPairs || []).length : symbols.length)
+        ? (settingsRef.current.customPairs || []).length
+        : Math.min(symbols.length, ({top30:30,top100:100,top200:200,top250:250,top500:500})[settingsRef.current.symbolSet] || symbols.length))
       const ms = assetCount > 20 ? Math.max(30_000, requestedMs) : requestedMs
       setNextScanAt(Date.now() + ms)
       timerRef.current = setTimeout(async () => {
