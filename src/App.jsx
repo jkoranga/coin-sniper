@@ -1128,10 +1128,10 @@ export default function App() {
                 update={update}
                 saveNowWithPatch={saveNowWithPatch}
                 user={user}
-                isActive={activeTab === tab.id && userTappedTabs.has(tab.id)}
+                isActive={activeTab === tab.id && authReady && (!user || cloudSynced)}
                 onAlertCount={handleAlertCount}
                 onGoToPatterns={() => { setShowPatterns(true) }}
-                triggerAutoScan={activeTab === tab.id && userTappedTabs.has(tab.id)}
+                triggerAutoScan={activeTab === tab.id && authReady && (!user || cloudSynced)}
               />
             </ErrorBoundary>
           </div>
