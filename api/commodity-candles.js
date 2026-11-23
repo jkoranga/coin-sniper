@@ -10,7 +10,9 @@ const INTERVALS = {
 function aggregate(rows, minutes, limit) {
   const size = minutes * 60000, buckets = new Map()
   for (const row of [...rows].reverse()) {
-    const t = Number(row.t), bucket = Math.floor(t / size) * size
+    const rawTime = Number(row.t)
+    const t = rawTime < 1e11 ? rawTime * 1000 : rawTime
+    const bucket = Math.floor(t / size) * size
     if (!Number.isFinite(t)) continue
     const old = buckets.get(bucket)
     if (!old) buckets.set(bucket, { t: bucket, o: row.o, h: row.h, l: row.l, c: row.c, v: Number(row.v || 0) })
@@ -40,7 +42,7 @@ export default async function handler(req, res) {
     if (!response.ok || payload.code !== 0 || !Array.isArray(payload.data)) {
       return res.status(response.status >= 400 ? response.status : 502).json({ error: payload.msg || 'iTick did not return candle data', providerCode: payload.code ?? null })
     }
-    const values = spec.factor === 1 ? payload.data.map(x=>({t:Number(x.t),o:Number(x.o),h:Number(x.h),l:Number(x.l),c:Number(x.c),v:Number(x.v||0)})).sort((a,b)=>a.t-b.t).slice(-limit) : aggregate(payload.data, interval === '3m' ? 3 : 240, limit)
+    const normalized = payload.data.map(x => {\n      const rawTime = Number(x.t)\n      return { t: rawTime < 1e11 ? rawTime * 1000 : rawTime, o: Number(x.o), h: Number(x.h), l: Number(x.l), c: Number(x.c), v: Number(x.v || 0) }\n    }).filter(x => Number.isFinite(x.t) && [x.o,x.h,x.l,x.c].every(Number.isFinite))\n    const values = spec.factor === 1 ? normalized.sort((a,b) => a.t-b.t).slice(-limit) : aggregate(normalized, interval === '3m' ? 3 : 240, limit)
     return res.status(200).json({ values })
   } catch (error) { return res.status(502).json({ error: error.message || 'iTick request failed' }) }
 }
