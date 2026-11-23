@@ -564,7 +564,10 @@ export default function DeltaScannerTab({
   const [noPatWarn,   setNoPatWarn]   = useState(false)
   const [selPatterns,  setSelPatterns]  = useState(new Set()) // selected pattern name filter
   const [activeCategoryId, setActiveCategoryId] = useState('crypto')
-  const [customCryptoLimit, setCustomCryptoLimit] = useState(30)
+  const [customCryptoLimit, setCustomCryptoLimit] = useState(settings.customCryptoLimit || 30)
+  const [dailyCryptoTop, setDailyCryptoTop] = useState(() => {
+    try { return JSON.parse(localStorage.getItem('cs_daily_crypto_top_v1') || 'null') } catch { return null }
+  })
   const [creatingCustomList, setCreatingCustomList] = useState(false)
   const [customPanel, setCustomPanel] = useState('preset')
   const [selectedAssetIds, setSelectedAssetIds] = useState(() => new Set(settings.customPairs || []))
@@ -712,6 +715,31 @@ export default function DeltaScannerTab({
   }, [])
 
   useEffect(() => { loadSymbols() }, [loadSymbols])
+  // Daily snapshot of ranked 24h USDT turnover. Keep the last valid snapshot if the provider fails.
+  useEffect(() => {
+    if (!symbols.length || symFallback || loadingSyms) return
+    const now = Date.now()
+    if (dailyCryptoTop?.updatedAt && now - dailyCryptoTop.updatedAt < 24 * 60 * 60 * 1000) return
+    const ranked = [...symbols].filter(s=>s.symbol?.endsWith('USDT') && Number(s.volume)>0)
+      .sort((a,b)=>Number(b.volume)-Number(a.volume)).map(s=>s.symbol)
+    if (!ranked.length) return
+    const snapshot = {updatedAt:now,symbols:ranked}
+    setDailyCryptoTop(snapshot)
+    try { localStorage.setItem('cs_daily_crypto_top_v1',JSON.stringify(snapshot)) } catch {}
+  }, [symbols,symFallback,loadingSyms,dailyCryptoTop?.updatedAt])
+  const rankedCryptoSymbols = useMemo(() => {
+    const ranked = dailyCryptoTop?.symbols || []
+    return ranked.length ? ranked : symbols.filter(s=>Number(s.volume)>0).sort((a,b)=>Number(b.volume)-Number(a.volume)).map(s=>s.symbol)
+  }, [dailyCryptoTop,symbols])
+  const applyCryptoPreset = count => {
+    setActiveCategoryId('crypto')
+    setCustomCryptoLimit(count)
+    const pairs=rankedCryptoSymbols.slice(0,count)
+    setSelectedAssetIds(new Set(pairs))
+    update({customCryptoLimit:count,customPairs:pairs,activeCustomListName:'',
+      selectedAssetGroupIds:[]})
+  }
+
 
   // ── Active patterns ──────────────────────────────────────────────────────────
   const activePatterns = useMemo(() => {
@@ -1219,7 +1247,7 @@ export default function DeltaScannerTab({
       }}>
         {SCAN_MODES.map(m => {
           const isCustom = m.id === 'custom'
-          const customCount = isCustom ? selectedAssetIds.size : 0
+          const customCount = isCustom && customPanel==='preset' && activeCategoryId==='crypto' && !settings.activeCustomListName ? (settings.customCryptoLimit || customCryptoLimit) : null
           return (
             <button key={m.id} onClick={() => {
               if (isCustom) {
@@ -1241,7 +1269,7 @@ export default function DeltaScannerTab({
               flexShrink:0, whiteSpace:'nowrap', transition:'all .15s',
             }}>
               <span style={{fontSize:12}}>{m.icon}</span> {m.label}
-              {isCustom && customCount > 0 && (
+              {isCustom && customCount != null && customCount > 0 && (
                 <span style={{
                   fontSize:9, fontWeight:800, padding:'1px 5px', borderRadius:8,
                   background: scanMode==='custom' ? 'rgba(179,136,255,0.25)' : 'var(--bg3)',
@@ -1353,7 +1381,7 @@ export default function DeltaScannerTab({
           {/* One compact category row: tap a preset or market to browse its assets. */}
           <div style={{display:'flex',gap:6,overflowX:'auto',paddingBottom:8,marginBottom:8,WebkitOverflowScrolling:'touch'}}>
             {[30,100,250,500].map(count=>(
-              <button key={count} onClick={()=>{setActiveCategoryId('crypto');setCustomCryptoLimit(count);setSelectedAssetIds(prev=>new Set([...prev].filter(s=>s.startsWith('STOCK:')||s.startsWith('ITICK:')).concat(symbols.slice(0,count).map(s=>s.symbol))))}}
+              <button key={count} onClick={()=>applyCryptoPreset(count)}
                 style={{flexShrink:0,padding:'8px 11px',borderRadius:8,cursor:'pointer',fontSize:11,fontWeight:700,
                   border:activeCategoryId==='crypto'&&customCryptoLimit===count?'1.5px solid var(--green)':'1px solid var(--border)',
                   background:activeCategoryId==='crypto'&&customCryptoLimit===count?'var(--green-dim)':'var(--bg2)',
@@ -1376,7 +1404,7 @@ export default function DeltaScannerTab({
           </div>
           <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fill,minmax(105px,1fr))',gap:6,maxHeight:210,overflowY:'auto',marginBottom:10}}>
             {(activeCategoryId==='crypto'
-              ? symbols.slice(0,customCryptoLimit).map(s=>({id:s.symbol,symbol:s.symbol,scanSymbol:s.symbol}))
+              ? rankedCryptoSymbols.slice(0,customCryptoLimit).map(symbol=>({id:symbol,symbol,scanSymbol:symbol}))
               : (activeAssetGroup?.assets||[])).map(asset=>{
               const key=asset.scanSymbol || asset.id
               const chosen=selectedAssetIds.has(key)
@@ -1394,7 +1422,7 @@ export default function DeltaScannerTab({
           </div>
           <div style={{display:'flex',gap:6,justifyContent:'flex-end',marginBottom:10}}>
             <button onClick={()=>{
-              const keys=(activeCategoryId==='crypto'?symbols.slice(0,customCryptoLimit).map(s=>s.symbol):(activeAssetGroup?.assets||[]).map(a=>a.scanSymbol)).filter(Boolean)
+              const keys=(activeCategoryId==='crypto'?rankedCryptoSymbols.slice(0,customCryptoLimit):(activeAssetGroup?.assets||[]).map(a=>a.scanSymbol)).filter(Boolean)
               setSelectedAssetIds(prev=>new Set([...prev,...keys]))
             }} style={{padding:'7px 10px',borderRadius:7,border:'1px solid var(--green2)',background:'var(--green-dim)',color:'var(--green)',cursor:'pointer',fontSize:10}}>Select Visible</button>
             <button onClick={()=>{
