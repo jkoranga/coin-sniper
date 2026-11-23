@@ -54,12 +54,12 @@ export async function fetchCandles(symbol, interval = '15m', limit = 60, ticker 
       const res = await fetch(base + path, { signal: AbortSignal.timeout(8000) })
       if (!res.ok) continue
       const data = await res.json()
+      if (!Array.isArray(data) || !data.length) continue
       const candles = data.map(([t, o, h, l, c, v]) => ({
         time: t, open: parseFloat(o), high: parseFloat(h), low: parseFloat(l),
         close: parseFloat(c), volume: parseFloat(v),
       }))
-      if (!Array.isArray(data) || !data.length) continue
-      if (candles.some(c => !Number.isFinite(c.time) || ![c.open,c.high,c.low,c.close,c.volume].every(Number.isFinite))) continue
+      if (candles.some(c => !Number.isFinite(c.time) || ![c.open,c.high,c.low,c.close,c.volume].every(Number.isFinite) || c.high < Math.max(c.open,c.close,c.low) || c.low > Math.min(c.open,c.close,c.high))) continue
       return decorateCandles(candles, ticker)
     } catch { /* try next mirror */ }
   }
