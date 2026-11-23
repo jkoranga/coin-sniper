@@ -571,6 +571,11 @@ export default function DeltaScannerTab({
   const [showCustomPicker, setShowCustomPicker] = useState(false)
   const [manualAssetList, setManualAssetList] = useState('')
   const [manualAssetError, setManualAssetError] = useState('')
+  const [assetSearch, setAssetSearch] = useState('')
+  const [cachedAssetSymbols, setCachedAssetSymbols] = useState(() => {
+    try { return JSON.parse(localStorage.getItem('cs_custom_asset_catalog_v1') || '[]') } catch { return [] }
+  })
+
   const [customListName, setCustomListName] = useState(settings.activeCustomListName || 'My Custom List')
   const [listNameError, setListNameError] = useState('')
   const [deleteListName, setDeleteListName] = useState(null)
@@ -619,6 +624,28 @@ export default function DeltaScannerTab({
     })
     return [...builtIns, ...saved.filter(group => !DEFAULT_GROUPS.some(def => def.id === group.id))]
   }, [settings.assetGroups])
+  const assetCatalog = useMemo(() => {
+    const entries = [
+      ...cachedAssetSymbols.map(symbol => ({symbol, label:symbol})),
+      ...symbols.map(item => ({symbol:item.symbol, label:item.symbol})),
+      ...assetGroups.flatMap(group => (group.assets||[]).filter(item=>item.scanSymbol).map(item=>({
+        symbol:item.scanSymbol,label:item.symbol || item.scanSymbol,market:group.name,
+      }))),
+    ]
+    const unique = new Map()
+    entries.forEach(item=>{if(item.symbol)unique.set(item.symbol.toUpperCase(),item)})
+    return [...unique.values()].sort((a,b)=>a.label.localeCompare(b.label)||a.symbol.localeCompare(b.symbol))
+  }, [cachedAssetSymbols,symbols,assetGroups])
+  useEffect(() => {
+    const known = [...new Set(assetCatalog.map(item=>item.symbol))].slice(0,2000)
+    try { localStorage.setItem('cs_custom_asset_catalog_v1',JSON.stringify(known)) } catch {}
+  }, [assetCatalog])
+  const matchingAssets = useMemo(() => {
+    const query=assetSearch.trim().toUpperCase()
+    if(!query)return []
+    return assetCatalog.filter(item=>item.symbol.toUpperCase().includes(query)||item.label.toUpperCase().includes(query)||item.market?.toUpperCase().includes(query)).slice(0,80)
+  },[assetSearch,assetCatalog])
+
   const activeAssetGroup = activeCategoryId === '__all__'
     ? { id:'__all__', name:'All Categories', assets:assetGroups.flatMap(group => group.assets || []) }
     : assetGroups.find(group => group.id === activeCategoryId) || assetGroups[0]
@@ -1335,6 +1362,24 @@ export default function DeltaScannerTab({
             }} style={{padding:'7px 10px',borderRadius:7,border:'1px solid var(--border)',background:'var(--bg2)',color:'var(--text2)',cursor:'pointer',fontSize:10}}>Clear Visible</button>
           </div>
           </>}
+          {customPanel==='lists' && <div style={{padding:10,border:'1px solid var(--border)',borderRadius:9,marginBottom:10,background:'var(--bg2)'}}>
+            <div style={{fontSize:11,fontWeight:800,marginBottom:6}}>Search scanner assets · A–Z</div>
+            <input aria-label="Search assets to add to custom list" value={assetSearch}
+              onChange={e=>setAssetSearch(e.target.value)} placeholder="Search BTC, ETH, AAPL, Gold..."
+              style={{width:'100%',boxSizing:'border-box',padding:'9px 10px',borderRadius:8,border:'1px solid var(--border)',background:'var(--bg1)',color:'var(--text)',fontSize:12}}/>
+            {assetSearch.trim() && <div style={{maxHeight:215,overflowY:'auto',marginTop:7,display:'grid',gap:5}}>
+              {matchingAssets.length===0 && <div style={{fontSize:10,color:'var(--text3)'}}>No cached scanner asset found. You can paste its symbol below.</div>}
+              {matchingAssets.map(asset=><button key={asset.symbol}
+                onClick={()=>setSelectedAssetIds(prev=>{const next=new Set(prev);if(next.has(asset.symbol))next.delete(asset.symbol);else next.add(asset.symbol);return next})}
+                style={{display:'flex',justifyContent:'space-between',alignItems:'center',gap:8,padding:'8px 10px',borderRadius:7,cursor:'pointer',
+                  border:selectedAssetIds.has(asset.symbol)?'1px solid var(--green2)':'1px solid var(--border)',
+                  background:selectedAssetIds.has(asset.symbol)?'var(--green-dim)':'var(--bg1)',color:'var(--text)',fontSize:11,textAlign:'left'}}>
+                <span>{asset.label} <span style={{opacity:.6}}>{asset.market||''}</span></span>
+                <span style={{color:selectedAssetIds.has(asset.symbol)?'var(--green)':'var(--text2)',fontWeight:800}}>{selectedAssetIds.has(asset.symbol)?'✓ Added':'+ Add'}</span>
+              </button>)}
+            </div>}
+            <div style={{fontSize:10,color:'var(--text3)',marginTop:7}}>Available scanner symbols are cached on this device for fast alphabetical search. Save the named list to retain your selection in account settings.</div>
+          </div>}
           {customPanel==='lists' && <>
           <div style={{padding:10,border:'1px solid var(--border)',borderRadius:9,marginBottom:10,background:'var(--bg2)'}}>
             <div style={{fontSize:11,fontWeight:800,marginBottom:6}}>+ Add your own symbol list</div>
