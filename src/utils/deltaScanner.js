@@ -12,7 +12,17 @@ const INTERVAL_MAP = {
 }
 
 // ── Fetch all active USDT perpetuals ─────────────────────────────────────────
+let symbolCache = null
+let symbolCacheExpiresAt = 0
+let symbolRequest = null
 export async function fetchDeltaSymbols() {
+  if (symbolCache && Date.now() < symbolCacheExpiresAt) return symbolCache
+  if (symbolRequest) return symbolRequest
+  symbolRequest = loadDeltaSymbols()
+  try { return await symbolRequest } finally { symbolRequest = null }
+}
+
+async function loadDeltaSymbols() {
   // Bybit /v5/market/tickers has live price + volume (turnover24h) for all linear perps
   const URLS = [
     `${BYBIT}/v5/market/tickers?category=linear`,
@@ -44,13 +54,19 @@ export async function fetchDeltaSymbols() {
           .sort((a, b) => b.volume - a.volume)
         if (products.length > 0) {
           console.log(`[Sniper] Bybit tickers: ${products.length} symbols`)
-          return { symbols: products, fallback: false, error: null }
+          const result = { symbols: products, fallback: false, error: null }
+          symbolCache = result
+          symbolCacheExpiresAt = Date.now() + 60_000
+          return result
         }
       }
 
       // Proxy/fallback shape: { products:[...] }
       if (Array.isArray(data.products) && data.products.length > 0) {
-        return { symbols: data.products, fallback: data.fallback || true, error: null }
+        const result = { symbols: data.products, fallback: Boolean(data.fallback), error: null }
+        symbolCache = result
+        symbolCacheExpiresAt = Date.now() + 30_000
+        return result
       }
     } catch (e) {
       console.warn('[Sniper] Symbol fetch failed:', url, e.message)
