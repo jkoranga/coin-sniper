@@ -767,34 +767,44 @@ export default function DeltaScannerTab({
     const provider = String(symbol).startsWith('STOCK:') ? 'stock' : String(symbol).startsWith('ITICK:') ? 'commodity' : 'crypto'
     const pause = providerPauseRef.current[provider]
     if (pause && Date.now() < pause.until) throw new Error(pause.reason)
-    const key = `${symbol}__${tf}__${limit}`
+    const key = `${symbol}__${tf}`
+    const requestedLimit = Math.max(3, Number(limit) || 60)
     const now = Date.now()
     const hit = cacheRef.current[key]
-    if (hit && now < hit.expiresAt) {
+    if (hit && now < hit.expiresAt && hit.candles.length >= requestedLimit) {
       const change24h = Number(ticker?.dailyChangePct ?? ticker?.priceChangePercent)
       if (Number.isFinite(change24h)) for (const candle of hit.candles) candle.change24h = change24h
-      return hit.candles
+      return hit.candles.slice(-requestedLimit)
     }
     // Share simultaneous requests for the same symbol/timeframe across patterns.
-    if (inflightRef.current.has(key)) return inflightRef.current.get(key)
+    if (inflightRef.current.has(key)) {
+      const pending = inflightRef.current.get(key)
+      if (pending.limit >= requestedLimit) {
+        const candles = await pending.promise
+        return candles?.slice(-requestedLimit) || null
+      }
+      // A larger request is needed; do not reuse an undersized candle response.
+    }
     const request = (async () => {
       // Delta perpetuals use the Bybit feed; only stocks/metals use the generic proxy.
+      const fetchLimit = Math.max(requestedLimit, hit?.candles?.length || 0)
       const candles = (String(symbol).startsWith('STOCK:') || String(symbol).startsWith('ITICK:'))
-        ? await fetchCandles(symbol, tf, limit, ticker)
-        : await fetchDeltaCandles(symbol, tf, limit, ticker)
+        ? await fetchCandles(symbol, tf, fetchLimit, ticker)
+        : await fetchDeltaCandles(symbol, tf, fetchLimit, ticker)
       const ttlMap = {'1m':60_000,'2m':120_000,'3m':180_000,'5m':300_000,'10m':600_000}
       const ttl = ttlMap[settingsRef.current.cacheTtl || '3m'] || 180_000
       if (candles) cacheRef.current[key] = { candles, expiresAt: Date.now() + ttl }
       return candles
     })()
-    inflightRef.current.set(key, request)
-    try { return await request } catch (error) {
+    const inflightEntry = {promise:request,limit:Math.max(requestedLimit,hit?.candles?.length||0)}
+    inflightRef.current.set(key, inflightEntry)
+    try { const candles = await request; return candles?.slice(-requestedLimit) || null } catch (error) {
       const message = String(error?.message || 'Market data unavailable')
       if (provider !== 'crypto' && /not configured|API_KEY|429|rate limit|credits|quota/i.test(message)) {
         providerPauseRef.current[provider] = { until: Date.now() + 120_000, reason: message }
       }
       throw error
-    } finally { inflightRef.current.delete(key) }
+    } finally { if (inflightRef.current.get(key) === inflightEntry) inflightRef.current.delete(key) }
   }
 
   // ── Dedup ────────────────────────────────────────────────────────────────────
