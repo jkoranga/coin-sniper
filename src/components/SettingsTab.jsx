@@ -263,7 +263,7 @@ function ScanSettingsSection({ settings, update, saveNowWithPatch }) {
           <small>How many coins to scan per run</small>
         </div>
         <div style={{display:'flex',gap:4,flexWrap:'wrap',justifyContent:'flex-end'}}>
-          {[['top30','Top 30'],['top100','Top 100'],['top200','Top 200'],['top500','Top 500'],['all','All']].map(([s,l])=>(
+          {[['top30','Top 30'],['top100','Top 100'],['top200','Top 200'],['top250','Top 250'],['top500','Top 500'],['all','All']].map(([s,l])=>(
             <button key={s} className={`btn-small ${settings.symbolSet===s?'active':''}`}
               onClick={()=>set('symbolSet',s)}
               style={settings.symbolSet===s?{borderColor:'var(--accent)',color:'var(--accent)',background:'var(--accent-dim)'}:{}}>
@@ -287,6 +287,14 @@ function ScanSettingsSection({ settings, update, saveNowWithPatch }) {
         </div>
       </div>
 
+      { [['scanOnLoad','Scan on App Load','First scan after 3 seconds'],['autoScan','Automatic Scan','Repeat after selected interval'],['loopScan','Loop Scan','Repeat immediately after completion']].map(([key,label,hint]) => (
+        <div className="setting-row" key={key}>
+          <div className="row-label"><span>{label}</span><small>{hint}</small></div>
+          <div style={{display:'flex',gap:4}}>
+            {[true,false].map(v=><button key={String(v)} className={`btn-small ${Boolean(settings[key])===v?'active':''}`} onClick={()=>update({[key]:v,...(v&&key==='autoScan'?{loopScan:false}:v&&key==='loopScan'?{autoScan:false}:{})})}>{v?'ON':'OFF'}</button>)}
+          </div>
+        </div>
+      ))}
       {/* Scan Interval */}
       <div className="setting-row">
         <div className="row-label">
@@ -294,7 +302,7 @@ function ScanSettingsSection({ settings, update, saveNowWithPatch }) {
           <small>Wait time between auto-scan cycles</small>
         </div>
         <div style={{display:'flex',gap:4,flexWrap:'wrap',justifyContent:'flex-end'}}>
-          {['15s','30s','1m','3m','5m','15m','30m','1h'].map(si=>(
+          {['5s','10s','15s','30s','1m','3m','5m','15m','30m','1h'].map(si=>(
             <button key={si} className={`btn-small ${settings.scanInterval===si?'active':''}`}
               onClick={()=>set('scanInterval',si)}
               style={settings.scanInterval===si?{borderColor:'var(--green2)',color:'var(--green)',background:'var(--green-dim)'}:{}}>
@@ -324,8 +332,8 @@ function ScanSettingsSection({ settings, update, saveNowWithPatch }) {
       {/* Volume Filter */}
       <div className="setting-row">
         <div className="row-label">
-          <span>Default Volume Filter</span>
-          <small>Minimum 24h volume to show in results</small>
+          <span>Global Volume Filter</span>
+          <small>Minimum 24h volume across all timeframes and dashboard results</small>
         </div>
         <div style={{display:'flex',gap:4,flexWrap:'wrap',justifyContent:'flex-end'}}>
           {VOLUME_FILTERS.map(f=>(
@@ -383,10 +391,10 @@ function ScanSettingsSection({ settings, update, saveNowWithPatch }) {
           <small>Parallel symbol fetches — higher = faster but more memory</small>
         </div>
         <div style={{display:'flex',gap:4,flexWrap:'wrap',justifyContent:'flex-end'}}>
-          {[['10','10'],['20','20'],['30','30 (default)'],['50','50'],['100','100']].map(([v,l])=>(
-            <button key={v} className={`btn-small ${String(settings.concurrency||30)===v?'active':''}`}
+          {[['2','2'],['4','4'],['6','6'],['8','8'],['10','10'],['12','12 (Adaptive)']].map(([v,l])=>(
+            <button key={v} className={`btn-small ${String(Math.min(12,settings.concurrency||12))===v?'active':''}`}
               onClick={()=>set('concurrency', parseInt(v))}
-              style={String(settings.concurrency||30)===v?{borderColor:'var(--lime)',color:'var(--lime)',background:'var(--lime-dim)'}:{}}>
+              style={String(Math.min(12,settings.concurrency||12))===v?{borderColor:'var(--lime)',color:'var(--lime)',background:'var(--lime-dim)'}:{}}>
               {l}
             </button>
           ))}
@@ -400,10 +408,10 @@ function ScanSettingsSection({ settings, update, saveNowWithPatch }) {
           <small>How long fetched candles are reused before re-fetching</small>
         </div>
         <div style={{display:'flex',gap:4,flexWrap:'wrap',justifyContent:'flex-end'}}>
-          {[['1m','1m'],['2m','2m'],['3m','3m (default)'],['5m','5m'],['10m','10m']].map(([v,l])=>(
-            <button key={v} className={`btn-small ${(settings.cacheTtl||'3m')===v?'active':''}`}
+          {[['1m','1m (default)'],['2m','2m'],['3m','3m'],['5m','5m'],['10m','10m']].map(([v,l])=>(
+            <button key={v} className={`btn-small ${(settings.cacheTtl||'1m')===v?'active':''}`}
               onClick={()=>set('cacheTtl',v)}
-              style={(settings.cacheTtl||'3m')===v?{borderColor:'var(--blue)',color:'var(--blue)',background:'rgba(74,144,255,0.1)'}:{}}>
+              style={(settings.cacheTtl||'1m')===v?{borderColor:'var(--blue)',color:'var(--blue)',background:'rgba(74,144,255,0.1)'}:{}}>
               {l}
             </button>
           ))}
