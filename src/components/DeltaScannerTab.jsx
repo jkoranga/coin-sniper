@@ -566,6 +566,7 @@ export default function DeltaScannerTab({
   const [activeCategoryId, setActiveCategoryId] = useState('crypto')
   const [customCryptoLimit, setCustomCryptoLimit] = useState(30)
   const [creatingCustomList, setCreatingCustomList] = useState(false)
+  const [customPanel, setCustomPanel] = useState('preset')
   const [selectedAssetIds, setSelectedAssetIds] = useState(() => new Set(settings.customPairs || []))
   const [showCustomPicker, setShowCustomPicker] = useState(false)
   const [manualAssetList, setManualAssetList] = useState('')
@@ -586,6 +587,7 @@ export default function DeltaScannerTab({
       customPairs: pairs, selectedAssetGroupIds: assetGroups.filter(g=>(g.assets||[]).some(a=>selectedAssetIds.has(a.scanSymbol||a.id))).map(g=>g.id) })
     setListNameError('')
     setCreatingCustomList(false)
+    setShowCustomPicker(false)
   }
 
   const deleteNamedList = name => {
@@ -1194,6 +1196,7 @@ export default function DeltaScannerTab({
               if (isCustom) {
                 setSelectedAssetIds(new Set(settingsRef.current.customPairs || []))
                 setActiveCategoryId('crypto')
+                setCustomPanel('preset')
                 setTfSetting('scanMode', 'custom')
                 setShowCustomPicker(v => !v)
               } else {
@@ -1221,26 +1224,30 @@ export default function DeltaScannerTab({
             </button>
           )
         })}
-        <button title="Create new custom list" aria-label="Create new custom list"
+        <button title="Create or manage custom lists" aria-label="Create new custom list"
           onClick={()=>{
             setTfSetting('scanMode','custom')
             setShowCustomPicker(true)
             setCreatingCustomList(true)
+            setCustomPanel('lists')
             setCustomListName('')
             setSelectedAssetIds(new Set())
             setListNameError('')
           }}
           style={{flexShrink:0,padding:'5px 11px',borderRadius:20,cursor:'pointer',fontSize:16,fontWeight:800,
             border:'1.5px solid var(--green2)',background:'var(--green-dim)',color:'var(--green)'}}>＋</button>
+        {settings.activeCustomListName && <button onClick={()=>{setTfSetting('scanMode','custom');setCustomPanel('lists');setCreatingCustomList(false);setShowCustomPicker(true);setCustomListName(settings.activeCustomListName);setSelectedAssetIds(new Set(settings.customPairs||[]))}}
+          style={{flexShrink:0,maxWidth:165,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap',padding:'5px 10px',borderRadius:20,border:'1px solid var(--green2)',background:'var(--green-dim)',color:'var(--green)',fontSize:11,cursor:'pointer'}} title={settings.activeCustomListName}>{settings.activeCustomListName}</button>}
       </div>
 
       {/* Custom asset category picker */}
       {scanMode === 'custom' && showCustomPicker && (
         <div style={{marginBottom:12,padding:12,borderRadius:12,background:'var(--bg1)',border:'1px solid var(--border)'}}>
           <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',gap:8,marginBottom:10}}>
-            <div style={{fontSize:12,fontWeight:800,color:PU}}>Choose Asset Category</div>
+            <div style={{fontSize:12,fontWeight:800,color:PU}}>{customPanel==='lists'?'My Custom Lists':'Choose Asset Category'}</div>
             <span style={{fontSize:10,color:'var(--text3)',fontFamily:'var(--mono)'}}>{(settings.customPairs||[]).length} selected</span>
           </div>
+          {customPanel==='lists' && <>
           <div style={{padding:10,borderRadius:9,border:'1px solid var(--border)',background:'var(--bg2)',marginBottom:10}}>
             <div style={{fontSize:11,fontWeight:800,marginBottom:7}}>My Saved Lists · Rename / Save</div>
             <div style={{display:'flex',gap:6,flexWrap:'wrap'}}>
@@ -1255,7 +1262,7 @@ export default function DeltaScannerTab({
               {savedCustomLists.map(item=><div key={item.name} style={{display:'inline-flex',alignItems:'center',border:'1px solid var(--border)',borderRadius:7,overflow:'hidden'}}>
                 <button onClick={()=>{
                   setCreatingCustomList(false);setCustomListName(item.name);setSelectedAssetIds(new Set(item.pairs||[]))
-                  update({customPairs:item.pairs||[],activeCustomListName:item.name});setListNameError('')
+                  update({customPairs:item.pairs||[],activeCustomListName:item.name});setListNameError('');setShowCustomPicker(false)
                 }} style={{padding:'6px 9px',cursor:'pointer',fontSize:10,border:0,
                   background:settings.activeCustomListName===item.name?'var(--green-dim)':'var(--bg1)',color:'var(--text)'}}>
                   {item.name} ({(item.pairs||[]).length})
@@ -1273,6 +1280,8 @@ export default function DeltaScannerTab({
             </div>}
             {listNameError && <div role="alert" style={{color:RD,fontSize:10,marginTop:6}}>{listNameError}</div>}
           </div>
+          </>}
+          {customPanel==='preset' && <>
           {/* One compact category row: tap a preset or market to browse its assets. */}
           <div style={{display:'flex',gap:6,overflowX:'auto',paddingBottom:8,marginBottom:8,WebkitOverflowScrolling:'touch'}}>
             {[30,100,250,500].map(count=>(
@@ -1325,6 +1334,8 @@ export default function DeltaScannerTab({
               setSelectedAssetIds(prev=>new Set([...prev].filter(s=>!keys.has(s))))
             }} style={{padding:'7px 10px',borderRadius:7,border:'1px solid var(--border)',background:'var(--bg2)',color:'var(--text2)',cursor:'pointer',fontSize:10}}>Clear Visible</button>
           </div>
+          </>}
+          {customPanel==='lists' && <>
           <div style={{padding:10,border:'1px solid var(--border)',borderRadius:9,marginBottom:10,background:'var(--bg2)'}}>
             <div style={{fontSize:11,fontWeight:800,marginBottom:6}}>+ Add your own symbol list</div>
             <textarea value={manualAssetList} onChange={e=>{setManualAssetList(e.target.value);setManualAssetError('')}}
@@ -1344,20 +1355,22 @@ export default function DeltaScannerTab({
             </div>
             {manualAssetError && <div role="alert" style={{fontSize:10,color:RD,marginTop:6}}>{manualAssetError}</div>}
           </div>
+          </>}
           <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',gap:8,marginTop:11,flexWrap:'wrap'}}>
             <span style={{fontSize:9,color:'var(--text3)'}}>Selected: {selectedAssetIds.size} · Gold/Silver via iTick; other futures require a verified contract feed.</span>
             <div style={{display:'flex',gap:6,flexWrap:'wrap'}}>
-              <button onClick={() => {
+              {customPanel==='preset' && <button onClick={() => {
                 const allKeys = assetGroups.flatMap(g => (g.assets || []).filter(a => a.scanSymbol).map(a => a.scanSymbol || a.id))
                 const allSelected = allKeys.length > 0 && allKeys.every(key => selectedAssetIds.has(key))
                 setSelectedAssetIds(allSelected ? new Set() : new Set(allKeys))
               }} style={{padding:'8px 10px',borderRadius:8,cursor:'pointer',fontSize:10,fontWeight:800,
                 border:'1px solid var(--border)',background:'var(--bg2)',color:'var(--text2)'}}>
                 {assetGroups.flatMap(g => (g.assets || []).filter(a => a.scanSymbol).map(a => a.scanSymbol || a.id)).length > 0 && assetGroups.flatMap(g => (g.assets || []).filter(a => a.scanSymbol).map(a => a.scanSymbol || a.id)).every(key => selectedAssetIds.has(key)) ? 'Deselect All' : 'Select All'}
-              </button>
+              </button>}
               <button onClick={()=>{
               const pairs=[...selectedAssetIds].filter(Boolean)
               update({customPairs:pairs,...(!creatingCustomList && settings.activeCustomListName ? {namedCustomLists:savedCustomLists.map(item=>item.name===settings.activeCustomListName?{...item,pairs}:item)} : {}),selectedAssetGroupIds:assetGroups.filter(g=>(g.assets||[]).some(a=>selectedAssetIds.has(a.scanSymbol||a.id))).map(g=>g.id)})
+              if(customPanel==='lists' && creatingCustomList) {setListNameError('Name and save this new list first.');return}
             }} style={{padding:'8px 12px',borderRadius:8,cursor:'pointer',fontSize:10,fontWeight:800,
               border:'1px solid var(--green2)',background:'var(--green-dim)',color:'var(--green)'}}>
               Apply Selection · {selectedAssetIds.size}
