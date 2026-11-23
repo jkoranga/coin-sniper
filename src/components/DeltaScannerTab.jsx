@@ -1323,7 +1323,7 @@ export default function DeltaScannerTab({
               <button aria-label={'Delete '+item.name} title={'Delete '+item.name} onClick={()=>setDeleteListName(item.name)}
                 style={{padding:'6px 8px',border:0,borderLeft:'1px solid var(--border)',background:'var(--red-dim)',color:RD,cursor:'pointer',fontSize:11}}>✕</button>
             </div>)}
-          </div>}
+          </div>
           <div style={{marginBottom:9,padding:'8px 9px',borderRadius:9,background:'var(--bg2)',border:'1px solid var(--border)'}}>
             <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',gap:8,marginBottom:6}}>
               <span style={{fontSize:10,fontWeight:800,color:'var(--text2)'}}>Assets in {creatingCustomList?'New List':(customListName||'Current List')}</span>
