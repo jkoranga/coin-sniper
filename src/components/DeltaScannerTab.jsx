@@ -573,7 +573,6 @@ export default function DeltaScannerTab({
   const [manualAssetError, setManualAssetError] = useState('')
   const [assetSearch, setAssetSearch] = useState('')
   const [showPasteAssets, setShowPasteAssets] = useState(false)
-  const [showListManager, setShowListManager] = useState(false)
   const [cachedAssetSymbols, setCachedAssetSymbols] = useState(() => {
     try { return JSON.parse(localStorage.getItem('cs_custom_asset_catalog_v1') || '[]') } catch { return [] }
   })
@@ -1281,7 +1280,6 @@ export default function DeltaScannerTab({
             setSelectedAssetIds(new Set())
             setAssetSearch('')
             setShowPasteAssets(false)
-            setShowListManager(false)
             setListNameError('')
           }}
           style={{flexShrink:0,padding:'5px 11px',borderRadius:20,cursor:'pointer',fontSize:16,fontWeight:800,
@@ -1307,14 +1305,12 @@ export default function DeltaScannerTab({
           </div>
           <div style={{display:'flex',alignItems:'center',gap:7,flexWrap:'wrap',marginBottom:8}}>
             <span style={{fontSize:11,color:'var(--text2)',flex:'1 1 90px'}}>{selectedAssetIds.size} assets selected</span>
-            <button onClick={()=>setShowListManager(v=>!v)} style={{padding:'6px 9px',borderRadius:7,border:'1px solid var(--border)',background:'var(--bg2)',color:'var(--text2)',fontSize:10,cursor:'pointer'}}>
-              Saved Lists ({savedCustomLists.length}) {showListManager?'▴':'▾'}
-            </button>
+            <span style={{fontSize:10,fontWeight:800,color:'var(--text2)'}}>Saved Lists ({savedCustomLists.length})</span>
             <button onClick={()=>setShowPasteAssets(v=>!v)} style={{padding:'6px 9px',borderRadius:7,border:'1px solid var(--border)',background:'var(--bg2)',color:'var(--text2)',fontSize:10,cursor:'pointer'}}>
               Paste Symbols {showPasteAssets?'▴':'▾'}
             </button>
           </div>
-          {showListManager && <div style={{display:'flex',gap:5,flexWrap:'wrap',marginBottom:9}}>
+          <div style={{display:'flex',gap:5,flexWrap:'wrap',marginBottom:9}}>
             {savedCustomLists.length===0 && <span style={{fontSize:11,color:'var(--text3)'}}>No saved lists yet</span>}
             {savedCustomLists.map(item=><div key={item.name} style={{display:'inline-flex',alignItems:'center',border:'1px solid var(--border)',borderRadius:7,overflow:'hidden'}}>
               <button onClick={()=>{
@@ -1328,6 +1324,23 @@ export default function DeltaScannerTab({
                 style={{padding:'6px 8px',border:0,borderLeft:'1px solid var(--border)',background:'var(--red-dim)',color:RD,cursor:'pointer',fontSize:11}}>✕</button>
             </div>)}
           </div>}
+          <div style={{marginBottom:9,padding:'8px 9px',borderRadius:9,background:'var(--bg2)',border:'1px solid var(--border)'}}>
+            <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',gap:8,marginBottom:6}}>
+              <span style={{fontSize:10,fontWeight:800,color:'var(--text2)'}}>Assets in {creatingCustomList?'New List':(customListName||'Current List')}</span>
+              <span style={{fontSize:10,color:'var(--green)',fontWeight:800}}>{selectedAssetIds.size}</span>
+            </div>
+            {selectedAssetIds.size===0
+              ? <span style={{fontSize:10,color:'var(--text3)'}}>Search or paste symbols to add assets.</span>
+              : <div style={{display:'flex',gap:5,flexWrap:'wrap',maxHeight:110,overflowY:'auto'}}>
+                {[...selectedAssetIds].sort((a,b)=>a.localeCompare(b)).map(symbol=><button key={symbol}
+                  title={'Remove '+symbol} aria-label={'Remove '+symbol}
+                  onClick={()=>setSelectedAssetIds(prev=>{const next=new Set(prev);next.delete(symbol);return next})}
+                  style={{display:'inline-flex',alignItems:'center',gap:6,padding:'5px 7px',borderRadius:6,cursor:'pointer',
+                    border:'1px solid var(--border)',background:'var(--bg1)',color:'var(--text)',fontSize:10}}>
+                  {symbol} <span style={{color:RD,fontWeight:800}}>×</span>
+                </button>)}
+              </div>}
+          </div>
           {deleteListName && <div role="alertdialog" aria-label="Confirm delete custom list"
             style={{display:'flex',alignItems:'center',gap:8,flexWrap:'wrap',marginBottom:9,padding:8,borderRadius:7,border:'1px solid var(--red2)',background:'var(--red-dim)'}}>
             <span style={{fontSize:11,color:RD,flex:'1 1 150px'}}>Delete "{deleteListName}" permanently?</span>
