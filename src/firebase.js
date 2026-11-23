@@ -215,6 +215,7 @@ const SCAN_FIELDS = [
   'timeframe','scanInterval','symbolSet','customPairs','assetGroups','selectedAssetGroupIds',
   'scanMode','dedupInterval','volumeFilter','resultFilter',
   'patternsMode','autoScan','viewMode','scannerEnabled',
+  'scanOnLoad','loopScan','allAssetScope','concurrency','cacheTtl','defaultSort','defaultSortDir','defaultViewMode','defaultResultFilter','namedCustomLists','activeCustomListName','customCryptoLimit','customSelectionType',
 ]
 // Also includes TF-scoped keys: scanMode_15m, dedupInterval_1h, etc.
 
