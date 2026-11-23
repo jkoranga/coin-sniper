@@ -739,7 +739,7 @@ export default function DeltaScannerTab({
       const count = countBySet[cfg.symbolSet] || Infinity
       const crypto = symbols.slice(0, count)
       const mixed = cfg.allAssetScope === 'mixed'
-        ? [...new Set(cfg.customPairs || [])].filter(s => String(s).startsWith('STOCK:') || String(s).startsWith('ITICK:')).map(symbol => ({ symbol }))
+        ? [...new Set(assetGroups.flatMap(g => g.assets || []).map(a => a.scanSymbol).filter(s => s && (s.startsWith('STOCK:') || s.startsWith('ITICK:'))))].map(symbol => ({ symbol }))
         : []
       symList = [...crypto, ...mixed]
     }
@@ -888,7 +888,7 @@ export default function DeltaScannerTab({
       // Small 300ms breath between loop cycles, then immediately restart
       setTimeout(() => { if (loopRef.current) runScanRef.current(symOverride) }, 300)
     }
-  }, [activePatterns, symbols, timeframe, dedupInt]) // eslint-disable-line
+  }, [activePatterns, symbols, timeframe, dedupInt, assetGroups]) // eslint-disable-line
 
   // Keep runScan ref always current so effects/timers never call stale version
   const runScanRef = useRef(runScan)
@@ -1195,6 +1195,18 @@ export default function DeltaScannerTab({
           <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',gap:8,marginBottom:10}}>
             <div style={{fontSize:12,fontWeight:800,color:PU}}>Choose Asset Category</div>
             <span style={{fontSize:10,color:'var(--text3)',fontFamily:'var(--mono)'}}>{(settings.customPairs||[]).length} selected</span>
+          </div>
+          <div style={{display:'flex',gap:6,overflowX:'auto',paddingBottom:8,marginBottom:8}}>
+            {[30,100,250,500].map(count=>(
+              <button key={count} onClick={() => setSelectedAssetIds(prev => new Set([...prev, ...symbols.slice(0,count).map(s=>s.symbol)]))}
+                style={{flexShrink:0,padding:'7px 10px',borderRadius:8,border:'1px solid var(--border2)',background:'var(--bg2)',fontSize:11,fontWeight:700}}>
+                Crypto Top {count}
+              </button>
+            ))}
+            <button onClick={()=>setSelectedAssetIds(prev=>new Set([...prev,...assetGroups.flatMap(g=>g.assets||[]).map(a=>a.scanSymbol).filter(s=>s?.startsWith('STOCK:'))]))}
+              style={{flexShrink:0,padding:'7px 10px',borderRadius:8,border:'1px solid var(--border2)',background:'var(--bg2)',fontSize:11,fontWeight:700}}>Stocks</button>
+            <button onClick={()=>setSelectedAssetIds(prev=>new Set([...prev,...assetGroups.flatMap(g=>g.assets||[]).map(a=>a.scanSymbol).filter(s=>s?.startsWith('ITICK:'))]))}
+              style={{flexShrink:0,padding:'7px 10px',borderRadius:8,border:'1px solid var(--border2)',background:'var(--bg2)',fontSize:11,fontWeight:700}}>Commodity</button>
           </div>
           <div style={{display:'flex',gap:7,overflowX:'auto',paddingBottom:7,marginBottom:9}}>
             <button onClick={()=>setActiveCategoryId('__all__')} style={{
