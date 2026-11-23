@@ -1272,25 +1272,6 @@ export default function DeltaScannerTab({
             <button onClick={()=>setSelectedAssetIds(prev=>new Set([...prev,...assetGroups.flatMap(g=>g.assets||[]).map(a=>a.scanSymbol).filter(s=>s?.startsWith('ITICK:'))]))}
               style={{flexShrink:0,padding:'7px 10px',borderRadius:8,border:'1px solid var(--border2)',background:'var(--bg2)',fontSize:11,fontWeight:700}}>Commodity</button>
           </div>
-          <div style={{padding:10,border:'1px solid var(--border)',borderRadius:9,marginBottom:10,background:'var(--bg2)'}}>
-            <div style={{fontSize:11,fontWeight:800,marginBottom:6}}>+ Add your own symbol list</div>
-            <textarea value={manualAssetList} onChange={e=>{setManualAssetList(e.target.value);setManualAssetError('')}}
-              placeholder={'BTCUSDT, ETHUSDT, SOLUSDT\\nSTOCK:AAPL, STOCK:MSFT\\nITICK:XAUUSD'}
-              rows={3} style={{width:'100%',resize:'vertical',borderRadius:7,padding:9,background:'var(--bg1)',color:'var(--text)',border:'1px solid var(--border)',fontFamily:'var(--mono)',fontSize:11,boxSizing:'border-box'}}/>
-            <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',gap:8,marginTop:6,flexWrap:'wrap'}}>
-              <span style={{fontSize:10,color:'var(--text3)'}}>Comma, space or new line separated. Existing selections stay selected.</span>
-              <button onClick={()=>{
-                const tokens=manualAssetList.toUpperCase().split(/[\\s,;]+/).map(s=>s.trim()).filter(Boolean)
-                const invalid=tokens.filter(s=>!(/^[A-Z0-9]+(?:[._-][A-Z0-9]+)*$/.test(s) || /^(STOCK|ITICK):[A-Z0-9]+(?:[._-][A-Z0-9]+)*$/.test(s)))
-                if(invalid.length){setManualAssetError('Invalid symbols: '+invalid.slice(0,5).join(', '));return}
-                if(!tokens.length){setManualAssetError('Enter at least one symbol.');return}
-                setSelectedAssetIds(prev=>new Set([...prev,...tokens]))
-                setManualAssetList('')
-                setManualAssetError('')
-              }} style={{padding:'7px 12px',borderRadius:8,border:'1px solid var(--green2)',background:'var(--green-dim)',color:'var(--green)',fontSize:11,fontWeight:800,cursor:'pointer'}}>+ Add to Selection</button>
-            </div>
-            {manualAssetError && <div role="alert" style={{fontSize:10,color:RD,marginTop:6}}>{manualAssetError}</div>}
-          </div>
           <div style={{display:'flex',gap:7,overflowX:'auto',paddingBottom:7,marginBottom:9}}>
             <button onClick={()=>setActiveCategoryId('__all__')} style={{
               flexShrink:0,padding:'8px 11px',borderRadius:9,cursor:'pointer',whiteSpace:'nowrap',
@@ -1329,6 +1310,25 @@ export default function DeltaScannerTab({
               </div>
             </>
           )}
+          <div style={{padding:10,border:'1px solid var(--border)',borderRadius:9,marginBottom:10,background:'var(--bg2)'}}>
+            <div style={{fontSize:11,fontWeight:800,marginBottom:6}}>+ Add your own symbol list</div>
+            <textarea value={manualAssetList} onChange={e=>{setManualAssetList(e.target.value);setManualAssetError('')}}
+              placeholder={'BTCUSDT, ETHUSDT, SOLUSDT\\nSTOCK:AAPL, STOCK:MSFT\\nITICK:XAUUSD'}
+              rows={3} style={{width:'100%',resize:'vertical',borderRadius:7,padding:9,background:'var(--bg1)',color:'var(--text)',border:'1px solid var(--border)',fontFamily:'var(--mono)',fontSize:11,boxSizing:'border-box'}}/>
+            <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',gap:8,marginTop:6,flexWrap:'wrap'}}>
+              <span style={{fontSize:10,color:'var(--text3)'}}>Comma, space or new line separated. Existing selections stay selected.</span>
+              <button onClick={()=>{
+                const tokens=manualAssetList.toUpperCase().split(/[\\s,;]+/).map(s=>s.trim()).filter(Boolean)
+                const invalid=tokens.filter(s=>!(/^[A-Z0-9]+(?:[._-][A-Z0-9]+)*$/.test(s) || /^(STOCK|ITICK):[A-Z0-9]+(?:[._-][A-Z0-9]+)*$/.test(s)))
+                if(invalid.length){setManualAssetError('Invalid symbols: '+invalid.slice(0,5).join(', '));return}
+                if(!tokens.length){setManualAssetError('Enter at least one symbol.');return}
+                setSelectedAssetIds(prev=>new Set([...prev,...tokens]))
+                setManualAssetList('')
+                setManualAssetError('')
+              }} style={{padding:'7px 12px',borderRadius:8,border:'1px solid var(--green2)',background:'var(--green-dim)',color:'var(--green)',fontSize:11,fontWeight:800,cursor:'pointer'}}>+ Add to Selection</button>
+            </div>
+            {manualAssetError && <div role="alert" style={{fontSize:10,color:RD,marginTop:6}}>{manualAssetError}</div>}
+          </div>
           <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',gap:8,marginTop:11,flexWrap:'wrap'}}>
             <span style={{fontSize:9,color:'var(--text3)'}}>Selected: {selectedAssetIds.size} · Gold/Silver via iTick; other futures require a verified contract feed.</span>
             <div style={{display:'flex',gap:6,flexWrap:'wrap'}}>
