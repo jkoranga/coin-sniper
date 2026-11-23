@@ -273,6 +273,20 @@ function ScanSettingsSection({ settings, update, saveNowWithPatch }) {
         </div>
       </div>
 
+      {/* Asset universe used by the dashboard All mode. */}
+      <div className="setting-row">
+        <div className="row-label"><span>All Mode Assets</span><small>Choose which markets All scans. Saved with your account.</small></div>
+        <div style={{display:'flex',gap:6,flexWrap:'wrap',justifyContent:'flex-end'}}>
+          {[['crypto','Crypto Only'],['mixed','Crypto + Stocks + Commodity']].map(([value,label])=>(
+            <button key={value} className={`btn-small ${(settings.allAssetScope || 'crypto')===value?'active':''}`}
+              onClick={()=>set('allAssetScope',value)}
+              style={(settings.allAssetScope || 'crypto')===value?{borderColor:'var(--accent)',color:'var(--accent)',background:'var(--accent-dim)'}:{}}>
+              {label}
+            </button>
+          ))}
+        </div>
+      </div>
+
       {/* Scan Interval */}
       <div className="setting-row">
         <div className="row-label">
