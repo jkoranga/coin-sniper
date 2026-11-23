@@ -564,6 +564,7 @@ export default function DeltaScannerTab({
   const [noPatWarn,   setNoPatWarn]   = useState(false)
   const [selPatterns,  setSelPatterns]  = useState(new Set()) // selected pattern name filter
   const [activeCategoryId, setActiveCategoryId] = useState('crypto')
+  const [customCryptoLimit, setCustomCryptoLimit] = useState(30)
   const [selectedAssetIds, setSelectedAssetIds] = useState(() => new Set(settings.customPairs || []))
   const [showCustomPicker, setShowCustomPicker] = useState(false)
   const [manualAssetList, setManualAssetList] = useState('')
@@ -1260,56 +1261,58 @@ export default function DeltaScannerTab({
             </div>}
             {listNameError && <div role="alert" style={{color:RD,fontSize:10,marginTop:6}}>{listNameError}</div>}
           </div>
-          <div style={{display:'flex',gap:6,overflowX:'auto',paddingBottom:8,marginBottom:8}}>
+          {/* One compact category row: tap a preset or market to browse its assets. */}
+          <div style={{display:'flex',gap:6,overflowX:'auto',paddingBottom:8,marginBottom:8,WebkitOverflowScrolling:'touch'}}>
             {[30,100,250,500].map(count=>(
-              <button key={count} onClick={() => setSelectedAssetIds(prev => new Set([...prev, ...symbols.slice(0,count).map(s=>s.symbol)]))}
-                style={{flexShrink:0,padding:'7px 10px',borderRadius:8,border:'1px solid var(--border2)',background:'var(--bg2)',fontSize:11,fontWeight:700}}>
+              <button key={count} onClick={()=>{setActiveCategoryId('crypto');setCustomCryptoLimit(count)}}
+                style={{flexShrink:0,padding:'8px 11px',borderRadius:8,cursor:'pointer',fontSize:11,fontWeight:700,
+                  border:activeCategoryId==='crypto'&&customCryptoLimit===count?'1.5px solid var(--green)':'1px solid var(--border)',
+                  background:activeCategoryId==='crypto'&&customCryptoLimit===count?'var(--green-dim)':'var(--bg2)',
+                  color:activeCategoryId==='crypto'&&customCryptoLimit===count?'var(--green)':'var(--text2)'}}>
                 Crypto Top {count}
               </button>
             ))}
-            <button onClick={()=>setSelectedAssetIds(prev=>new Set([...prev,...assetGroups.flatMap(g=>g.assets||[]).map(a=>a.scanSymbol).filter(s=>s?.startsWith('STOCK:'))]))}
-              style={{flexShrink:0,padding:'7px 10px',borderRadius:8,border:'1px solid var(--border2)',background:'var(--bg2)',fontSize:11,fontWeight:700}}>Stocks</button>
-            <button onClick={()=>setSelectedAssetIds(prev=>new Set([...prev,...assetGroups.flatMap(g=>g.assets||[]).map(a=>a.scanSymbol).filter(s=>s?.startsWith('ITICK:'))]))}
-              style={{flexShrink:0,padding:'7px 10px',borderRadius:8,border:'1px solid var(--border2)',background:'var(--bg2)',fontSize:11,fontWeight:700}}>Commodity</button>
-          </div>
-          <div style={{display:'flex',gap:7,overflowX:'auto',paddingBottom:7,marginBottom:9}}>
-            <button onClick={()=>setActiveCategoryId('__all__')} style={{
-              flexShrink:0,padding:'8px 11px',borderRadius:9,cursor:'pointer',whiteSpace:'nowrap',
-              border:activeCategoryId==='__all__'?'1.5px solid var(--green)':'1px solid var(--border)',
-              background:activeCategoryId==='__all__'?'var(--green-dim)':'var(--bg2)',
-              color:activeCategoryId==='__all__'?'var(--green)':'var(--text2)',fontSize:11,fontWeight:800,
-            }}>All <span style={{opacity:.7}}>({assetGroups.reduce((n,g)=>n+(g.assets?.length||0),0)})</span></button>
-            {assetGroups.map(group => (
-              <button key={group.id} onClick={()=>setActiveCategoryId(group.id)} style={{
-                flexShrink:0,padding:'8px 11px',borderRadius:9,cursor:'pointer',whiteSpace:'nowrap',
-                border:activeCategoryId===group.id?'1.5px solid var(--green)':'1px solid var(--border)',
-                background:activeCategoryId===group.id?'var(--green-dim)':'var(--bg2)',
-                color:activeCategoryId===group.id?'var(--green)':'var(--text2)',fontSize:11,fontWeight:800,
-              }}>{group.name} <span style={{opacity:.7}}>({group.assets?.length||0})</span></button>
+            {assetGroups.filter(g=>g.id!=='crypto').map(group=>(
+              <button key={group.id} onClick={()=>setActiveCategoryId(group.id)}
+                style={{flexShrink:0,padding:'8px 11px',borderRadius:8,cursor:'pointer',fontSize:11,fontWeight:700,
+                  border:activeCategoryId===group.id?'1.5px solid var(--green)':'1px solid var(--border)',
+                  background:activeCategoryId===group.id?'var(--green-dim)':'var(--bg2)',
+                  color:activeCategoryId===group.id?'var(--green)':'var(--text2)'}}>
+                {group.name} ({(group.assets||[]).length})
+              </button>
             ))}
           </div>
-          {activeAssetGroup && (
-            <>
-              <div style={{fontSize:10,color:'var(--text3)',fontFamily:'var(--mono)',marginBottom:7}}>{activeAssetGroup.name.toUpperCase()} · SELECT ASSETS</div>
-              <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fill,minmax(105px,1fr))',gap:6,maxHeight:210,overflowY:'auto'}}>
-                {(activeAssetGroup.assets||[]).map(asset=>{
-                  const key=asset.scanSymbol || asset.id
-                  const chosen=selectedAssetIds.has(key)
-                  return <button key={asset.id} onClick={()=>setSelectedAssetIds(prev=>{
-                    const next=new Set(prev); if(next.has(key)) next.delete(key); else if(asset.scanSymbol) next.add(key); return next
-                  })} disabled={!asset.scanSymbol} style={{
-                    padding:'8px 9px',borderRadius:8,textAlign:'left',cursor:asset.scanSymbol?'pointer':'not-allowed',
-                    border:chosen?'1.5px solid var(--green)':'1px solid var(--border)',
-                    background:chosen?'var(--green-dim)':'var(--bg2)',color:chosen?'var(--green)':'var(--text2)',
-                    opacity:asset.scanSymbol?1:.55,
-                  }}>
-                    <div style={{fontSize:11,fontWeight:800}}>{chosen?'✓ ':''}{asset.symbol}</div>
-                    <div style={{fontSize:9,opacity:.7,marginTop:2}}>{asset.scanSymbol?(asset.scanSymbol.startsWith('ITICK:')?'iTick available':'Available'):'Provider needed'}</div>
-                  </button>
-                })}
-              </div>
-            </>
-          )}
+          <div style={{fontSize:10,color:'var(--text3)',marginBottom:7}}>
+            {activeCategoryId==='crypto'?`CRYPTO TOP ${customCryptoLimit}`:(activeAssetGroup?.name||'ASSETS').toUpperCase()} · TAP TO SELECT / DESELECT
+          </div>
+          <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fill,minmax(105px,1fr))',gap:6,maxHeight:210,overflowY:'auto',marginBottom:10}}>
+            {(activeCategoryId==='crypto'
+              ? symbols.slice(0,customCryptoLimit).map(s=>({id:s.symbol,symbol:s.symbol,scanSymbol:s.symbol}))
+              : (activeAssetGroup?.assets||[])).map(asset=>{
+              const key=asset.scanSymbol || asset.id
+              const chosen=selectedAssetIds.has(key)
+              return <button key={asset.id} onClick={()=>setSelectedAssetIds(prev=>{
+                const next=new Set(prev);if(next.has(key))next.delete(key);else if(asset.scanSymbol)next.add(key);return next
+              })} disabled={!asset.scanSymbol} style={{
+                padding:'8px 9px',borderRadius:8,textAlign:'left',cursor:asset.scanSymbol?'pointer':'not-allowed',
+                border:chosen?'1.5px solid var(--green)':'1px solid var(--border)',
+                background:chosen?'var(--green-dim)':'var(--bg2)',color:chosen?'var(--green)':'var(--text2)',
+                opacity:asset.scanSymbol?1:.55}}>
+                <div style={{fontSize:11,fontWeight:800}}>{chosen?'✓ ':''}{asset.symbol}</div>
+                <div style={{fontSize:9,opacity:.7,marginTop:2}}>{asset.scanSymbol?'Available':'Provider needed'}</div>
+              </button>
+            })}
+          </div>
+          <div style={{display:'flex',gap:6,justifyContent:'flex-end',marginBottom:10}}>
+            <button onClick={()=>{
+              const keys=(activeCategoryId==='crypto'?symbols.slice(0,customCryptoLimit).map(s=>s.symbol):(activeAssetGroup?.assets||[]).map(a=>a.scanSymbol)).filter(Boolean)
+              setSelectedAssetIds(prev=>new Set([...prev,...keys]))
+            }} style={{padding:'7px 10px',borderRadius:7,border:'1px solid var(--green2)',background:'var(--green-dim)',color:'var(--green)',cursor:'pointer',fontSize:10}}>Select Visible</button>
+            <button onClick={()=>{
+              const keys=new Set((activeCategoryId==='crypto'?symbols.slice(0,customCryptoLimit).map(s=>s.symbol):(activeAssetGroup?.assets||[]).map(a=>a.scanSymbol)).filter(Boolean))
+              setSelectedAssetIds(prev=>new Set([...prev].filter(s=>!keys.has(s))))
+            }} style={{padding:'7px 10px',borderRadius:7,border:'1px solid var(--border)',background:'var(--bg2)',color:'var(--text2)',cursor:'pointer',fontSize:10}}>Clear Visible</button>
+          </div>
           <div style={{padding:10,border:'1px solid var(--border)',borderRadius:9,marginBottom:10,background:'var(--bg2)'}}>
             <div style={{fontSize:11,fontWeight:800,marginBottom:6}}>+ Add your own symbol list</div>
             <textarea value={manualAssetList} onChange={e=>{setManualAssetList(e.target.value);setManualAssetError('')}}
