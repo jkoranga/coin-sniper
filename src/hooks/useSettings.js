@@ -15,17 +15,22 @@ const DEFAULT_30_PAIRS = [
 
 export const DEFAULTS = {
   timeframe:    '15m',
-  scanInterval: '30s',
+  scanInterval: '3m',
   darkMode:     true,
-  symbolSet:    'all',
+  symbolSet:    'top250',
+  allAssetScope: 'crypto',
+  concurrency: 12,
+  cacheTtl: '1m',
+  scanOnLoad: true,
+  loopScan: false,
   customPairs:  DEFAULT_30_PAIRS,
   assetGroups: [],
   scanMode:       'all',
-  autoScan:       false,
+  autoScan:       true,
   viewMode:       'list',
-  dedupInterval:  '1m',
+  dedupInterval:  '15m',
   scannerEnabled: {},
-  volumeFilter:  '500k',
+  volumeFilter:  'all',
   resultFilter:  'all',
   patternsMode:  'all',
   patternTfs:    {},
@@ -108,7 +113,7 @@ function load() {
     // Stamp _scanSettingsAt = now so this browser's local scan settings
     // are always treated as "current session" — prevents onSnapshot from
     // overwriting them with stale cloud data on page refresh.
-    merged._scanSettingsAt = Date.now()
+    merged._scanSettingsAt = parsed._scanSettingsAt || 0
     // NOTE: deliberately do NOT stamp _deletedPatternsAt / _customPatternsAt here.
     // Doing so would make a fresh/empty local trash array look "newer" than real
     // cloud data, causing mergeCloud to wrongly prefer the empty local array and
@@ -180,7 +185,7 @@ export function useSettings(firebaseUser) {
     const localScanAt = prev._scanSettingsAt || 0
     const cloudScanAt = clean._scanSettingsAt || 0
     if (localScanAt > cloudScanAt) {
-      const SF = ['timeframe','scanInterval','symbolSet','customPairs','assetGroups','selectedAssetGroupIds','scanMode','dedupInterval','volumeFilter','resultFilter','patternsMode','autoScan','viewMode','scannerEnabled']
+      const SF = ['scanOnLoad','loopScan','allAssetScope','concurrency','cacheTtl','defaultSort','defaultSortDir','defaultViewMode','defaultResultFilter','timeframe','scanInterval','symbolSet','customPairs','assetGroups','selectedAssetGroupIds','scanMode','dedupInterval','volumeFilter','resultFilter','patternsMode','autoScan','viewMode','scannerEnabled']
       SF.forEach(k => { merged[k] = prev[k] })
       Object.keys(prev).forEach(k => {
         if (k.startsWith('scanMode_') || k.startsWith('dedupInterval_') ||
@@ -395,7 +400,7 @@ export function useSettings(firebaseUser) {
       savePatternBinToCloud(uid, next.deletedPatterns || [])
     }
 
-    const isCritical = typeof patch === 'function'
+    const isCritical = isScanPatch || typeof patch === 'function'
       ? true  // function patches always treated as critical (e.g. complex updates)
       : hasCriticalKey(patch)
 
@@ -449,11 +454,12 @@ export function useSettings(firebaseUser) {
       _customPatternsAt:   current._customPatternsAt   ?? 0,
       _deletedPatternsAt:  current._deletedPatternsAt  ?? 0,
     }
-    const next = { ...DEFAULTS, ...preserved }
+    const next = { ...DEFAULTS, ...preserved, _savedAt: Date.now(), _scanSettingsAt: Date.now() }
     localStorage.setItem(STORAGE_KEY, JSON.stringify(next))
     settingsRef.current = next
     setSettings(next)
-  }, [])
+    if (firebaseUser?.uid) { saveScanSettings(firebaseUser.uid, next); saveSettingsToCloud(firebaseUser.uid, next) }
+  }, [firebaseUser])
 
   // Clear all per-timeframe sort overrides (sortBy_15m, sortDir_15m, etc.)
   // so defaultSort/defaultSortDir from Settings take effect again everywhere.
