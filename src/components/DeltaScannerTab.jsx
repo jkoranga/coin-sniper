@@ -864,6 +864,31 @@ export default function DeltaScannerTab({
     // Keep existing results in Auto and Loop modes; repeated signals update in place.
 
     const CONCURRENCY = Math.max(2, Math.min(12, Number(cfg.concurrency) || 8))
+    // Adaptive worker limit: start conservatively, expand on healthy responses,
+    // and back off on rate limits/timeouts without changing the user's configured cap.
+    let activeLimit = Math.min(CONCURRENCY, 4)
+    let healthySamples = 0
+    let lastThrottleAt = 0
+    const scanStartedAt = performance.now()
+    const scanMetrics = { requests:0, failures:0, throttles:0, cacheHits:0 }
+    const recordResponse = (elapsed, error = null) => {
+      scanMetrics.requests++
+      const message = String(error?.message || '')
+      const throttled = /429|rate.limit|too.many.requests|timeout|timed.out|abort/i.test(message)
+      if (error) scanMetrics.failures++
+      if (throttled) {
+        scanMetrics.throttles++
+        activeLimit = Math.max(2, Math.floor(activeLimit / 2))
+        healthySamples = 0
+        lastThrottleAt = Date.now()
+      } else if (!error && elapsed < 1800 && Date.now() - lastThrottleAt > 5000) {
+        healthySamples++
+        if (healthySamples >= Math.max(8, activeLimit * 3) && activeLimit < CONCURRENCY) {
+          activeLimit++
+          healthySamples = 0
+        }
+      }
+    }
     const baseConditions = activePatterns.flatMap(pattern => (pattern.conditions || []).filter(cond => !cond.htfTf || cond.htfTf === timeframe))
     const baseCandleCount = requiredCandleCount(baseConditions)
     const htfConditionsByTf = new Map()
@@ -884,8 +909,11 @@ export default function DeltaScannerTab({
     const newErrors   = []
     let cursor = 0, done = 0
 
-    async function worker() {
+    async function worker(workerId) {
       while (true) {
+        while (workerId >= activeLimit && !abortRef.current.signal.aborted) {
+          await new Promise(resolve => setTimeout(resolve, 150))
+        }
         if (abortRef.current.signal.aborted) return
         const idx = cursor++
         if (idx >= symList.length) return
@@ -895,8 +923,10 @@ export default function DeltaScannerTab({
         const symVol = parseFloat(symObj?.volume ?? 0)
         setProgressSym(sym)
 
+        const requestStarted = performance.now()
         try {
           const candles = await fetchCached(sym, timeframe, baseCandleCount, symObj)
+          recordResponse(performance.now() - requestStarted)
           if (!candles || candles.length < 10) { done++; updateScanProgress(); continue }
 
           // HTF candles needed by any condition
@@ -964,6 +994,7 @@ export default function DeltaScannerTab({
             historyAddAlerts([a])
           }
         } catch (error) {
+          recordResponse(performance.now() - requestStarted, error)
           const reason = String(error?.message || 'Data unavailable').slice(0, 110)
           if (!newErrors.some(x => x.reason === reason)) newErrors.push({ symbol: sym, reason })
         }
@@ -974,7 +1005,8 @@ export default function DeltaScannerTab({
       }
     }
 
-    await Promise.all(Array.from({ length: CONCURRENCY }, () => worker()))
+    await Promise.all(Array.from({ length: CONCURRENCY }, (_, index) => worker(index)))
+    console.info('[CoinSniper] Scan performance', {timeframe,assets:symList.length,elapsedMs:Math.round(performance.now()-scanStartedAt),maxWorkers:CONCURRENCY,finalWorkers:activeLimit,...scanMetrics})
 
     // ── Scan complete ─────────────────────────────────────────────────────────
     setLastScan(Date.now())
