@@ -565,6 +565,7 @@ export default function DeltaScannerTab({
   const [selPatterns,  setSelPatterns]  = useState(new Set()) // selected pattern name filter
   const [activeCategoryId, setActiveCategoryId] = useState('crypto')
   const [customCryptoLimit, setCustomCryptoLimit] = useState(30)
+  const [creatingCustomList, setCreatingCustomList] = useState(false)
   const [selectedAssetIds, setSelectedAssetIds] = useState(() => new Set(settings.customPairs || []))
   const [showCustomPicker, setShowCustomPicker] = useState(false)
   const [manualAssetList, setManualAssetList] = useState('')
@@ -578,12 +579,13 @@ export default function DeltaScannerTab({
     if (!name || name.length > 60) { setListNameError('Enter a list name (1–60 characters).'); return }
     const pairs = [...selectedAssetIds].filter(Boolean)
     if (!pairs.length) { setListNameError('Select at least one asset first.'); return }
-    const oldName = settings.activeCustomListName
+    const oldName = creatingCustomList ? '' : settings.activeCustomListName
     if (savedCustomLists.some(item => item.name === name && item.name !== oldName)) { setListNameError('This list name already exists. Choose another name.'); return }
     const other = savedCustomLists.filter(item => item.name !== oldName && item.name !== name)
     update({ namedCustomLists: [...other, { name, pairs }], activeCustomListName: name,
       customPairs: pairs, selectedAssetGroupIds: assetGroups.filter(g=>(g.assets||[]).some(a=>selectedAssetIds.has(a.scanSymbol||a.id))).map(g=>g.id) })
     setListNameError('')
+    setCreatingCustomList(false)
   }
 
   const deleteNamedList = name => {
@@ -1186,12 +1188,12 @@ export default function DeltaScannerTab({
       }}>
         {SCAN_MODES.map(m => {
           const isCustom = m.id === 'custom'
-          const customCount = isCustom ? (settings.customPairs || []).length : 0
+          const customCount = isCustom ? selectedAssetIds.size : 0
           return (
             <button key={m.id} onClick={() => {
               if (isCustom) {
                 setSelectedAssetIds(new Set(settingsRef.current.customPairs || []))
-                setActiveCategoryId('__all__')
+                setActiveCategoryId('crypto')
                 setTfSetting('scanMode', 'custom')
                 setShowCustomPicker(v => !v)
               } else {
@@ -1219,6 +1221,17 @@ export default function DeltaScannerTab({
             </button>
           )
         })}
+        <button title="Create new custom list" aria-label="Create new custom list"
+          onClick={()=>{
+            setTfSetting('scanMode','custom')
+            setShowCustomPicker(true)
+            setCreatingCustomList(true)
+            setCustomListName('')
+            setSelectedAssetIds(new Set())
+            setListNameError('')
+          }}
+          style={{flexShrink:0,padding:'5px 11px',borderRadius:20,cursor:'pointer',fontSize:16,fontWeight:800,
+            border:'1.5px solid var(--green2)',background:'var(--green-dim)',color:'var(--green)'}}>＋</button>
       </div>
 
       {/* Custom asset category picker */}
@@ -1236,13 +1249,12 @@ export default function DeltaScannerTab({
                 placeholder="List name, e.g. My Breakout Coins"
                 style={{flex:'1 1 150px',minWidth:0,padding:'8px',borderRadius:7,background:'var(--bg1)',color:'var(--text)',border:'1px solid var(--border)',fontSize:11}}/>
               <button onClick={saveNamedList} style={{padding:'8px 12px',borderRadius:7,cursor:'pointer',border:'1px solid var(--green2)',background:'var(--green-dim)',color:'var(--green)',fontSize:11,fontWeight:800}}>Save / Rename</button>
-              <button onClick={()=>{setCustomListName('');setSelectedAssetIds(new Set());setListNameError('')}}
-                style={{padding:'8px 10px',borderRadius:7,cursor:'pointer',border:'1px solid var(--border)',background:'var(--bg1)',color:'var(--text2)',fontSize:11}}>New List</button>
+
             </div>
             {savedCustomLists.length>0 && <div style={{display:'flex',gap:5,flexWrap:'wrap',marginTop:8}}>
               {savedCustomLists.map(item=><div key={item.name} style={{display:'inline-flex',alignItems:'center',border:'1px solid var(--border)',borderRadius:7,overflow:'hidden'}}>
                 <button onClick={()=>{
-                  setCustomListName(item.name);setSelectedAssetIds(new Set(item.pairs||[]))
+                  setCreatingCustomList(false);setCustomListName(item.name);setSelectedAssetIds(new Set(item.pairs||[]))
                   update({customPairs:item.pairs||[],activeCustomListName:item.name});setListNameError('')
                 }} style={{padding:'6px 9px',cursor:'pointer',fontSize:10,border:0,
                   background:settings.activeCustomListName===item.name?'var(--green-dim)':'var(--bg1)',color:'var(--text)'}}>
@@ -1264,7 +1276,7 @@ export default function DeltaScannerTab({
           {/* One compact category row: tap a preset or market to browse its assets. */}
           <div style={{display:'flex',gap:6,overflowX:'auto',paddingBottom:8,marginBottom:8,WebkitOverflowScrolling:'touch'}}>
             {[30,100,250,500].map(count=>(
-              <button key={count} onClick={()=>{setActiveCategoryId('crypto');setCustomCryptoLimit(count)}}
+              <button key={count} onClick={()=>{setActiveCategoryId('crypto');setCustomCryptoLimit(count);setSelectedAssetIds(prev=>new Set([...prev].filter(s=>s.startsWith('STOCK:')||s.startsWith('ITICK:')).concat(symbols.slice(0,count).map(s=>s.symbol))))}}
                 style={{flexShrink:0,padding:'8px 11px',borderRadius:8,cursor:'pointer',fontSize:11,fontWeight:700,
                   border:activeCategoryId==='crypto'&&customCryptoLimit===count?'1.5px solid var(--green)':'1px solid var(--border)',
                   background:activeCategoryId==='crypto'&&customCryptoLimit===count?'var(--green-dim)':'var(--bg2)',
@@ -1345,7 +1357,7 @@ export default function DeltaScannerTab({
               </button>
               <button onClick={()=>{
               const pairs=[...selectedAssetIds].filter(Boolean)
-              update({customPairs:pairs,selectedAssetGroupIds:assetGroups.filter(g=>(g.assets||[]).some(a=>selectedAssetIds.has(a.scanSymbol||a.id))).map(g=>g.id)})
+              update({customPairs:pairs,...(!creatingCustomList && settings.activeCustomListName ? {namedCustomLists:savedCustomLists.map(item=>item.name===settings.activeCustomListName?{...item,pairs}:item)} : {}),selectedAssetGroupIds:assetGroups.filter(g=>(g.assets||[]).some(a=>selectedAssetIds.has(a.scanSymbol||a.id))).map(g=>g.id)})
             }} style={{padding:'8px 12px',borderRadius:8,cursor:'pointer',fontSize:10,fontWeight:800,
               border:'1px solid var(--green2)',background:'var(--green-dim)',color:'var(--green)'}}>
               Apply Selection · {selectedAssetIds.size}
