@@ -611,6 +611,7 @@ export default function DeltaScannerTab({
     return () => { active = false; unsubscribe?.(); clearTimeout(cooldownSaveTimerRef.current) }
   }, [])
   const cacheRef    = useRef({})
+  const inflightRef = useRef(new Map())
   const idRef       = useRef(0)
   const timerRef    = useRef(null)
   const settingsRef = useRef(settings)
@@ -671,13 +672,20 @@ export default function DeltaScannerTab({
       if (Number.isFinite(change24h)) for (const candle of hit.candles) candle.change24h = change24h
       return hit.candles
     }
-    const candles = (String(symbol).startsWith('STOCK:') || String(symbol).startsWith('ITICK:') || String(symbol).endsWith('USDT'))
-      ? await fetchCandles(symbol, tf, limit, ticker)
-      : await fetchDeltaCandles(symbol, tf, limit, ticker)
-    const ttlMap = {'1m':60_000,'2m':120_000,'3m':180_000,'5m':300_000,'10m':600_000}
-    const ttl = ttlMap[settingsRef.current.cacheTtl || '3m'] || 180_000
-    if (candles) cacheRef.current[key] = { candles, expiresAt: now + ttl }
-    return candles
+    // Share simultaneous requests for the same symbol/timeframe across patterns.
+    if (inflightRef.current.has(key)) return inflightRef.current.get(key)
+    const request = (async () => {
+      // Delta perpetuals use the Bybit feed; only stocks/metals use the generic proxy.
+      const candles = (String(symbol).startsWith('STOCK:') || String(symbol).startsWith('ITICK:'))
+        ? await fetchCandles(symbol, tf, limit, ticker)
+        : await fetchDeltaCandles(symbol, tf, limit, ticker)
+      const ttlMap = {'1m':60_000,'2m':120_000,'3m':180_000,'5m':300_000,'10m':600_000}
+      const ttl = ttlMap[settingsRef.current.cacheTtl || '3m'] || 180_000
+      if (candles) cacheRef.current[key] = { candles, expiresAt: Date.now() + ttl }
+      return candles
+    })()
+    inflightRef.current.set(key, request)
+    try { return await request } finally { inflightRef.current.delete(key) }
   }
 
   // ── Dedup ────────────────────────────────────────────────────────────────────
@@ -729,7 +737,23 @@ export default function DeltaScannerTab({
     setErrors([])
     // Keep existing results in Auto and Loop modes; repeated signals update in place.
 
-    const CONCURRENCY = cfg.concurrency || 30
+    const CONCURRENCY = Math.max(2, Math.min(12, Number(cfg.concurrency) || 8))
+    const baseConditions = activePatterns.flatMap(pattern => (pattern.conditions || []).filter(cond => !cond.htfTf || cond.htfTf === timeframe))
+    const baseCandleCount = requiredCandleCount(baseConditions)
+    const htfConditionsByTf = new Map()
+    for (const pattern of activePatterns) for (const cond of (pattern.conditions || [])) {
+      if (cond.enabled === false || !cond.htfTf || cond.htfTf === timeframe) continue
+      if (!htfConditionsByTf.has(cond.htfTf)) htfConditionsByTf.set(cond.htfTf, [])
+      htfConditionsByTf.get(cond.htfTf).push(cond)
+    }
+    let lastProgressUpdate = 0
+    const updateScanProgress = () => {
+      const now = Date.now()
+      if (done === symList.length || now - lastProgressUpdate >= 150) {
+        lastProgressUpdate = now
+        setProgress(Math.round(done / symList.length * 100))
+      }
+    }
     const newAlerts   = []
     const newErrors   = []
     let cursor = 0, done = 0
@@ -746,24 +770,17 @@ export default function DeltaScannerTab({
         setProgressSym(sym)
 
         try {
-          const candles = await fetchCached(sym, timeframe, requiredCandleCount(activePatterns.flatMap(pattern => (pattern.conditions || []).filter(cond => !cond.htfTf || cond.htfTf === timeframe))), symObj)
-          if (!candles || candles.length < 10) { done++; setProgress(Math.round(done/symList.length*100)); continue }
+          const candles = await fetchCached(sym, timeframe, baseCandleCount, symObj)
+          if (!candles || candles.length < 10) { done++; updateScanProgress(); continue }
 
           // HTF candles needed by any condition
-          const htfNeeded = new Set()
-          for (const sc of activePatterns)
-            for (const cond of (sc.conditions || []))
-              if (cond.htfTf && cond.enabled !== false) htfNeeded.add(cond.htfTf)
-
           const htfMap = {}
-          for (const tf of htfNeeded) {
-            if (tf === timeframe) { htfMap[tf] = candles; continue }
+          await Promise.all([...htfConditionsByTf.entries()].map(async ([tf, conditions]) => {
             try {
-              const htfConditions = activePatterns.flatMap(pattern => (pattern.conditions || []).filter(cond => cond.enabled !== false && cond.htfTf === tf))
-              const c = await fetchCached(sym, tf, requiredCandleCount(htfConditions), symObj)
-              if (c && c.length >= 2) htfMap[tf] = c
+              const higherCandles = await fetchCached(sym, tf, requiredCandleCount(conditions), symObj)
+              if (higherCandles?.length >= 2) htfMap[tf] = higherCandles
             } catch {}
-          }
+          }))
 
           for (const sc of activePatterns) {
             if (abortRef.current.signal.aborted) break
@@ -823,7 +840,7 @@ export default function DeltaScannerTab({
         } catch { newErrors.push(sym) }
 
         done++
-        setProgress(Math.round(done / symList.length * 100))
+        updateScanProgress()
         await new Promise(r => setTimeout(r, 0)) // yield to browser
       }
     }
