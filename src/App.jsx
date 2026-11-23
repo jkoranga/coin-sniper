@@ -1113,7 +1113,14 @@ export default function App() {
       <main className="content-scroll-v2">
         {/* Delta Scanner tabs — one per TF */}
         {CS_TABS.filter(t => !t.isSettings && !t.isBuilder).map(tab => (
-          <div key={tab.id} style={{ display: activeTab === tab.id ? 'block' : 'none', height: '100%' }}>
+          <div key={tab.id} className="dashboard-workspace" style={{ display: activeTab === tab.id ? 'block' : 'none', height: '100%' }}>
+            <div className="dashboard-workspace-heading" aria-label="Scanner dashboard">
+              <div className="dashboard-workspace-eyebrow"><span className="dashboard-live-dot" /> COINSNIPER · MARKET WORKSPACE</div>
+              <div className="dashboard-workspace-title-row">
+                <div><h1>Scanner Dashboard</h1><p>Monitor market setups and custom pattern signals in one workspace.</p></div>
+                <span className="dashboard-timeframe-chip">{tab.label || tab.id} timeframe</span>
+              </div>
+            </div>
             <ErrorBoundary>
               <DeltaScannerTab
                 timeframe={tab.id}
