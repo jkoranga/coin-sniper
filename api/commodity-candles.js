@@ -45,7 +45,8 @@ export default async function handler(req, res) {
     const normalized = payload.data.map(x => {
       const rawTime = Number(x.t)
       return { t: rawTime < 1e11 ? rawTime * 1000 : rawTime, o: Number(x.o), h: Number(x.h), l: Number(x.l), c: Number(x.c), v: Number(x.v || 0) }
-    }).filter(x => Number.isFinite(x.t) && [x.o,x.h,x.l,x.c].every(Number.isFinite))
+    }).filter(x => Number.isFinite(x.t) && [x.o,x.h,x.l,x.c,x.v].every(Number.isFinite) && x.h >= Math.max(x.o,x.c,x.l) && x.l <= Math.min(x.o,x.c,x.h))
+    if (!normalized.length) return res.status(502).json({ error: 'Provider returned no valid candles' })
     const values = spec.factor === 1 ? normalized.sort((a,b) => a.t-b.t).slice(-limit) : aggregate(normalized, interval === '3m' ? 3 : 240, limit)
     return res.status(200).json({ values })
   } catch (error) { return res.status(502).json({ error: error.message || 'iTick request failed' }) }
