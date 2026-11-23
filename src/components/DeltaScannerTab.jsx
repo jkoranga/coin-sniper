@@ -612,6 +612,7 @@ export default function DeltaScannerTab({
   }, [])
   const cacheRef    = useRef({})
   const inflightRef = useRef(new Map())
+  const providerPauseRef = useRef({})
   const idRef       = useRef(0)
   const timerRef    = useRef(null)
   const settingsRef = useRef(settings)
@@ -664,6 +665,9 @@ export default function DeltaScannerTab({
 
   // ── Candle cache (60s TTL) ───────────────────────────────────────────────────
   async function fetchCached(symbol, tf, limit, ticker = null) {
+    const provider = String(symbol).startsWith('STOCK:') ? 'stock' : String(symbol).startsWith('ITICK:') ? 'commodity' : 'crypto'
+    const pause = providerPauseRef.current[provider]
+    if (pause && Date.now() < pause.until) throw new Error(pause.reason)
     const key = `${symbol}__${tf}__${limit}`
     const now = Date.now()
     const hit = cacheRef.current[key]
@@ -685,7 +689,13 @@ export default function DeltaScannerTab({
       return candles
     })()
     inflightRef.current.set(key, request)
-    try { return await request } finally { inflightRef.current.delete(key) }
+    try { return await request } catch (error) {
+      const message = String(error?.message || 'Market data unavailable')
+      if (provider !== 'crypto' && /not configured|API_KEY|429|rate limit|credits|quota/i.test(message)) {
+        providerPauseRef.current[provider] = { until: Date.now() + 120_000, reason: message }
+      }
+      throw error
+    } finally { inflightRef.current.delete(key) }
   }
 
   // ── Dedup ────────────────────────────────────────────────────────────────────
@@ -837,7 +847,10 @@ export default function DeltaScannerTab({
             if (!isDupe(sym, sc.id, sc.side)) newAlerts.push(a)
             historyAddAlerts([a])
           }
-        } catch { newErrors.push(sym) }
+        } catch (error) {
+          const reason = String(error?.message || 'Data unavailable').slice(0, 110)
+          if (!newErrors.some(x => x.reason === reason)) newErrors.push({ symbol: sym, reason })
+        }
 
         done++
         updateScanProgress()
@@ -1267,7 +1280,7 @@ export default function DeltaScannerTab({
           fontFamily:'var(--mono)', color:RD, background:'var(--red-dim)',
           border:'1px solid var(--red2)', display:'flex', justifyContent:'space-between',
         }}>
-          <span>⚠ {errors.slice(0,4).join(', ')}{errors.length>4?` +${errors.length-4} more`:''}</span>
+          <span>⚠ {errors.slice(0,2).map(e => typeof e === 'string' ? e : `${e.symbol}: ${e.reason}`).join(' · ')}{errors.length>2?` +${errors.length-2} more`:''}</span>
           <span onClick={() => setErrors([])} style={{cursor:'pointer', textDecoration:'underline', flexShrink:0, marginLeft:8}}>dismiss</span>
         </div>
       )}
