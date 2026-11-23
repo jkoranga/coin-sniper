@@ -570,6 +570,7 @@ export default function DeltaScannerTab({
   const [manualAssetError, setManualAssetError] = useState('')
   const [customListName, setCustomListName] = useState(settings.activeCustomListName || 'My Custom List')
   const [listNameError, setListNameError] = useState('')
+  const [deleteListName, setDeleteListName] = useState(null)
   const savedCustomLists = Array.isArray(settings.namedCustomLists) ? settings.namedCustomLists : []
   const saveNamedList = () => {
     const name = customListName.trim()
@@ -577,9 +578,22 @@ export default function DeltaScannerTab({
     const pairs = [...selectedAssetIds].filter(Boolean)
     if (!pairs.length) { setListNameError('Select at least one asset first.'); return }
     const oldName = settings.activeCustomListName
+    if (savedCustomLists.some(item => item.name === name && item.name !== oldName)) { setListNameError('This list name already exists. Choose another name.'); return }
     const other = savedCustomLists.filter(item => item.name !== oldName && item.name !== name)
     update({ namedCustomLists: [...other, { name, pairs }], activeCustomListName: name,
       customPairs: pairs, selectedAssetGroupIds: assetGroups.filter(g=>(g.assets||[]).some(a=>selectedAssetIds.has(a.scanSymbol||a.id))).map(g=>g.id) })
+    setListNameError('')
+  }
+
+  const deleteNamedList = name => {
+    const remaining = savedCustomLists.filter(item => item.name !== name)
+    const wasActive = settings.activeCustomListName === name
+    update({
+      namedCustomLists: remaining,
+      ...(wasActive ? {activeCustomListName: '', customPairs: [], selectedAssetGroupIds: []} : {}),
+    })
+    if (wasActive) { setCustomListName(''); setSelectedAssetIds(new Set()) }
+    setDeleteListName(null)
     setListNameError('')
   }
 
@@ -1225,13 +1239,24 @@ export default function DeltaScannerTab({
                 style={{padding:'8px 10px',borderRadius:7,cursor:'pointer',border:'1px solid var(--border)',background:'var(--bg1)',color:'var(--text2)',fontSize:11}}>New List</button>
             </div>
             {savedCustomLists.length>0 && <div style={{display:'flex',gap:5,flexWrap:'wrap',marginTop:8}}>
-              {savedCustomLists.map(item=><button key={item.name} onClick={()=>{
-                setCustomListName(item.name);setSelectedAssetIds(new Set(item.pairs||[]))
-                update({customPairs:item.pairs||[],activeCustomListName:item.name});setListNameError('')
-              }} style={{padding:'6px 9px',borderRadius:7,cursor:'pointer',fontSize:10,
-                border:'1px solid var(--border)',background:settings.activeCustomListName===item.name?'var(--green-dim)':'var(--bg1)',color:'var(--text)'}}>
-                {item.name} ({(item.pairs||[]).length})
-              </button>)}
+              {savedCustomLists.map(item=><div key={item.name} style={{display:'inline-flex',alignItems:'center',border:'1px solid var(--border)',borderRadius:7,overflow:'hidden'}}>
+                <button onClick={()=>{
+                  setCustomListName(item.name);setSelectedAssetIds(new Set(item.pairs||[]))
+                  update({customPairs:item.pairs||[],activeCustomListName:item.name});setListNameError('')
+                }} style={{padding:'6px 9px',cursor:'pointer',fontSize:10,border:0,
+                  background:settings.activeCustomListName===item.name?'var(--green-dim)':'var(--bg1)',color:'var(--text)'}}>
+                  {item.name} ({(item.pairs||[]).length})
+                </button>
+                <button aria-label={'Delete '+item.name} title={'Delete '+item.name}
+                  onClick={()=>setDeleteListName(item.name)}
+                  style={{padding:'6px 8px',border:0,borderLeft:'1px solid var(--border)',background:'var(--red-dim)',color:RD,cursor:'pointer',fontSize:11}}>✕</button>
+              </div>)}
+            </div>}
+            {deleteListName && <div role="alertdialog" aria-label="Confirm delete custom list"
+              style={{display:'flex',alignItems:'center',gap:8,flexWrap:'wrap',marginTop:9,padding:8,borderRadius:7,border:'1px solid var(--red2)',background:'var(--red-dim)'}}>
+              <span style={{fontSize:11,color:RD,flex:'1 1 150px'}}>Delete "{deleteListName}"? This cannot be undone.</span>
+              <button onClick={()=>deleteNamedList(deleteListName)} style={{padding:'6px 10px',borderRadius:6,border:'1px solid var(--red2)',background:'var(--red-dim)',color:RD,fontWeight:800,cursor:'pointer'}}>Delete</button>
+              <button onClick={()=>setDeleteListName(null)} style={{padding:'6px 10px',borderRadius:6,border:'1px solid var(--border)',background:'var(--bg1)',color:'var(--text)',cursor:'pointer'}}>Cancel</button>
             </div>}
             {listNameError && <div role="alert" style={{color:RD,fontSize:10,marginTop:6}}>{listNameError}</div>}
           </div>
