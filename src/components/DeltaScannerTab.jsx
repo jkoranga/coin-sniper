@@ -1251,7 +1251,24 @@ export default function DeltaScannerTab({
             </button>
           )
         })}
-        <button title="Create or manage custom lists" aria-label="Create new custom list"
+        {savedCustomLists.map(item=><button key={item.name} title={item.name}
+          onClick={()=>{
+            setTfSetting('scanMode','custom')
+            setCustomPanel('lists')
+            setCreatingCustomList(false)
+            setShowCustomPicker(true)
+            setCustomListName(item.name)
+            setSelectedAssetIds(new Set(item.pairs||[]))
+            update({activeCustomListName:item.name,customPairs:item.pairs||[]})
+          }}
+          style={{flexShrink:0,maxWidth:165,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap',
+            padding:'5px 10px',borderRadius:20,cursor:'pointer',fontSize:11,
+            border:settings.activeCustomListName===item.name?'1.5px solid var(--green2)':'1px solid var(--border)',
+            background:settings.activeCustomListName===item.name?'var(--green-dim)':'var(--bg2)',
+            color:settings.activeCustomListName===item.name?'var(--green)':'var(--text2)'}}>
+          {item.name}
+        </button>)}
+        <button title="Create new custom list" aria-label="Create new custom list"
           onClick={()=>{
             setTfSetting('scanMode','custom')
             setShowCustomPicker(true)
@@ -1259,12 +1276,11 @@ export default function DeltaScannerTab({
             setCustomPanel('lists')
             setCustomListName('')
             setSelectedAssetIds(new Set())
+            setAssetSearch('')
             setListNameError('')
           }}
           style={{flexShrink:0,padding:'5px 11px',borderRadius:20,cursor:'pointer',fontSize:16,fontWeight:800,
             border:'1.5px solid var(--green2)',background:'var(--green-dim)',color:'var(--green)'}}>＋</button>
-        {settings.activeCustomListName && <button onClick={()=>{setTfSetting('scanMode','custom');setCustomPanel('lists');setCreatingCustomList(false);setShowCustomPicker(true);setCustomListName(settings.activeCustomListName);setSelectedAssetIds(new Set(settings.customPairs||[]))}}
-          style={{flexShrink:0,maxWidth:165,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap',padding:'5px 10px',borderRadius:20,border:'1px solid var(--green2)',background:'var(--green-dim)',color:'var(--green)',fontSize:11,cursor:'pointer'}} title={settings.activeCustomListName}>{settings.activeCustomListName}</button>}
       </div>
 
       {/* Custom asset category picker */}
