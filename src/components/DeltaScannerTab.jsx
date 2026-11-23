@@ -568,6 +568,21 @@ export default function DeltaScannerTab({
   const [showCustomPicker, setShowCustomPicker] = useState(false)
   const [manualAssetList, setManualAssetList] = useState('')
   const [manualAssetError, setManualAssetError] = useState('')
+  const [customListName, setCustomListName] = useState(settings.activeCustomListName || 'My Custom List')
+  const [listNameError, setListNameError] = useState('')
+  const savedCustomLists = Array.isArray(settings.namedCustomLists) ? settings.namedCustomLists : []
+  const saveNamedList = () => {
+    const name = customListName.trim()
+    if (!name || name.length > 60) { setListNameError('Enter a list name (1–60 characters).'); return }
+    const pairs = [...selectedAssetIds].filter(Boolean)
+    if (!pairs.length) { setListNameError('Select at least one asset first.'); return }
+    const oldName = settings.activeCustomListName
+    const other = savedCustomLists.filter(item => item.name !== oldName && item.name !== name)
+    update({ namedCustomLists: [...other, { name, pairs }], activeCustomListName: name,
+      customPairs: pairs, selectedAssetGroupIds: assetGroups.filter(g=>(g.assets||[]).some(a=>selectedAssetIds.has(a.scanSymbol||a.id))).map(g=>g.id) })
+    setListNameError('')
+  }
+
   const assetGroups = useMemo(() => {
     const saved = Array.isArray(settings.assetGroups) ? settings.assetGroups : []
     const builtIns = DEFAULT_GROUPS.map(def => {
@@ -1197,6 +1212,28 @@ export default function DeltaScannerTab({
           <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',gap:8,marginBottom:10}}>
             <div style={{fontSize:12,fontWeight:800,color:PU}}>Choose Asset Category</div>
             <span style={{fontSize:10,color:'var(--text3)',fontFamily:'var(--mono)'}}>{(settings.customPairs||[]).length} selected</span>
+          </div>
+          <div style={{padding:10,borderRadius:9,border:'1px solid var(--border)',background:'var(--bg2)',marginBottom:10}}>
+            <div style={{fontSize:11,fontWeight:800,marginBottom:7}}>My Saved Lists · Rename / Save</div>
+            <div style={{display:'flex',gap:6,flexWrap:'wrap'}}>
+              <input aria-label="Custom list name" value={customListName} maxLength={60}
+                onChange={e=>{setCustomListName(e.target.value);setListNameError('')}}
+                placeholder="List name, e.g. My Breakout Coins"
+                style={{flex:'1 1 150px',minWidth:0,padding:'8px',borderRadius:7,background:'var(--bg1)',color:'var(--text)',border:'1px solid var(--border)',fontSize:11}}/>
+              <button onClick={saveNamedList} style={{padding:'8px 12px',borderRadius:7,cursor:'pointer',border:'1px solid var(--green2)',background:'var(--green-dim)',color:'var(--green)',fontSize:11,fontWeight:800}}>Save / Rename</button>
+              <button onClick={()=>{setCustomListName('');setSelectedAssetIds(new Set());setListNameError('')}}
+                style={{padding:'8px 10px',borderRadius:7,cursor:'pointer',border:'1px solid var(--border)',background:'var(--bg1)',color:'var(--text2)',fontSize:11}}>New List</button>
+            </div>
+            {savedCustomLists.length>0 && <div style={{display:'flex',gap:5,flexWrap:'wrap',marginTop:8}}>
+              {savedCustomLists.map(item=><button key={item.name} onClick={()=>{
+                setCustomListName(item.name);setSelectedAssetIds(new Set(item.pairs||[]))
+                update({customPairs:item.pairs||[],activeCustomListName:item.name});setListNameError('')
+              }} style={{padding:'6px 9px',borderRadius:7,cursor:'pointer',fontSize:10,
+                border:'1px solid var(--border)',background:settings.activeCustomListName===item.name?'var(--green-dim)':'var(--bg1)',color:'var(--text)'}}>
+                {item.name} ({(item.pairs||[]).length})
+              </button>)}
+            </div>}
+            {listNameError && <div role="alert" style={{color:RD,fontSize:10,marginTop:6}}>{listNameError}</div>}
           </div>
           <div style={{display:'flex',gap:6,overflowX:'auto',paddingBottom:8,marginBottom:8}}>
             {[30,100,250,500].map(count=>(
