@@ -927,8 +927,9 @@ export default function DeltaScannerTab({
         const requestStarted = performance.now()
         try {
           const candles = await fetchCached(sym, timeframe, baseCandleCount, symObj)
+          if (!candles || candles.length < 10) throw new Error('Insufficient valid candle history')
           recordResponse(performance.now() - requestStarted)
-          if (!candles || candles.length < 10) { done++; updateScanProgress(); continue }
+          if (abortRef.current.signal.aborted) break
 
           // HTF candles needed by any condition
           const htfMap = {}
@@ -936,7 +937,7 @@ export default function DeltaScannerTab({
             try {
               const higherCandles = await fetchCached(sym, tf, requiredCandleCount(conditions), symObj)
               if (higherCandles?.length >= 2) htfMap[tf] = higherCandles
-            } catch {}
+            } catch (error) { recordResponse(performance.now()-requestStarted,error) }
           }))
 
           for (const sc of activePatterns) {
@@ -947,16 +948,17 @@ export default function DeltaScannerTab({
             // Signals on 1m/3m/5m all use a consistent 5m candle chart.
             // Scanner evaluation itself remains on the selected timeframe.
             const chartTimeframe = ['1m','3m','5m'].includes(timeframe) ? '5m' : timeframe
-            let chartCandles = result.run
-            if (chartTimeframe !== timeframe) {
+            let chartCandles = candles.slice(-28)
+            if (chartTimeframe !== timeframe || chartTimeframe === '5m') {
               try {
-                const fiveMinuteCandles = await fetchCached(sym, '5m', 80)
-                if (fiveMinuteCandles?.length >= 2) chartCandles = fiveMinuteCandles
-              } catch {}
+                const fiveMinuteCandles = await fetchCached(sym, '5m', 520, symObj)
+                if (fiveMinuteCandles?.length >= 2) chartCandles = fiveMinuteCandles.slice(-28)
+                else if (chartTimeframe !== timeframe) chartCandles = null
+              } catch { if (chartTimeframe !== timeframe) chartCandles = null }
             }
             const chartDetails = chartCandles
               ? { ...result, run: chartCandles, chartTimeframe }
-              : { ...result, chartTimeframe: timeframe }
+              : { ...result, run: null, chartTimeframe }
 
             let hourlyChangePct = null
             try {
@@ -967,6 +969,7 @@ export default function DeltaScannerTab({
               }
             } catch {}
 
+            if (abortRef.current.signal.aborted) break
             const now = Date.now()
             const a = {
               id: [ 'delta', sym, timeframe, sc.id, sc.side ].join('__'),
@@ -1052,7 +1055,7 @@ export default function DeltaScannerTab({
         if (scanningRef.current) { schedule(500); return }
         setNextScanAt(null)
         initialScanRef.current = true
-        await runScanRef.current()
+        try { await runScanRef.current() } catch (error) { console.error('[CoinSniper] Scan cycle failed',error); scanningRef.current=false; setScanning(false) }
         if (!cancelled && repeat) schedule(loopMode ? 300 : intervalToMs(settings.scanInterval || '3m'))
       }, ms)
     }
