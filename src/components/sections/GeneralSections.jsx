@@ -142,6 +142,17 @@ export function AlertsSection({ cfg, set, update, user, saveNowWithPatch }) {
   // Buffer telegram fields locally — flush to settings on blur to avoid stale-closure issues
   const [tgToken, setTgToken] = React.useState(cfg.tgToken || '')
   const [tgChatId, setTgChatId] = React.useState(cfg.tgChatId || '')
+  const [notificationSync, setNotificationSync] = React.useState(false)
+  const applyNotificationPatch = async patch => {
+    setNotificationSync(true)
+    try {
+      update?.(patch)
+      if (user && saveNowWithPatch) {
+        const [saved,synced] = await Promise.all([saveNowWithPatch(patch),syncBackgroundScanner(user,{...cfg,...patch})])
+        if (!saved || !synced) throw new Error('Notification settings sync failed. Please retry; background alerts may still be active.')
+      }
+    } finally { setNotificationSync(false) }
+  }
   const [pushTestStatus, setPushTestStatus] = React.useState('idle')
   const runPushTest = async () => {
     setPushTestStatus('sending')
@@ -160,8 +171,8 @@ export function AlertsSection({ cfg, set, update, user, saveNowWithPatch }) {
         <SettingRow label="Sound Alert" sub={cfg.soundEnabled ? 'Plays tone on each signal' : 'Silent mode'}>
           <Toggle checked={!!cfg.soundEnabled} onChange={v => set('soundEnabled', v)} />
         </SettingRow>
-        <SettingRow label="Telegram Alert" sub={cfg.tgOn ? 'Sending to your Telegram bot' : 'Disabled'}>
-          <Toggle checked={!!cfg.tgOn} onChange={v => set('tgOn', v)} />
+        <SettingRow label="Telegram Alert" sub={notificationSync ? "Syncing notification settings…" : cfg.tgOn ? 'Sending to your Telegram bot' : 'Disabled'}>
+          <Toggle checked={!!cfg.tgOn} onChange={async v => { if(notificationSync)return; try { await applyNotificationPatch({tgOn:v}) } catch(error) { window.alert(error.message) } }} />
         </SettingRow>
 
         {cfg.tgOn && (
@@ -197,6 +208,7 @@ export function AlertsSection({ cfg, set, update, user, saveNowWithPatch }) {
           <Toggle
             checked={!!cfg.webPushOn}
             onChange={async v => {
+              if (notificationSync) return
               try {
                 let patch
                 if (v) {
@@ -206,17 +218,7 @@ export function AlertsSection({ cfg, set, update, user, saveNowWithPatch }) {
                   patch = { webPushOn: false }
                 }
 
-                // Save the Web Push toggle and token together as one account setting.
-                // This avoids two overlapping Firestore writes leaving the old OFF state.
-                if (user && saveNowWithPatch) {
-                  const saved = await saveNowWithPatch(patch)
-                  if (!saved) throw new Error('Could not save Web Push settings to your account.')
-                  const synced = await syncBackgroundScanner(user, { ...cfg, ...patch })
-                  if (!synced) throw new Error('Settings were saved, but background scanner sync failed. Please try again.')
-                } else {
-                  update?.(patch)
-                  if (set && !update) set('webPushOn', Boolean(v))
-                }
+                await applyNotificationPatch(patch)
 
                 if (v) window.alert('Web Push is enabled and saved to your login account. Background alerts will continue when the app is closed.')
               } catch (error) {
