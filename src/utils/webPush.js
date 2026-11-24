@@ -54,6 +54,8 @@ export async function listenForForegroundMessages() {
       data: { ...payload.data },
       tag: [payload.data?.symbol, payload.data?.timeframe, payload.data?.side, payload.data?.scannerName].filter(Boolean).join('-') || 'coin-sniper-alert',
       renotify: true,
+      timestamp: Number(payload.data?.time) || Date.now(),
+      actions: [{action:'chart',title:'Open TradingView'}],
     }
 
     try {
