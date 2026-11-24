@@ -555,6 +555,7 @@ export default function DeltaScannerTab({
   const [alerts,      setAlerts]      = useState(() => loadDeltaResults(tfProp || '15m'))
   const [errors,      setErrors]      = useState([])
   const [lastScan,    setLastScan]    = useState(null)
+  const [scanReport,setScanReport] = useState(null)
   const autoEnabled = settings.autoScan ?? true
   const loopMode = settings.loopScan ?? false
   const [loopCount,   setLoopCount]   = useState(0)
@@ -908,7 +909,7 @@ export default function DeltaScannerTab({
     }
     const newAlerts   = []
     const newErrors   = []
-    let cursor = 0, done = 0
+    let cursor = 0, done = 0, validSymbols = 0, failedSymbols = 0, matched = 0, missingHtf = 0
 
     async function worker(workerId) {
       while (true) {
@@ -929,10 +930,11 @@ export default function DeltaScannerTab({
           const candles = await fetchCached(sym, timeframe, baseCandleCount, symObj)
           if (!candles || candles.length < 10) throw new Error('Insufficient valid candle history')
           recordResponse(performance.now() - requestStarted)
+          validSymbols++
           if (abortRef.current.signal.aborted) break
 
           // HTF candles needed by any condition
-          const htfMap = {}
+          const htfMap = { [timeframe]: candles }
           await Promise.all([...htfConditionsByTf.entries()].map(async ([tf, conditions]) => {
             try {
               const higherCandles = await fetchCached(sym, tf, requiredCandleCount(conditions), symObj)
@@ -942,6 +944,7 @@ export default function DeltaScannerTab({
 
           for (const sc of activePatterns) {
             if (abortRef.current.signal.aborted) break
+            if (sc.conditions.some(cond=>cond.htfTf && !htfMap[cond.htfTf])) { missingHtf++; continue }
             const result = sc.logic(candles, htfMap)
             if (!result) continue
 
@@ -970,6 +973,7 @@ export default function DeltaScannerTab({
             } catch {}
 
             if (abortRef.current.signal.aborted) break
+            matched++
             const now = Date.now()
             const a = {
               id: [ 'delta', sym, timeframe, sc.id, sc.side ].join('__'),
@@ -998,6 +1002,7 @@ export default function DeltaScannerTab({
             historyAddAlerts([a])
           }
         } catch (error) {
+          failedSymbols++
           recordResponse(performance.now() - requestStarted, error)
           const reason = String(error?.message || 'Data unavailable').slice(0, 110)
           if (!newErrors.some(x => x.reason === reason)) newErrors.push({ symbol: sym, reason })
@@ -1013,6 +1018,7 @@ export default function DeltaScannerTab({
     console.info('[CoinSniper] Scan performance', {timeframe,assets:symList.length,elapsedMs:Math.round(performance.now()-scanStartedAt),maxWorkers:CONCURRENCY,finalWorkers:activeLimit,...scanMetrics})
 
     // ── Scan complete ─────────────────────────────────────────────────────────
+    setScanReport({total:symList.length,valid:validSymbols,failed:failedSymbols,matched,missingHtf,aborted:abortRef.current.signal.aborted})
     setLastScan(Date.now())
     setProgress(-1)
     setProgressSym('')
@@ -1042,7 +1048,7 @@ export default function DeltaScannerTab({
 
   // Schedule only the active, ready timeframe; never overlap scans.
   const initialScanRef = useRef(false)
-  const readyToScan = symbols.length > 0 || (scanMode === 'custom' && (settings.customPairs || []).length > 0)
+  const readyToScan = activePatterns.length > 0 && (symbols.length > 0 || (scanMode === 'custom' && (settings.customPairs || []).length > 0))
   useEffect(() => {
     if (!isActive || !readyToScan) return
     let cancelled = false
@@ -1059,7 +1065,7 @@ export default function DeltaScannerTab({
         if (!cancelled && repeat) schedule(loopMode ? 300 : intervalToMs(settings.scanInterval || '3m'))
       }, ms)
     }
-    if (!initialScanRef.current && settings.scanOnLoad !== false) schedule(3000)
+    if (settings.scanOnLoad !== false && (!initialScanRef.current || !lastScan)) schedule(3000)
     else if (repeat) schedule(loopMode ? 300 : intervalToMs(settings.scanInterval || '3m'))
     return () => { cancelled = true; clearTimeout(timerRef.current); setNextScanAt(null) }
   }, [isActive, readyToScan, autoEnabled, loopMode, settings.scanOnLoad, settings.scanInterval, timeframe])
@@ -1683,6 +1689,14 @@ export default function DeltaScannerTab({
       </div>
       )} {/* end (alerts.length > 0 || lastScan) */}
 
+      {scanReport && <div style={{padding:'8px 10px',margin:'6px 0',border:'1px solid var(--border)',borderRadius:8,fontSize:11,fontFamily:'var(--mono)',color:'var(--text2)',display:'flex',gap:8,flexWrap:'wrap'}}>
+        <span>{timeframe} · {scanReport.aborted?'Stopped':'Last scan'}</span>
+        <span style={{color:GR}}>Data {scanReport.valid}/{scanReport.total}</span>
+        <span style={{color:scanReport.failed?RD:'var(--text3)'}}>Failed {scanReport.failed}</span>
+        <span style={{color:AM}}>HTF unavailable {scanReport.missingHtf}</span>
+        <span>Matches {scanReport.matched}</span><span>Visible {displayed}</span>
+        {alerts.length>displayed && <button className="btn-small" onClick={()=>{update({volumeFilter:'all',defaultResultFilter:'all'});setSelPatterns(new Set())}}>Clear filters</button>}
+      </div>}
       {/* ── Empty state — only before first scan or after scan with no results ── */}
       {!scanning && displayed === 0 && (
         <div style={{textAlign:'center', padding:'40px 16px'}}>
@@ -1692,8 +1706,11 @@ export default function DeltaScannerTab({
           <div style={{fontSize:12, fontFamily:'var(--mono)', color:'var(--text3)', lineHeight:1.7}}>
             {scanMode==='single'?'Enter a symbol and tap Scan'
               :loopMode?`Loop #${loopCount} — scanning continuously`
+              :activePatterns.length===0?'No enabled patterns for this timeframe'
+              :alerts.length>0?'Signals hidden by current filters'
+              :scanReport?.failed===scanReport?.total && scanReport?.total>0?'Market data unavailable — scan could not evaluate signals'
+              :lastScan?'Scan complete — no visible signals'
               :autoEnabled?'Auto-scan armed · waiting for next cycle…'
-              :lastScan?'Scan complete — no signals matched'
               :`Tap ▶ Scan to run patterns on ${symbols.length} symbols`}
           </div>
           <div style={{fontSize:10, color:'var(--text3)', marginTop:6, fontFamily:'var(--mono)'}}>
