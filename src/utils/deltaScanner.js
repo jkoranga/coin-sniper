@@ -69,7 +69,7 @@ async function loadDeltaSymbols() {
             volume:Number(p.quoteVolume)||0}))
           .sort((a,b)=>b.volume-a.volume)
         if (products.length) {
-          const result={symbols:products,fallback:true,error:null,source:'binance-futures'}
+          const result={symbols:products,fallback:false,error:null,source:'binance-futures'}
           symbolCache=result;symbolCacheExpiresAt=Date.now()+60_000
           return result
         }
@@ -94,6 +94,7 @@ async function loadDeltaSymbols() {
 export async function fetchDeltaCandles(symbol, interval = '15m', limit = 60, ticker = null) {
   const iv = INTERVAL_MAP[interval] || '15'
   const requestLimit = Math.min(1000, Math.max(3, limit + 5))
+  let lastError = null
 
   // Bybit kline endpoint — open CORS, no auth, rate-limit generous
   const URLS = [
@@ -105,8 +106,9 @@ export async function fetchDeltaCandles(symbol, interval = '15m', limit = 60, ti
   for (const url of URLS) {
     try {
       const res = await fetch(url, { signal: AbortSignal.timeout(2500) })
-      if (!res.ok) continue
+      if (!res.ok) { lastError = new Error(`Candle HTTP ${res.status}`); continue }
       const data = await res.json()
+      if (data.retCode === 10006) { lastError = new Error('Bybit rate limit'); continue }
 
       // Bybit shape: { retCode:0, result:{ list:[ [time,open,high,low,close,vol,turnover], ... ] } }
       if (data.retCode === 0 && Array.isArray(data.result?.list) && data.result.list.length >= 3) {
@@ -119,18 +121,19 @@ export async function fetchDeltaCandles(symbol, interval = '15m', limit = 60, ti
             close:  parseFloat(c[4]),
             volume: parseFloat(c[5]),
           }))
-          .filter(c => c.close > 0)
+          .filter(validCandle)
           .sort((a, b) => a.time - b.time) // Bybit returns newest first
-          .slice(-limit)
-        if (raw.length >= 3) return attachIndicators(raw, ticker)
+          
+        const clean = uniqueCandles(raw)
+        if (clean.length >= 3) return attachIndicators(clean, ticker).slice(-limit)
       }
 
       // Binance Futures kline fallback; never request stock/commodity endpoints for crypto.
       if (Array.isArray(data) && Array.isArray(data[0]) && data.length>=3) {
         const raw=data.map(row=>({time:Number(row[0]),open:Number(row[1]),high:Number(row[2]),
           low:Number(row[3]),close:Number(row[4]),volume:Number(row[5])}))
-          .filter(row=>Number.isFinite(row.close)&&row.close>0)
-          .sort((a,b)=>a.time-b.time).slice(-limit)
+          .filter(validCandle)
+          .sort((a,b)=>a.time-b.time)
         if(raw.length>=3)return attachIndicators(raw,ticker)
       }
 
@@ -138,28 +141,36 @@ export async function fetchDeltaCandles(symbol, interval = '15m', limit = 60, ti
       if (Array.isArray(data.result) && data.result.length >= 3) {
         const raw = data.result
           .map(c => ({
-            time:   (c.time || c.t) * (c.time > 1e10 ? 1 : 1000),
+            time:   Number(c.time ?? c.t) * (Number(c.time ?? c.t) > 1e10 ? 1 : 1000),
             open:   parseFloat(c.open  || c.o),
             high:   parseFloat(c.high  || c.h),
             low:    parseFloat(c.low   || c.l),
             close:  parseFloat(c.close || c.c),
             volume: parseFloat(c.volume|| c.v || 0),
           }))
-          .filter(c => c.close > 0)
+          .filter(validCandle)
           .sort((a, b) => a.time - b.time)
-          .slice(-limit)
-        if (raw.length >= 3) return attachIndicators(raw, ticker)
+          
+        const clean = uniqueCandles(raw)
+        if (clean.length >= 3) return attachIndicators(clean, ticker).slice(-limit)
       }
     } catch (e) {
+      lastError = e
       console.warn(`[Sniper] Candle fetch failed for ${symbol}:`, e.message)
     }
   }
 
+  if (lastError) throw lastError
   return null
 }
 
+function validCandle(c) {
+  return [c.time,c.open,c.high,c.low,c.close,c.volume].every(Number.isFinite) && c.time > 0 && c.low > 0 && c.volume >= 0 && c.high >= Math.max(c.open,c.close,c.low) && c.low <= Math.min(c.open,c.close)
+}
+function uniqueCandles(rows) { return [...new Map(rows.map(c=>[c.time,c])).values()] }
+
 // ─── Indicators ───────────────────────────────────────────────────────────────
-function attachIndicators(candles, ticker = null) {
+export function attachIndicators(candles, ticker = null) {
   const periods = [5,9,10,15,16,20,25,27,30,40,45,50,60,75,80,100,120,135,150,200,300,600]
   for (const p of periods) attachEMAn(candles, p, `ema${p}`)
   attachRSI(candles, 14)
@@ -196,13 +207,13 @@ function attachRSI(candles, period = 14) {
   for (let i = 0; i < candles.length; i++) {
     if (i < period) { candles[i].rsi = null; candles[i].rsi14 = null; continue }
     if (i === period) {
-      const v = avgLoss === 0 ? 100 : 100 - 100 / (1 + avgGain / avgLoss)
+      const v = avgLoss === 0 ? (avgGain === 0 ? 50 : 100) : 100 - 100 / (1 + avgGain / avgLoss)
       candles[i].rsi = v; candles[i].rsi14 = v
     } else {
       const diff = candles[i].close - candles[i - 1].close
       avgGain = (avgGain * (period - 1) + (diff > 0 ? diff : 0)) / period
       avgLoss = (avgLoss * (period - 1) + (diff < 0 ? -diff : 0)) / period
-      const v = avgLoss === 0 ? 100 : 100 - 100 / (1 + avgGain / avgLoss)
+      const v = avgLoss === 0 ? (avgGain === 0 ? 50 : 100) : 100 - 100 / (1 + avgGain / avgLoss)
       candles[i].rsi = v; candles[i].rsi14 = v
     }
   }
@@ -248,7 +259,7 @@ function attachDMI(candles, period = 14) {
     dxArr[i] = sum > 0 ? Math.abs(diPlusArr[i] - diMinusArr[i]) / sum * 100 : 0
   }
   const adxStart = period * 2
-  if (candles.length <= adxStart) return
+  if (candles.length < adxStart) return
   let adx = 0
   for (let i = period; i < adxStart; i++) adx += dxArr[i]
   adx /= period
