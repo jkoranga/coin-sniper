@@ -1,6 +1,6 @@
 import { compilePattern, requiredCandleCount } from "../src/utils/patternEngine.js";
 import { fetchDeltaSymbols, fetchDeltaCandles } from "../src/utils/deltaScanner.js";
-import { buildTelegramMsg } from "../src/utils/scanner.js";
+import { buildTelegramMsg, telegramMessagePayload } from "../src/utils/scanner.js";
 
 const FIREBASE_API_KEY = "AIzaSyAZahY8Ci0yGHHZcf5TLTakNod16Hihbqo";
 const MAX_MARKET_TASKS = 16;
@@ -178,7 +178,7 @@ async function sendTelegram(token, chatId, message) {
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
       chat_id: chatId,
-      text: message,
+      ...telegramMessagePayload(message),
       parse_mode: "HTML",
       disable_web_page_preview: true,
     }),
