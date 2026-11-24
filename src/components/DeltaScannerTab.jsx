@@ -458,6 +458,7 @@ function DetailSheet({ alert: a, onClose }) {
               </div>
             </div>
             <TvIcon symbol={a.symbol} timeframe={a.timeframe} sz={32}/>
+            <a href="https://t.me/" target="_blank" rel="noopener noreferrer" style={{fontSize:11,color:CY}}>Telegram</a>
             <button onClick={onClose} aria-label="Close details" title="Close" style={{
               width:30, height:30, borderRadius:8, flexShrink:0, cursor:'pointer',
               display:'flex', alignItems:'center', justifyContent:'center',
@@ -481,6 +482,8 @@ function DetailSheet({ alert: a, onClose }) {
 
           {/* Stat grid */}
           <div style={{display:'grid', gridTemplateColumns:'1fr 1fr', gap:8, marginBottom:12}}>
+            {a.dailyChangePct != null && <StatBox label="24H CHANGE" value={Number(a.dailyChangePct).toFixed(2)+'%'}/>}
+            {a.hourlyChangePct != null && <StatBox label="1H CHANGE" value={Number(a.hourlyChangePct).toFixed(2)+'%'}/>}
             <StatBox label="CANDLES" value={d.candleCount ?? '—'}/>
             <StatBox label="GAIN" value={gainStr} valColor={gainPct >= 0 ? GR : RD}/>
             {entry != null && <StatBox label="ENTRY" value={fmt(entry)}/>}
@@ -562,6 +565,26 @@ export default function DeltaScannerTab({
   const [nextScanAt,  setNextScanAt]  = useState(null)
   const [singleSym,   setSingleSym]   = useState('')
   const [selected,    setSelected]    = useState(null)
+  useEffect(() => {
+    if (!isActive) return
+    const q = new URLSearchParams(window.location.search)
+    if (q.get('signal') !== '1' || q.get('timeframe') !== tfProp) return
+    const symbol = q.get('symbol')
+    if (!symbol || !/^[A-Za-z0-9:_./-]{1,80}$/.test(symbol)) return
+    const side = /^(sell|bear)$/i.test(q.get('side')||'') ? 'bear' : 'bull'
+    const scannerName = q.get('scannerName') || 'Scanner signal'
+    const existing = alerts.find(a=>a.symbol===symbol && a.side===side && a.scannerName===scannerName)
+    const number = k => q.get(k) && Number.isFinite(Number(q.get(k))) ? Number(q.get(k)) : null
+    const alert = existing || {symbol,timeframe:tfProp,side,scannerName,time:number('time')||Date.now(),scannerIcon:side==='bull'?'🟢':'🔴',dailyChangePct:number('dailyChangePct'),hourlyChangePct:number('hourlyChangePct'),details:{}}
+    setSelected(alert)
+    window.history.replaceState(window.history.state,'',window.location.pathname)
+    if (!alert.details?.run && symbol!=='WEBPUSH') {
+      const chartTimeframe = ['1m','3m','5m'].includes(tfProp)?'5m':tfProp
+      fetchDeltaCandles(symbol,chartTimeframe,520).then(candles=>{
+        if(candles?.length>=2) setSelected(prev=>prev===alert?{...prev,details:{...prev.details,run:candles.slice(-28),chartTimeframe}}:prev)
+      }).catch(()=>{})
+    }
+  }, [isActive,tfProp])
   const [noPatWarn,   setNoPatWarn]   = useState(false)
   const [selPatterns,  setSelPatterns]  = useState(new Set()) // selected pattern name filter
   const [activeCategoryId, setActiveCategoryId] = useState('crypto')
