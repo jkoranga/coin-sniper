@@ -374,7 +374,7 @@ export async function sendTelegram(botToken, chatId, text) {
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
       chat_id: chatId,
-      text,
+      ...telegramMessagePayload(text),
       parse_mode: 'HTML',
       disable_web_page_preview: true,
     }),
@@ -389,6 +389,14 @@ function escapeTelegramHtml(value) {
   return String(value ?? '').replace(/[&<>"]/g, ch => ({
     '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;',
   })[ch])
+}
+
+export function telegramMessagePayload(message) {
+  const text = String(message ?? '')
+  const match = text.match(/<a href="(https:\/\/www\.tradingview\.com\/chart\/\?[^"]+)">TradingView Chart<\/a>/)
+  if (!match) return { text }
+  const url = match[1].replace(/&amp;/g, '&')
+  return { text: text.replace(/\n?📉 <a href="[^"]+">TradingView Chart<\/a>/, ''), reply_markup: { inline_keyboard: [[{ text: '📉 Open TradingView', url }]] } }
 }
 
 export function buildTelegramMsg(alert) {
@@ -409,14 +417,15 @@ export function buildTelegramMsg(alert) {
     : `⚪ <b>${label}:</b> N/A`
 
   return [
-    `<b>${icon} ${action} · ${setup} · ${escapeTelegramHtml(timeframe)}</b>`,
-    `🪙 <b>${escapeTelegramHtml(symbol)}</b>`,
+    `<b>${icon} ${action} SIGNAL · ${escapeTelegramHtml(timeframe.toUpperCase())}</b>`,
+    `🪙 <b>Coin:</b> ${escapeTelegramHtml(symbol)}`,
+    `⭐ <b>Pattern:</b> ${setup}`,
     changeLine('Daily Change', daily),
     changeLine('Hourly Change', hourly),
     `📉 <a href="${escapeTelegramHtml(chartUrl)}">TradingView Chart</a>`,
     '',
     '<i>Coin Sniper</i>',
-  ].join('\\n')
+  ].join('\n')
 }
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
