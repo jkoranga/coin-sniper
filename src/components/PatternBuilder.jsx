@@ -347,7 +347,7 @@ function JoinBadge({ value, onChange, onGroupToggle, grouped, groupColor }) {
 
 // ── Condition card ────────────────────────────────────────────────────────────
 function CondCard({ cond, idx, total, color, onChange, onRemove, onCopy, onMoveUp, onMoveDown, open, onToggleOpen }) {
-  function s(k, v) { onChange({ ...cond, [k]: v }) }
+  function s(k, v) { onChange({ ...cond, [k]: v, ...(cond.histCompare && k === 'lhsField' ? {rhsField:v} : {}) }) }
   const formula = condFormula(cond)
   const [confirmDelete, setConfirmDelete] = useState(false)
 
@@ -575,10 +575,10 @@ function CondCard({ cond, idx, total, color, onChange, onRemove, onCopy, onMoveU
             <div>
               <div style={{ fontSize: 11, fontWeight: 800, color: cond.histCompare ? '#00e676' : 'var(--text2)' }}>Historical Range Comparison</div>
               <div style={{ fontSize: 9, color: 'var(--text3)', fontFamily: 'var(--mono)', marginTop: 2 }}>
-                Current candles vs an older candle / EMA / RSI range
+                Compare recent indicator values with an older range
               </div>
             </div>
-            <button onClick={() => onChange({ ...cond, histCompare: !cond.histCompare, rangeCheck: cond.histCompare ? cond.rangeCheck : false, rhsMode: !cond.histCompare && cond.rhsMode === 'number' ? 'field' : cond.rhsMode })} style={{
+            <button onClick={() => onChange({ ...cond, histCompare: !cond.histCompare, rangeCheck: cond.histCompare ? cond.rangeCheck : false, rhsMode: !cond.histCompare ? 'field' : cond.rhsMode, rhsField: !cond.histCompare ? cond.lhsField : cond.rhsField })} style={{
               padding: '5px 10px', borderRadius: 7, cursor: 'pointer', fontSize: 10, fontWeight: 800,
               border: `1px solid ${cond.histCompare ? '#00e676' : 'var(--border)'}`,
               background: cond.histCompare ? 'rgba(0,230,118,0.16)' : 'rgba(239,68,68,.12)',
@@ -638,7 +638,7 @@ function CondCard({ cond, idx, total, color, onChange, onRemove, onCopy, onMoveU
 
           {/* LEFT SIDE — show candle offset only when range is OFF */}
           <div style={{ padding: '7px 8px', borderRadius: 7, background: 'rgba(0,0,0,0.18)' }}>
-            <Lbl>LEFT — candle field</Lbl>
+            <Lbl>{cond.histCompare ? 'RECENT RANGE — Indicator' : 'LEFT — candle field'}</Lbl>
             <FSelect
               value={cond.lhsField} offset={(cond.rangeCheck || cond.histCompare) ? 0 : cond.lhsOffset}
               onField={v => s('lhsField', v)} onOffset={(cond.rangeCheck || cond.histCompare) ? null : v => s('lhsOffset', v)}
@@ -648,16 +648,17 @@ function CondCard({ cond, idx, total, color, onChange, onRemove, onCopy, onMoveU
 
           {/* OPERATOR */}
           <div>
-            <Lbl>OPERATOR</Lbl>
+            <Lbl>{cond.histCompare ? 'COMPARISON DIRECTION' : 'OPERATOR'}</Lbl>
             <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
               {OPS.map(op => (
-                <Pill key={op} active={cond.op === op} color={color} onClick={() => s('op', op)}>{op}</Pill>
+                <Pill key={op} active={cond.op === op} color={color} onClick={() => s('op', op)}>{cond.histCompare ? ({'>':'↑ Above (>)','>=':'At or above (≥)','<':'↓ Below (<)','<=':'At or below (≤)','=':'Equal (=)','≠':'Not equal (≠)'})[op] : op}</Pill>
               ))}
             </div>
           </div>
 
           <div style={{ padding: '7px 8px', borderRadius: 7, background: 'rgba(0,0,0,0.18)' }}>
-            <Lbl>RIGHT — compare to</Lbl>
+            <Lbl>{cond.histCompare ? 'HISTORICAL RANGE — Compare with' : 'RIGHT — compare to'}</Lbl>
+            {cond.histCompare && <div style={{fontSize:10,color:'var(--text2)',marginBottom:7}}>Automatically matches the recent indicator. You can select a different field below.</div>}
             <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap', marginBottom: 9 }}>
               {RHS_MODES.map(m => (
                 <Pill key={m.id} active={(cond.rhsMode ?? (cond.histCompare ? 'field' : 'number')) === m.id} color={color}
