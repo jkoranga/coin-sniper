@@ -9,6 +9,7 @@ import { requiredCandleCount } from '../utils/patternEngine.js'
 import { historyAddAlerts } from '../utils/history.js'
 import { onAuthChanged, loadNotificationCooldownsFromCloud, saveNotificationCooldownsToCloud } from '../firebase.js'
 import { intervalToMs, sendTelegram, buildTelegramMsg, fmt, timeSince, fmtVol, fetchCandles } from '../utils/scanner.js'
+import { createLiveCandles } from '../utils/liveCandles.js'
 import { showLocalScannerNotification } from '../utils/webPush.js'
 import { DEFAULT_GROUPS } from './sections/CustomPairsSection.jsx'
 
@@ -702,6 +703,13 @@ export default function DeltaScannerTab({
     }).then(fn => { unsubscribe = fn })
     return () => { active = false; unsubscribe?.(); clearTimeout(cooldownSaveTimerRef.current) }
   }, [])
+  const liveCandlesRef = useRef(null)
+  useEffect(() => {
+    if (!isActive || typeof WebSocket === 'undefined') return
+    const live = createLiveCandles()
+    liveCandlesRef.current = live
+    return () => { live.close(); liveCandlesRef.current = null }
+  }, [isActive, timeframe])
   const cacheRef    = useRef({})
   const inflightRef = useRef(new Map())
   const providerPauseRef = useRef({})
@@ -796,6 +804,11 @@ export default function DeltaScannerTab({
     const requestedLimit = Math.max(3, Number(limit) || 60)
     const now = Date.now()
     const hit = cacheRef.current[key]
+    if (provider === 'crypto') {
+      liveCandlesRef.current?.watch(symbol, tf)
+      const live = hit && liveCandlesRef.current?.merge(symbol, tf, hit.candles)
+      if (live && live.length >= requestedLimit) return live.slice(-requestedLimit)
+    }
     if (hit && now < hit.expiresAt && hit.candles.length >= requestedLimit) {
       const change24h = Number(ticker?.dailyChangePct ?? ticker?.priceChangePercent)
       if (Number.isFinite(change24h)) for (const candle of hit.candles) candle.change24h = change24h
