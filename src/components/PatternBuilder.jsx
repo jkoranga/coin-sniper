@@ -348,6 +348,9 @@ function JoinBadge({ value, onChange, onGroupToggle, grouped, groupColor }) {
 // ── Condition card ────────────────────────────────────────────────────────────
 function CondCard({ cond, idx, total, color, onChange, onRemove, onCopy, onMoveUp, onMoveDown, open, onToggleOpen }) {
   function s(k, v) { onChange({ ...cond, [k]: v, ...(cond.histCompare && k === 'lhsField' ? {rhsField:v} : {}) }) }
+  const isHistCross = cond.histCompare && ['crossUp','crossDown'].includes(cond.op)
+  const histStart = cond.histPreviousFrom ?? 3, histEnd = cond.histPreviousTo ?? 20
+  const histMid = histStart + Math.ceil((histEnd-histStart+1)/2)-1
   const formula = condFormula(cond)
   const [confirmDelete, setConfirmDelete] = useState(false)
 
@@ -578,7 +581,7 @@ function CondCard({ cond, idx, total, color, onChange, onRemove, onCopy, onMoveU
                 Compare recent indicator values with an older range
               </div>
             </div>
-            <button onClick={() => onChange({ ...cond, histCompare: !cond.histCompare, rangeCheck: cond.histCompare ? cond.rangeCheck : false, rhsMode: !cond.histCompare ? 'field' : cond.rhsMode, rhsField: !cond.histCompare ? cond.lhsField : cond.rhsField })} style={{
+            <button onClick={() => onChange({ ...cond, histCompare: !cond.histCompare, rangeCheck: cond.histCompare ? cond.rangeCheck : false, rhsMode: !cond.histCompare ? 'field' : cond.rhsMode, rhsField: !cond.histCompare ? cond.lhsField : cond.rhsField, op: cond.histCompare && isHistCross ? '>' : cond.op })} style={{
               padding: '5px 10px', borderRadius: 7, cursor: 'pointer', fontSize: 10, fontWeight: 800,
               border: `1px solid ${cond.histCompare ? '#00e676' : 'var(--border)'}`,
               background: cond.histCompare ? 'rgba(0,230,118,0.16)' : 'rgba(239,68,68,.12)',
@@ -616,6 +619,7 @@ function CondCard({ cond, idx, total, color, onChange, onRemove, onCopy, onMoveU
                   </select>
                 </div>
               </div>
+              {isHistCross ? <div style={{fontSize:11,color:'var(--text2)',lineHeight:1.6}}>{histEnd <= histStart ? 'Select at least two historical candles.' : `Auto split: B ${histStart}–${histMid} · C ${histMid+1}–${histEnd}`}<div>{cond.op === 'crossUp' ? 'Start below both levels; finish above both.' : 'Start above both levels; finish below both.'}</div><div>{cond.lhsField === 'close' ? 'Uses current range minimum/maximum Open and latest selected Close.' : 'Uses oldest and newest selected indicator values.'}</div></div> : <>
               <div>
                 <Lbl>PREVIOUS RANGE COMPARE</Lbl>
                 <div style={{fontSize:10,color:'var(--text2)',marginBottom:5}}>Every = compare against each older candle; Max/Min/Avg = compare against one reference value.</div>
@@ -630,6 +634,7 @@ function CondCard({ cond, idx, total, color, onChange, onRemove, onCopy, onMoveU
                   {[['any','ANY current candle'],['all','ALL current candles']].map(([v,l])=><Pill key={v} active={(cond.histCurrentMatch ?? 'any')===v} color="#00e676" onClick={()=>s('histCurrentMatch',v)}>{l}</Pill>)}
                 </div>
               </div>
+              </>}
               <div style={{ fontSize: 10, fontFamily: 'var(--mono)', color: '#00e676', padding: '6px 8px', borderRadius: 6, background: 'rgba(0,230,118,0.08)' }}>
                 {condFormula(cond)}
               </div>
@@ -650,8 +655,8 @@ function CondCard({ cond, idx, total, color, onChange, onRemove, onCopy, onMoveU
           <div>
             <Lbl>{cond.histCompare ? 'COMPARISON DIRECTION' : 'OPERATOR'}</Lbl>
             <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
-              {OPS.map(op => (
-                <Pill key={op} active={cond.op === op} color={color} onClick={() => s('op', op)}>{cond.histCompare ? ({'>':'↑ Above (>)','>=':'At or above (≥)','<':'↓ Below (<)','<=':'At or below (≤)','=':'Equal (=)','≠':'Not equal (≠)'})[op] : op}</Pill>
+              {(cond.histCompare ? [...OPS,'crossUp','crossDown'] : OPS).map(op => (
+                <Pill key={op} active={cond.op === op} color={op === 'crossUp' ? '#00e676' : op === 'crossDown' ? '#f87171' : color} onClick={() => ['crossUp','crossDown'].includes(op) ? onChange({...cond,op,rhsMode:'field',histPreviousTo:Math.max(histStart+1,histEnd)}) : s('op', op)}>{cond.histCompare ? ({'>':'↑ Above (>)','>=':'At or above (≥)','<':'↓ Below (<)','<=':'At or below (≤)','=':'Equal (=)','≠':'Not equal (≠)',crossUp:'↑ Cross Up',crossDown:'↓ Cross Down'})[op] : op}</Pill>
               ))}
             </div>
           </div>
@@ -660,7 +665,7 @@ function CondCard({ cond, idx, total, color, onChange, onRemove, onCopy, onMoveU
             <Lbl>{cond.histCompare ? 'HISTORICAL RANGE — Compare with' : 'RIGHT — compare to'}</Lbl>
             {cond.histCompare && <div style={{fontSize:10,color:'var(--text2)',marginBottom:7}}>Automatically matches the recent indicator. You can select a different field below.</div>}
             <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap', marginBottom: 9 }}>
-              {RHS_MODES.map(m => (
+              {(isHistCross ? RHS_MODES.filter(m=>m.id==='field') : RHS_MODES).map(m => (
                 <Pill key={m.id} active={(cond.rhsMode ?? (cond.histCompare ? 'field' : 'number')) === m.id} color={color}
                   onClick={() => s('rhsMode', m.id)} sm>{m.label}</Pill>
               ))}
