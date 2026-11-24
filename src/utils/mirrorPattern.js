@@ -100,7 +100,7 @@ export function mirrorCondition(cond, nextId = () => Math.random().toString(36).
   const result = {
     ...cond,
     id: nextId(),
-    op: isDirectional ? (MIRROR_OP[cond.op] || cond.op) : (MIRROR_OP[cond.op] && ['crossUp', 'crossDown'].includes(cond.op) ? MIRROR_OP[cond.op] : cond.op),
+    op: isDirectional ? (MIRROR_OP[cond.op] || cond.op) : cond.op,
     lhsField: MIRROR_FIELD[lhs] || lhs,
     rhsField: MIRROR_FIELD[rhs] || rhs,
     rhsNum,
