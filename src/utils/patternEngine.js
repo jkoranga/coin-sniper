@@ -332,6 +332,9 @@ export function compilePattern(pattern, _htfCandlesMap) {
     }
 
     function evalCond(cond) {
+      // Fail closed for unfinished rules; an unknown/blank operator must never
+      // fall through to the final "not equal" comparison and produce a signal.
+      if (!validateConditionConfig(cond).valid || cond.mirrorReviewReason) return null
       const accessors = resolveAccessors(cond)
       if (!accessors) return null
       const { arr, L, getC: gC, getVal: gV } = accessors
