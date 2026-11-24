@@ -1,6 +1,7 @@
 // ─── Pattern Builder v3 ───────────────────────────────────────────────────────
 import React, { useState, useMemo, useRef } from 'react'
 import { compilePattern, condFormula, validateConditionConfig } from '../utils/patternEngine.js'
+import { mirrorCondition } from '../utils/mirrorPattern.js'
 export { compilePattern, condFormula } from '../utils/patternEngine.js'
 
 // ── Field catalogue ───────────────────────────────────────────────────────────
@@ -120,86 +121,7 @@ function groupColor(groupId) {
   return GROUP_COLORS[h % GROUP_COLORS.length]
 }
 
-// Mirror an operator (flip comparison direction)
-const MIRROR_OP = { '>': '<', '>=': '<=', '<': '>', '<=': '>=', '=': '=', '≠': '≠' }
-
-// Flip High ↔ Low and LowerWick ↔ UpperWick for bearish/bullish mirror
-const MIRROR_FIELD = {
-  'high':      'low',
-  'low':       'high',
-  'lowerWick': 'upperWick',
-  'upperWick': 'lowerWick',
-  'greenLowerWickPct': 'redLowerWickPct',
-  'redLowerWickPct': 'greenLowerWickPct',
-  'greenUpperWickPct': 'redUpperWickPct',
-  'redUpperWickPct': 'greenUpperWickPct',
-  'isGreen':   'isRed',
-  'isRed':     'isGreen',
-}
-
-function mirrorCond(cond) {
-  const mirroredLhs = MIRROR_FIELD[cond.lhsField] ?? cond.lhsField
-  const mirroredRhs = MIRROR_FIELD[cond.rhsField] ?? cond.rhsField
-
-  // Wick swap: lowerWick <-> upperWick — same measurement direction, keep sign & op
-  const wickSwap = cond.lhsField !== mirroredLhs &&
-    (cond.lhsField === 'lowerWick' || cond.lhsField === 'upperWick')
-
-  // Size/magnitude fields are always absolute positive values (0-100 range, no negatives).
-  // Body%, Body, Range, Wick sizes, IsGreen/IsRed — keep RHS sign and operator on mirror.
-  // Bull Body% > 90  →  Bear Body% > 90  (same threshold, not -90)
-  // Size/magnitude fields — always absolute positive (0-100), keep value & op
-  const SIZE_FIELDS = new Set([
-    'body','bodyPct','bodySizePct','range','rangePct',
-    'upperWick','lowerWick','greenLowerWickPct','redLowerWickPct','greenUpperWickPct','redUpperWickPct','wickPct',
-    'volume',
-    'isGreen','isRed',  // binary 0/1 flags — never negate on mirror
-  ])
-  const isSizeField = SIZE_FIELDS.has(cond.lhsField)
-
-  // RSI mirrors around 50 (the neutral midpoint):
-  //   Bull RSI > 60  →  Bear RSI < 40   (100 - 60 = 40)
-  //   Bull RSI > 70  →  Bear RSI < 30   (100 - 70 = 30)
-  //   Bull RSI = 50  →  Bear RSI = 50   (symmetric)
-  const isRsiField = cond.lhsField === 'rsi'
-
-  const keepSign = wickSwap || isSizeField
-  const keepOp   = isSizeField || wickSwap
-
-  // Invert multiplier for non-size, non-RSI fields
-  const rhsMult = cond.rhsMult != null
-    ? (isSizeField || isRsiField ? parseFloat(cond.rhsMult) : parseFloat((1 / parseFloat(cond.rhsMult)).toFixed(6)))
-    : cond.rhsMult
-
-  // RSI: mirror rhsNum around 50; others: keep or negate
-  const rhsNum = cond.rhsNum != null
-    ? (isRsiField
-        ? parseFloat((100 - parseFloat(cond.rhsNum)).toFixed(4))
-        : keepSign ? parseFloat(cond.rhsNum) : -parseFloat(cond.rhsNum))
-    : cond.rhsNum
-
-  const rhsPct   = cond.rhsPct   != null ? (keepSign ? parseFloat(cond.rhsPct)   : -parseFloat(cond.rhsPct))   : cond.rhsPct
-  const slopeNum = cond.slopeNum != null ? (keepSign ? parseFloat(cond.slopeNum) : -parseFloat(cond.slopeNum)) : cond.slopeNum
-
-  // RSI flips operator (> 60 → < 40); size fields keep op; others flip
-  const finalOp = isRsiField
-    ? (MIRROR_OP[cond.op] ?? cond.op)
-    : keepOp ? cond.op : (MIRROR_OP[cond.op] ?? cond.op)
-
-  return {
-    ...cond,
-    id: uid(),
-    op: finalOp,
-    lhsField: mirroredLhs,
-    rhsField: mirroredRhs,
-    rhsMult,
-    rhsNum,
-    rhsPct,
-    slopeNum,
-    label: cond.label ? `Mirror of ${cond.label}` : '',
-  }
-}
-
+// Mirror rules live in a pure, regression-testable utility.
 function uid() { return Date.now().toString(36) + Math.random().toString(36).slice(2,6) }
 
 // ── Formula label ─────────────────────────────────────────────────────────────
@@ -347,19 +269,27 @@ function JoinBadge({ value, onChange, onGroupToggle, grouped, groupColor }) {
 
 // ── Condition card ────────────────────────────────────────────────────────────
 function CondCard({ cond, idx, total, color, onChange, onRemove, onCopy, onMoveUp, onMoveDown, open, onToggleOpen }) {
-  function s(k, v) { onChange({ ...cond, [k]: v, ...(cond.histCompare && k === 'lhsField' ? {rhsField:v} : {}) }) }
+  function s(k, v) {
+    const next = { ...cond, [k]: v, ...(cond.histCompare && k === 'lhsField' ? {rhsField:v} : {}) }
+    // Editing a mirrored condition acknowledges its review flag. The regular
+    // condition validator still checks all required fields.
+    if (k !== 'enabled' && cond.mirrorReviewReason) delete next.mirrorReviewReason
+    onChange(next)
+  }
   const isHistCross = cond.histCompare && ['crossUp','crossDown'].includes(cond.op)
   const histStart = cond.histPreviousFrom ?? 3, histEnd = cond.histPreviousTo ?? 20
   const histMid = histStart + Math.ceil((histEnd-histStart+1)/2)-1
   const candleIndexLabel = n => Number(n) === 0 ? '0 · running' : String(-Number(n))
   const formula = condFormula(cond)
   const validation = validateConditionConfig(cond)
-  const ready = cond.enabled && validation.valid
+  const ready = cond.enabled && validation.valid && !cond.mirrorReviewReason
   const statusColor = ready ? '#19bb72' : '#ef646a'
   const statusBackground = ready ? 'rgba(25,187,114,0.09)' : 'rgba(239,100,106,0.10)'
   const statusBorder = ready ? 'rgba(25,187,114,0.50)' : 'rgba(239,100,106,0.55)'
   const statusText = !cond.enabled ? 'OFF · NOT SCANNING' : validation.valid ? 'READY · VALID LOGIC' : 'FIX REQUIRED'
-  const statusReason = !cond.enabled ? 'This condition is OFF and will not be scanned.' : validation.reason
+  const statusReason = cond.mirrorReviewReason
+    ? `Mirror review: ${cond.mirrorReviewReason}`
+    : (!cond.enabled ? 'This condition is OFF and will not be scanned.' : validation.reason)
   const recentWindow = `${candleIndexLabel(cond.histCurrentFrom ?? 1)} to ${candleIndexLabel(cond.histCurrentTo ?? 2)}`
   const olderWindow = `${candleIndexLabel(cond.histPreviousFrom ?? 3)} to ${candleIndexLabel(cond.histPreviousTo ?? 20)}`
   const directionWords = { '>': 'higher than', '>=': 'at least as high as', '<': 'lower than', '<=': 'at most as high as', '=': 'equal to', '≠': 'different from' }
@@ -2046,10 +1976,13 @@ export default function PatternBuilderTab({ settings, update }) {
       name: customName,
       mirrorOf: src.mirrorOf || src.id,
       side: src.side === 'bull' ? 'bear' : 'bull',
-      conditions: src.conditions.map(c => mirrorCond(c)),
+      conditions: src.conditions.map(c => mirrorCondition(c, uid)),
       createdAt: Date.now(),
       hiddenInBuilder: false,
     }
+    // If a non-symmetric expression needs manual review, do not activate an
+    // incomplete bearish/bullish pattern automatically.
+    if (mirrored.conditions.some(c => c.mirrorReviewReason)) mirrored.enabled = false
     const ps = [...patterns]
     ps.splice(i + 1, 0, mirrored)
     setNewId(null)
