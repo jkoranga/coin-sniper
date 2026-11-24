@@ -4,8 +4,8 @@
 export function Toggle({ checked, onChange }) {
   return (
     <label className="toggle">
-      <input type="checkbox" checked={checked} onChange={e => onChange(e.target.checked)} />
-      <span className="toggle-slider" />
+      <input type="checkbox" checked={Boolean(checked)} onChange={e => onChange(e.target.checked)} />
+      <span className="toggle-slider" style={{background:checked ? "#65a30d" : "#b91c1c",borderColor:checked ? "#a3e635" : "#f87171"}} />
     </label>
   )
 }
