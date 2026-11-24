@@ -219,7 +219,7 @@ async function processPendingAlerts(env, configs) {
       continue;
     }
     if (Number(item.nextAttemptAt || 0) > now) continue;
-    const config = byUid.get(item.uid);
+    const config = JSON.parse(await env.SCANNER_KV.get("cfg:" + item.uid) || "null");
     if (!config) {
       await env.SCANNER_KV.delete(entry.name);
       continue;
@@ -285,7 +285,7 @@ async function handleSync(request, env) {
     }))
     .filter(p => p.tfs.length && p.conditions.length);
 
-  const telegramReady = payload.enabled === true &&
+  const telegramReady = (payload.tgOn ?? payload.enabled) === true &&
     typeof payload.tgToken === "string" && payload.tgToken.length > 20 &&
     typeof payload.tgChatId === "string" && payload.tgChatId.length > 0;
   let telegram = null;
@@ -534,7 +534,9 @@ async function scanCron(env) {
           const expiry = Number(await env.SCANNER_KV.get(dedupKey) || 0);
           if (!expiry || Date.now() >= expiry) {
             try {
-              const telegram = await decryptTelegram(config.telegram, env);
+              const latest = await env.SCANNER_KV.get("cfg:" + config.uid, "json");
+              if (!latest?.telegram) continue;
+              const telegram = await decryptTelegram(latest.telegram, env);
               await sendTelegram(telegram.token, telegram.chatId, buildTelegramMsg(alert));
               await env.SCANNER_KV.put(dedupKey, String(Date.now() + cooldownMs), {
                 expirationTtl: Math.max(60, Math.ceil(cooldownMs / 1000)),
@@ -552,7 +554,9 @@ async function scanCron(env) {
           const pushExpiry = Number(await env.SCANNER_KV.get(pushDedupKey) || 0);
           if (!pushExpiry || Date.now() >= pushExpiry) {
             try {
-              const token = await decryptPushToken(config.pushToken, env);
+              const latest = await env.SCANNER_KV.get("cfg:" + config.uid, "json");
+              if (!latest?.pushToken) continue;
+              const token = await decryptPushToken(latest.pushToken, env);
               const account = getFirebaseServiceAccount(env);
               await sendWebPush(account.project_id || "signal-engines", token, alert, env);
               await env.SCANNER_KV.put(pushDedupKey, String(Date.now() + cooldownMs), {
