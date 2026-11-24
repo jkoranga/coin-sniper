@@ -291,7 +291,7 @@ function ScanSettingsSection({ settings, update, saveNowWithPatch }) {
         <div className="setting-row" key={key}>
           <div className="row-label"><span>{label}</span><small>{hint}</small></div>
           <div style={{display:'flex',gap:4}}>
-            {[true,false].map(v=><button key={String(v)} className={`btn-small ${Boolean(settings[key])===v?'active':''}`} onClick={()=>update({[key]:v,...(v&&key==='autoScan'?{loopScan:false}:v&&key==='loopScan'?{autoScan:false}:{})})}>{v?'ON':'OFF'}</button>)}
+            {[true,false].map(v=><button key={String(v)} className={`btn-small ${Boolean(settings[key])===v?'active':''}`} aria-pressed={Boolean(settings[key])===v} style={Boolean(settings[key])===v?{color:v?"#a3e635":"#f87171",borderColor:v?"#84cc16":"#ef4444",background:v?"rgba(132,204,22,.18)":"rgba(239,68,68,.18)",fontWeight:800}:{opacity:.65}} onClick={()=>update({[key]:v,...(v&&key==='autoScan'?{loopScan:false}:v&&key==='loopScan'?{autoScan:false}:{})})}>{v?'ON':'OFF'}</button>)}
           </div>
         </div>
       ))}
