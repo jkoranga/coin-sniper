@@ -714,7 +714,7 @@ function CondCard({ cond, idx, total, color, onChange, onRemove, onCopy, onMoveU
               </div>
             )}
 
-            {cond.histCompare && (
+            {cond.histCompare && ['pctdiff','pct'].includes(cond.rhsMode) && (
               <div style={{
                 padding: '7px 10px', marginBottom: 9, borderRadius: 7,
                 border: '1px solid rgba(76,175,255,.32)', background: 'rgba(76,175,255,.06)',
