@@ -745,7 +745,7 @@ export default function App() {
     }
   }, [])
 
-  const [activeTab,      setActiveTab]      = useState(() => ssGetTab())
+  const [activeTab,      setActiveTab]      = useState(() => { const q=new URLSearchParams(location.search); const tf=q.get('timeframe'); return q.get('signal')==='1' && ['1m','3m','5m','15m','30m','1h','4h','1d'].includes(tf) ? tf : ssGetTab() })
   const [user,           setUser]           = useState(null)
   const [authReady,      setAuthReady]      = useState(false)
   const [alertCounts,    setAlertCounts]    = useState({})
