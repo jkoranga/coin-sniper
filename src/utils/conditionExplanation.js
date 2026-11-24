@@ -139,7 +139,7 @@ export function explainCondition(cond) {
     const comparisonHindi = actualMode === 'pctdiff'
       ? `${left} का ${oldHindi} ${right} से percentage gap ${number(cond.op === '% Diff' ? (cond.histPctThreshold ?? cond.rhsNum) : cond.rhsNum)}% ${hindiOps[op] || 'के अनुसार'} होना चाहिए`
       : actualMode === 'slope'
-        ? `${left} का ${number(cond.slopeLen, 5) + number(cond.slopeSkip)} candles का slope ${number(cond.slopeNum)}% ${hindiOps[op] || 'के अनुसार'} होना चाहिए`
+        ? `${left} का ${Number(number(cond.slopeLen, 5)) + Number(number(cond.slopeSkip))} candles का slope ${number(cond.slopeNum)}% ${hindiOps[op] || 'के अनुसार'} होना चाहिए`
         : actualMode === 'number'
           ? `${left} ${number(cond.rhsNum)} ${hindiOps[op] || 'के अनुसार'} होना चाहिए`
           : `${left} की तुलना ${oldHindi} ${right} ${actualMode === 'mult' ? `× ${number(cond.rhsMult,1)}` : actualMode === 'pct' ? `± ${number(cond.rhsPct)}%` : ''} से ${hindiOps[op] || 'करनी है'}`
