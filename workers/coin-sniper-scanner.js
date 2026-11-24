@@ -156,9 +156,8 @@ async function getFcmAccessToken(env) {
 async function sendWebPush(projectId, token, alert, env) {
   const accessToken = await getFcmAccessToken(env);
   const side = alert.side === "bear" ? "SELL" : "BUY";
-  const title = (alert.side === "bear" ? "🔴 SELL" : "🟢 BUY") + " · " + alert.timeframe.toUpperCase();
-  const body = alert.scannerName + " · " + alert.symbol +
-    " · 24h " + (alert.dailyChangePct == null ? "—" : alert.dailyChangePct.toFixed(2) + "%") +
+  const title = (alert.side === "bear" ? "🔴 SELL" : "🟢 BUY") + " · " + alert.symbol + " · " + alert.timeframe.toUpperCase();
+  const body = alert.scannerName + "\n24h " + (alert.dailyChangePct == null ? "—" : alert.dailyChangePct.toFixed(2) + "%") +
     " · 1h " + (alert.hourlyChangePct == null ? "—" : alert.hourlyChangePct.toFixed(2) + "%");
   const response = await fetch("https://fcm.googleapis.com/v1/projects/" + projectId + "/messages:send", {
     method: "POST", headers: { Authorization: "Bearer " + accessToken, "Content-Type": "application/json" },
@@ -167,7 +166,7 @@ async function sendWebPush(projectId, token, alert, env) {
       data: { title, body, symbol: alert.symbol, timeframe: alert.timeframe, side,
         scannerName: alert.scannerName,
         time: String(alert.time || Date.now()), dailyChangePct: String(alert.dailyChangePct ?? ""), hourlyChangePct: String(alert.hourlyChangePct ?? ""),
-        url: "https://coin-sniper.vercel.app/" },
+        url: "https://www.tradingview.com/chart/?symbol=BYBIT:" + encodeURIComponent(alert.symbol.replace(/USDT$/, "") + "USDT.P") + "&interval=" + ({"1m":"1","3m":"3","5m":"5","15m":"15","30m":"30","1h":"60","4h":"240","1d":"D"}[alert.timeframe] || "15") },
       webpush: { headers: { Urgency: "high", TTL: "900" } },
     } }),
   });
