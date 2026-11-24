@@ -9,6 +9,7 @@ import { requiredCandleCount } from '../utils/patternEngine.js'
 import { historyAddAlerts } from '../utils/history.js'
 import { onAuthChanged, loadNotificationCooldownsFromCloud, saveNotificationCooldownsToCloud } from '../firebase.js'
 import { intervalToMs, sendTelegram, buildTelegramMsg, fmt, timeSince, fmtVol, fetchCandles } from '../utils/scanner.js'
+import { showLocalScannerNotification } from '../utils/webPush.js'
 import { DEFAULT_GROUPS } from './sections/CustomPairsSection.jsx'
 
 const DC  = '#ff6b00'
@@ -1021,7 +1022,11 @@ export default function DeltaScannerTab({
 
             // Notification cooldown is independent: refresh the row every scan,
             // but only send Telegram after the configured dedup interval.
-            if (!isDupe(sym, sc.id, sc.side)) newAlerts.push(a)
+            const notifyCfg = settingsRef.current
+            if ((notifyCfg.webPushOn || (notifyCfg.tgOn && notifyCfg.tgToken && notifyCfg.tgChatId)) && !isDupe(sym, sc.id, sc.side)) {
+              newAlerts.push(a)
+              if (notifyCfg.webPushOn) showLocalScannerNotification(a, () => settingsRef.current.webPushOn).catch(error => console.warn('[CoinSniper] Local notification failed:', error.message))
+            }
             historyAddAlerts([a])
           }
         } catch (error) {
