@@ -117,7 +117,11 @@ export function condFormula(c) {
     const pf = c.histPreviousFrom ?? 3, pt = c.histPreviousTo ?? 20
     const mode = (c.histPreviousMode ?? 'max').toUpperCase()
     const match = (c.histCurrentMatch ?? 'any').toUpperCase()
-    return `${htfPfx}${match} ${f}[${cf}–${ct}] ${c.op} ${rf} PREV[${pf}–${pt}] ${mode}`
+    const ref = `${rf} PREV[${pf}–${pt}] ${mode}`
+    const rhs = c.rhsMode === 'number' ? String(c.rhsNum ?? 0) : c.rhsMode === 'mult' ? `${ref} × ${c.rhsMult ?? 1}` : c.rhsMode === 'pct' ? `${ref} × (1 + ${c.rhsPct ?? 0}/100)` : ref
+    if (c.op === '% Diff' || c.rhsMode === 'pctdiff' || c.histCompareMode === 'pctdiff') return `${htfPfx}${match} %Δ(${f}[${cf}–${ct}], ${ref}) ${c.op === '% Diff' ? c.histPctOp || '>=' : c.op} ${c.op === '% Diff' ? c.histPctThreshold ?? c.rhsNum ?? 0 : c.rhsNum ?? 0}%`
+    if (c.rhsMode === 'slope') return `${htfPfx}${match} ${f}[${cf}–${ct}] slope (${c.slopeLen ?? 5}+${c.slopeSkip ?? 0} bars) ${c.op} ${c.slopeNum ?? 0}%`
+    return `${htfPfx}${match} ${f}[${cf}–${ct}] ${c.op} ${rhs}`
   }
 
   // Range mode: prefix with "ALL/ANY [from..to]"
@@ -262,14 +266,16 @@ export function compilePattern(pattern, _htfCandlesMap) {
         }
         const legacyPctDiff = cond.op === '% Diff' || (cond.histCompareMode ?? 'value') === 'pctdiff'
         const rhsMode = legacyPctDiff ? 'pctdiff' : (cond.rhsMode ?? 'field')
-        const op = OP_SYM[cond.op] || cond.op
+        const rawOp = cond.op === '% Diff' ? (cond.histPctOp || '>=') : cond.op
+        const op = OP_SYM[rawOp] || rawOp
         const compare = (a, b) => {
           if (op === '>') return a > b
           if (op === '>=') return a >= b
           if (op === '<') return a < b
           if (op === '<=') return a <= b
           if (op === '==') return Math.abs(a - b) < 1e-9
-          return Math.abs(a - b) >= 1e-9
+          if (op === '!=') return Math.abs(a - b) >= 1e-9
+          return false
         }
         const previousMode = cond.histPreviousMode ?? 'max'
         const referenceValue = previousMode === 'min' ? Math.min(...previousValues)
@@ -287,16 +293,20 @@ export function compilePattern(pattern, _htfCandlesMap) {
             const slopePct = (nowValue / pastValue - 1) * 100
             return compare(slopePct, Number.parseFloat(cond.slopeNum) || 0)
           }
-          const baseValue = referenceValue
+          const compareReference = baseValue => {
           if (baseValue == null) return null
           if (rhsMode === 'mult') return compare(currentValue, baseValue * (Number.parseFloat(cond.rhsMult) || 1))
           if (rhsMode === 'pct') return compare(currentValue, baseValue * (1 + (Number.parseFloat(cond.rhsPct) || 0) / 100))
           if (rhsMode === 'pctdiff') {
             if (baseValue === 0) return null
             const diffPct = (currentValue / baseValue - 1) * 100
-            return compare(diffPct, Number.parseFloat(cond.rhsNum) || 0)
+            return compare(diffPct, Number.parseFloat(cond.op === '% Diff' ? (cond.histPctThreshold ?? cond.rhsNum) : cond.rhsNum) || 0)
           }
           return compare(currentValue, baseValue)
+          }
+          const refs = previousMode === 'every' ? previousValues : [referenceValue]
+          const checks = refs.map(compareReference)
+          return checks.some(v=>v==null) ? null : checks.every(Boolean)
         })
         if (currentResults.some(result => result == null)) return null
         return (cond.histCurrentMatch ?? 'any') === 'all'
