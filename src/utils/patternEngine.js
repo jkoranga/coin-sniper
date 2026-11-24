@@ -115,6 +115,7 @@ export function condFormula(c) {
     const rf = FIELD_MAP[c.rhsField || c.lhsField]?.short || c.rhsField || c.lhsField || '?'
     const cf = c.histCurrentFrom ?? 1, ct = c.histCurrentTo ?? 2
     const pf = c.histPreviousFrom ?? 3, pt = c.histPreviousTo ?? 20
+    if (['crossUp','crossDown'].includes(c.op)) return `${htfPfx}${f}[${cf}–${ct}] ${c.op === 'crossUp' ? 'Cross Up' : 'Cross Down'} BOTH halves of ${rf}[${pf}–${pt}]`
     const mode = (c.histPreviousMode ?? 'max').toUpperCase()
     const match = (c.histCurrentMatch ?? 'any').toUpperCase()
     const ref = `${rf} PREV[${pf}–${pt}] ${mode}`
@@ -263,6 +264,29 @@ export function compilePattern(pattern, _htfCandlesMap) {
           const value = gV(candle, cond.rhsField || cond.lhsField, L - 1 + off)
           if (value == null || !Number.isFinite(Number(value))) return null
           previousValues.push(Number(value))
+        }
+        if (cond.op === 'crossUp' || cond.op === 'crossDown') {
+          if (previousValues.length < 2) return null
+          const up = cond.op === 'crossUp'
+          const split = Math.ceil(previousValues.length / 2)
+          const extreme = up ? Math.max : Math.min
+          const b = extreme(...previousValues.slice(0, split))
+          const c = extreme(...previousValues.slice(split))
+          let start
+          if (cond.lhsField === 'close') {
+            const opens = []
+            for (let n = cStart; n <= cEnd; n++) {
+              const value = gV(gC(-n), 'open', L - 1 - n)
+              if (!Number.isFinite(value)) return null
+              opens.push(value)
+            }
+            start = (up ? Math.min : Math.max)(...opens)
+          } else {
+            start = currentValues[currentValues.length - 1]
+          }
+          const end = currentValues[0]
+          return up ? start < Math.min(b,c) && end > Math.max(b,c)
+                    : start > Math.max(b,c) && end < Math.min(b,c)
         }
         const legacyPctDiff = cond.op === '% Diff' || (cond.histCompareMode ?? 'value') === 'pctdiff'
         const rhsMode = legacyPctDiff ? 'pctdiff' : (cond.rhsMode ?? 'field')
