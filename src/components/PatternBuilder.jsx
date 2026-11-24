@@ -66,8 +66,8 @@ const RHS_MODES = [
   { id: 'number',  label: 'Value',       hint: 'A fixed number' },
   { id: 'field',   label: 'Field',       hint: 'Another candle field' },
   { id: 'mult',    label: '× Mult',      hint: 'Field × multiplier  e.g. EMA20[-2] × 1.5' },
-  { id: 'pct',     label: '± %',         hint: 'Field ± percent  e.g. EMA20[-2] + 0.35%' },
-  { id: 'pctdiff', label: '% Diff',      hint: '% gap between left and right field' },
+  { id: 'pct',     label: 'Adjust ± %',  hint: 'Adjust the reference value by a percentage. Example: +100% means DOUBLE the older value.' },
+  { id: 'pctdiff', label: '% Change',    hint: 'Percentage CHANGE versus the selected reference: ((Recent ÷ Previous) − 1) × 100. Works for RSI, EMA, price, volume, wicks, and all numeric indicators.' },
   { id: 'slope',   label: 'Slope %',     hint: '(field[0] / field[-N] − 1) × 100 — how much the field rose over N candles' },
 ]
 
@@ -714,6 +714,32 @@ function CondCard({ cond, idx, total, color, onChange, onRemove, onCopy, onMoveU
               </div>
             )}
 
+            {cond.histCompare && (
+              <div style={{
+                padding: '7px 10px', marginBottom: 9, borderRadius: 7,
+                border: '1px solid rgba(76,175,255,.32)', background: 'rgba(76,175,255,.06)',
+                color: 'var(--text2)', fontSize: 10, lineHeight: 1.75,
+              }}>
+                {(cond.rhsMode ?? 'field') === 'pctdiff' ? (
+                  <>
+                    <b style={{color:'#93d7ff'}}>PERCENT CHANGE VS PREVIOUS RANGE</b>
+                    <div>Uses the selected older {FIELD_MAP[cond.rhsField || cond.lhsField]?.label || 'indicator'} reference
+                      ({({every:'Every candle',max:'Maximum',min:'Minimum',avg:'Average'})[cond.histPreviousMode ?? 'max']}).</div>
+                    <div style={{fontFamily:'var(--mono)',overflowWrap:'anywhere'}}>(Recent ÷ Previous Reference − 1) × 100</div>
+                    <div>Example: recent RSI = 60, previous RSI = 50 → <b>+20% change</b>.
+                      Recent RSI = 40, previous RSI = 50 → <b>−20% change</b>.</div>
+                    <div><b>Enter 20 with Above (&gt;)</b> to require more than +20% growth. Enter -20 with Below (&lt;) to require a drop greater than 20%.</div>
+                    <div>Percentage change is NOT the same as an RSI point difference: 60 − 50 = 10 RSI points, but +20% relative change.</div>
+                  </>
+                ) : (cond.rhsMode ?? 'field') === 'pct' ? (
+                  <>
+                    <b style={{color:'#93d7ff'}}>REFERENCE ADJUSTMENT — NOT PERCENT CHANGE</b>
+                    <div>This changes the older reference before comparing raw values. Example: 50 adjusted by +100% = 100 (double); 50 adjusted by +20% = 60.</div>
+                    <div>For percentage growth/decline of the recent indicator relative to historical candles, select <b>% Change</b> instead.</div>
+                  </>
+                ) : null}
+              </div>
+            )}
             {/* Value inputs per mode */}
             {(cond.rhsMode ?? (cond.histCompare ? 'field' : 'number')) === 'number' && (
               <NInput value={cond.rhsNum} onChange={v => s('rhsNum', v)} />
@@ -908,15 +934,6 @@ function CondCard({ cond, idx, total, color, onChange, onRemove, onCopy, onMoveU
                 color: validation.valid ? '#b7f4d4' : '#ffc3c5',
                 fontWeight: 650, overflowWrap: 'anywhere',
               }}>{explanation.summary}</div>
-              {explanation.hindi && (
-                <div style={{
-                  fontSize: 11, color: '#d1e8de', lineHeight: 1.8,
-                  marginBottom: 10, padding: '7px 9px', borderRadius: 7,
-                  background: 'rgba(255,255,255,.035)', overflowWrap: 'anywhere',
-                }}>
-                  <b style={{ color: '#89d7b3' }}>आसान हिंदी:</b> {explanation.hindi}
-                </div>
-              )}
               <div style={{ display: 'flex', flexDirection: 'column', gap: 7 }}>
                 {explanation.steps.map((step, i) => (
                   <div key={i} style={{ display: 'flex', flexWrap: 'wrap', gap: '3px 7px', lineHeight: 1.6 }}>
