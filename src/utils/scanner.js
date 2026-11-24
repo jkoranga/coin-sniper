@@ -401,9 +401,6 @@ export function buildTelegramMsg(alert) {
   const tfMap = { '1m':'1', '3m':'3', '5m':'5', '15m':'15', '30m':'30', '1h':'60', '4h':'240', '1d':'D' }
   const interval = tfMap[timeframe] || '15'
   const chartUrl = `https://www.tradingview.com/chart/?symbol=BYBIT:${encodeURIComponent(base)}USDT.P&interval=${interval}`
-  const signalUrl = new URL('https://coin-sniper.vercel.app/')
-  const signalParams = {signal:'1',symbol,timeframe,side:alert.side || 'bull',scannerName:alert.scannerName || 'Pattern Signal',time:String(alert.time || Date.now()),dailyChangePct:alert.dailyChangePct,hourlyChangePct:alert.hourlyChangePct}
-  for (const [key,value] of Object.entries(signalParams)) if (value != null) signalUrl.searchParams.set(key,String(value))
   const setup = escapeTelegramHtml(alert.scannerName || 'Pattern Signal')
   const daily = alert.dailyChangePct == null ? NaN : Number(alert.dailyChangePct)
   const hourly = alert.hourlyChangePct == null ? NaN : Number(alert.hourlyChangePct)
@@ -416,7 +413,6 @@ export function buildTelegramMsg(alert) {
     `🪙 <b>${escapeTelegramHtml(symbol)}</b>`,
     changeLine('Daily Change', daily),
     changeLine('Hourly Change', hourly),
-    `📊 <a href="${escapeTelegramHtml(signalUrl.href)}">View Signal Card</a>`,
     `📉 <a href="${escapeTelegramHtml(chartUrl)}">TradingView Chart</a>`,
     '',
     '<i>Coin Sniper</i>',
