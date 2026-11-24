@@ -463,9 +463,21 @@ function HistoryTab() {
 // ── Patterns modal (inline bottom sheet) — Patterns tab + History tab ─────────
 function PatternsModal({ open, onClose, settings, update, onGoToBuilder }) {
   const [openId, setOpenId] = React.useState(null)
-
+  const [statusFilter, setStatusFilter] = React.useState('all')
+  const [sideFilter, setSideFilter] = React.useState('all')
+  const [nameSort, setNameSort] = React.useState('original')
   if (!open) return null
   const patterns = (settings.customPatterns || [])
+  const baseName = p => String(p.name || '').replace(/\b(buy|sell|bull|bear|bullish|bearish|long|short|mirror)\b/gi,' ').replace(/[^a-z0-9\u0080-\uffff]+/gi,' ').trim().toLowerCase()
+  const byId = new Map(patterns.map(p=>[p.id,p]))
+  const groupName = p => baseName(byId.get(p.mirrorOf) || p)
+  const visiblePatterns = patterns.filter(p =>
+    (statusFilter==='all' || (statusFilter==='locked' && p.locked) || (statusFilter==='unlocked' && !p.locked) || (statusFilter==='enabled' && p.enabled) || (statusFilter==='disabled' && !p.enabled)) &&
+    (sideFilter==='all' || p.side===sideFilter))
+  if(nameSort!=='original') visiblePatterns.sort((a,b)=>{
+    const cmp=groupName(a).localeCompare(groupName(b),undefined,{numeric:true,sensitivity:'base'})
+    return (nameSort==='desc'?-cmp:cmp) || (Number(b.side==='bull')-Number(a.side==='bull')) || String(a.name||'').localeCompare(String(b.name||''))
+  })
 
   function condFormula(c) {
     const rhs = c.rhsMode==='number'  ? (c.rhsNum??0)
@@ -570,6 +582,11 @@ function PatternsModal({ open, onClose, settings, update, onGoToBuilder }) {
           </div>
         )}
 
+        <div style={{display:'flex',flexWrap:'wrap',gap:6,padding:'10px 16px 0',flexShrink:0}}>
+          {[[statusFilter,setStatusFilter,[['all','All status'],['locked','Locked'],['unlocked','Unlocked'],['enabled','Enabled'],['disabled','Disabled']]],[sideFilter,setSideFilter,[['all','Both sides'],['bull','Bull only'],['bear','Bear only']]],[nameSort,setNameSort,[['original','Original order'],['asc','A → Z (pairs)'],['desc','Z → A (pairs)']]]].map(([value,setter,options],i)=>
+            <select key={i} aria-label={['Pattern status','Pattern side','Pattern order'][i]} value={value} onChange={e=>setter(e.target.value)} style={{flex:'1 1 100px',minWidth:0,padding:'7px 5px',borderRadius:7,background:'var(--bg2)',color:'var(--text)',border:'1px solid var(--border)',fontSize:11}}>{options.map(([v,l])=><option key={v} value={v}>{l}</option>)}</select>)}
+          <span style={{fontSize:10,color:'var(--text3)',alignSelf:'center'}}>{visiblePatterns.length}/{patterns.length}</span>
+        </div>
         {/* Divider */}
         <div style={{height:1, background:'var(--border)', margin:'10px 0 0', flexShrink:0}}/>
 
@@ -581,7 +598,7 @@ function PatternsModal({ open, onClose, settings, update, onGoToBuilder }) {
                 <div style={{textAlign:'center', padding:'36px 16px', color:'var(--text3)', fontSize:12, fontFamily:'var(--mono)', lineHeight:1.7}}>
                   No patterns yet.<br/>Tap &quot;+ New&quot; to build one.
                 </div>
-              ) : patterns.map(p => {
+              ) : visiblePatterns.length === 0 ? <div style={{padding:24,textAlign:'center',color:'var(--text3)'}}>No matching patterns.</div> : visiblePatterns.map(p => {
                 const isBull  = p.side === 'bull'
                 const isLocked = p.locked
                 const pColor  = isLocked ? 'rgb(255,200,0)' : isBull ? '#00e676' : '#ff4757'
