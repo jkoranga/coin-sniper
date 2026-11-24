@@ -509,7 +509,7 @@ async function scanCron(env) {
         if (sentThisRun.has(alertKey)) continue;
         sentThisRun.add(alertKey);
         // If an earlier delivery is queued for retry, don't send the same signal again here.
-        if (await env.SCANNER_KV.get("pending-alert:" + dedupKey)) continue;
+        const pending = await env.SCANNER_KV.get("pending-alert:" + dedupKey, "json");
 
         let hourlyChangePct = null;
         try {
@@ -531,7 +531,7 @@ async function scanCron(env) {
           hourlyChangePct,
         };
         let delivered = false;
-        if (config.telegram) {
+        if (config.telegram && !pending?.telegramPending) {
           const expiry = Number(await env.SCANNER_KV.get(dedupKey) || 0);
           if (!expiry || Date.now() >= expiry) {
             try {
@@ -548,7 +548,7 @@ async function scanCron(env) {
             }
           }
         }
-        if (config.pushToken) {
+        if (config.pushToken && !pending?.pushPending) {
           const pushDedupKey = "dedup:push:" + config.uid + ":" + task.symbol + ":" + task.timeframe + ":" + pattern.id + ":" + pattern.side;
           const pushExpiry = Number(await env.SCANNER_KV.get(pushDedupKey) || 0);
           if (!pushExpiry || Date.now() >= pushExpiry) {
