@@ -888,6 +888,15 @@ function CondCard({ cond, idx, total, color, onChange, onRemove, onCopy, onMoveU
                 color: validation.valid ? '#b7f4d4' : '#ffc3c5',
                 fontWeight: 650, overflowWrap: 'anywhere',
               }}>{explanation.summary}</div>
+              {explanation.hindi && (
+                <div style={{
+                  fontSize: 11, color: '#d1e8de', lineHeight: 1.8,
+                  marginBottom: 10, padding: '7px 9px', borderRadius: 7,
+                  background: 'rgba(255,255,255,.035)', overflowWrap: 'anywhere',
+                }}>
+                  <b style={{ color: '#89d7b3' }}>आसान हिंदी:</b> {explanation.hindi}
+                </div>
+              )}
               <div style={{ display: 'flex', flexDirection: 'column', gap: 7 }}>
                 {explanation.steps.map((step, i) => (
                   <div key={i} style={{ display: 'flex', flexWrap: 'wrap', gap: '3px 7px', lineHeight: 1.6 }}>
