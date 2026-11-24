@@ -353,6 +353,14 @@ function CondCard({ cond, idx, total, color, onChange, onRemove, onCopy, onMoveU
   const histMid = histStart + Math.ceil((histEnd-histStart+1)/2)-1
   const candleIndexLabel = n => Number(n) === 0 ? '0 · running' : String(-Number(n))
   const formula = condFormula(cond)
+  const recentWindow = `${candleIndexLabel(cond.histCurrentFrom ?? 1)} to ${candleIndexLabel(cond.histCurrentTo ?? 2)}`
+  const olderWindow = `${candleIndexLabel(cond.histPreviousFrom ?? 3)} to ${candleIndexLabel(cond.histPreviousTo ?? 20)}`
+  const directionWords = { '>': 'higher than', '>=': 'at least as high as', '<': 'lower than', '<=': 'at most as high as', '=': 'equal to', '≠': 'different from' }
+  const referenceWords = { every: 'every older candle', max: 'the highest older value', min: 'the lowest older value', avg: 'the average older value' }
+  const simpleExplanation = !cond.op ? 'Choose a comparison direction above to finish this rule.'
+    : cond.op === 'crossUp' || cond.op === 'crossDown'
+      ? `The recent candles (${recentWindow}) must cross ${cond.op === 'crossUp' ? 'above' : 'below'} both reference levels from older candles (${olderWindow}).`
+      : `${cond.histCurrentMatch === 'all' ? 'Every' : 'At least one'} recent candle (${recentWindow}) must be ${directionWords[cond.op] || 'compared with'} ${cond.rhsMode === 'number' ? 'the chosen fixed number' : (referenceWords[cond.histPreviousMode ?? 'max'] || 'the older reference')} ${cond.rhsMode === 'number' ? '' : `from candles (${olderWindow})`}. ${cond.rhsMode === 'pctdiff' ? 'The percent difference is compared with the threshold.' : ''}`
   const [confirmDelete, setConfirmDelete] = useState(false)
 
   return (
@@ -592,6 +600,7 @@ function CondCard({ cond, idx, total, color, onChange, onRemove, onCopy, onMoveU
           {cond.histCompare && (
             <div style={{ padding: 10, borderRadius: 8, background: 'rgba(0,230,118,0.05)', border: '1px solid rgba(0,230,118,0.25)', display: 'flex', flexDirection: 'column', gap: 9 }}>
               <div style={{ fontSize: 9, color: 'var(--text3)', fontFamily: 'var(--mono)' }}>CANDLE INDEX: 0 = running candle (value can change) · -1 = latest closed · -2 = previous closed</div>
+              <div style={{ fontSize: 10, fontWeight: 800, color: 'var(--text2)', letterSpacing: '.04em' }}>STEP 1 · RECENT CANDLES</div>
               <div style={{ display: 'flex', gap: 8 }}>
                 <div style={{ flex: 1 }}>
                   <Lbl>RECENT FROM</Lbl>
@@ -615,6 +624,7 @@ function CondCard({ cond, idx, total, color, onChange, onRemove, onCopy, onMoveU
                 </div>
               </div>
               )}
+              <div style={{ fontSize: 10, fontWeight: 800, color: 'var(--text2)', letterSpacing: '.04em' }}>STEP 2 · OLDER CANDLES</div>
               <div style={{ display: 'flex', gap: 8 }}>
                 <div style={{ flex: 1 }}>
                   <Lbl>OLDER FROM</Lbl>
@@ -889,7 +899,11 @@ function CondCard({ cond, idx, total, color, onChange, onRemove, onCopy, onMoveU
                     </Pill>
                   ))}
                 </div>
-                {!cond.op && (
+                {cond.op ? (
+                  <button onClick={() => s('op', '')} style={{ marginTop: 10, cursor: 'pointer', padding: '6px 10px', background: 'transparent', border: '1px solid var(--border)', color: 'var(--text2)', borderRadius: 6, fontSize: 10 }}>
+                    Clear direction
+                  </button>
+                ) : (
                   <div role="status" style={{ color: '#ffc46b', border: '1px solid rgba(255,196,107,.45)', background: 'rgba(255,196,107,.07)', padding: '9px 10px', marginTop: 10, borderRadius: 7, fontSize: 11, lineHeight: 1.6 }}>
                     ⚠ Select a direction to complete this condition. No signal will be generated until you choose one.
                   </div>
@@ -909,6 +923,11 @@ function CondCard({ cond, idx, total, color, onChange, onRemove, onCopy, onMoveU
           }}>
             <div style={{ fontSize: 9, color: 'var(--text2)', marginBottom: 5 }}>LIVE CONDITION PREVIEW</div>
             {cond.histCompare && !cond.op ? '⚠ Choose direction:  ' : '→ '}{formula}
+            {cond.histCompare && (
+              <div style={{ borderTop: '1px solid var(--border)', marginTop: 8, paddingTop: 8, color: 'var(--text2)', fontFamily: 'inherit', fontSize: 11, lineHeight: 1.6 }}>
+                <b>In simple words:</b> {simpleExplanation}
+              </div>
+            )}
           </div>
         </div>
       )}
