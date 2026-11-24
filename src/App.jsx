@@ -746,6 +746,8 @@ export default function App() {
   const HOME_TAB    = '15m'
   const activeTabRef = React.useRef(activeTab)
   const showExitRef  = React.useRef(false)
+  const nativeExit = Boolean(window.Capacitor?.Plugins?.App?.exitApp || navigator.app?.exitApp)
+  const leavingRef = React.useRef(false)
   activeTabRef.current = activeTab
   showExitRef.current  = showExitWarning
 
@@ -755,6 +757,7 @@ export default function App() {
   useEffect(() => {
     // Keep a history guard so browser/PWA back presses stay inside the app.
     const armBackGuard = () => {
+      if (!nativeExit || leavingRef.current || window.history.state?.coinsSniperBackGuard) return
       try { window.history.pushState({ coinsSniperBackGuard: true }, '', window.location.href) } catch (_) {}
     }
     const handleBack = () => {
@@ -773,14 +776,14 @@ export default function App() {
       // Re-arm after the current navigation event has completed.
       setTimeout(armBackGuard, 0)
     }
-    const handlePop = () => handleBack()
+    const handlePop = () => { if (nativeExit && !leavingRef.current) handleBack() }
     const handleCordovaBack = e => {
       e?.preventDefault?.()
       handleBack()
     }
 
     armBackGuard()
-    window.addEventListener('popstate', handlePop)
+    if (nativeExit) window.addEventListener('popstate', handlePop)
     document.addEventListener('backbutton', handleCordovaBack, false)
 
     // Capacitor Android hardware-back is a separate event from popstate.
@@ -1000,7 +1003,7 @@ export default function App() {
             <div style={{ fontSize:42, lineHeight:1 }}>🎯</div>
             <div style={{ textAlign:'center' }}>
               <div style={{ fontWeight:800, fontSize:16, color:'var(--text)', marginBottom:6 }}>Exit Coins Sniper?</div>
-              <div style={{ fontSize:12, color:'var(--text3)', fontFamily:'var(--mono)', lineHeight:1.5, whiteSpace:'pre-line' }}>
+              <div style={{ fontSize:12, color:'var(--text2)', fontFamily:'var(--mono)', lineHeight:1.5, whiteSpace:'pre-line' }}>
                 {exitHint || (scanProgress.pct >= 0 ? 'A scan is running.\nExiting will stop it.' : 'Are you sure you want to exit?')}
               </div>
             </div>
@@ -1025,15 +1028,20 @@ export default function App() {
                   }
                 } catch(_) {}
 
-                // Browsers only allow scripts to close tabs opened by scripts.
-                // Never navigate to about:blank or destroy the document as a fallback.
-                try { window.close() } catch(_) {}
-                setExitHint('Browser security ke kaaran app khud tab close nahi kar sakta. Is tab ko browser ke ✕ button se band karein.')
+                if (exitHint) { setShowExitWarning(false); setExitHint(''); return }
+                // Browser navigation is controlled by the user, not a history trap.
+                if (window.history.length > 1) {
+                  leavingRef.current = true
+                  setShowExitWarning(false)
+                  window.history.back()
+                  return
+                }
+                setExitHint('To leave Coin Sniper, close this tab using your browser controls. Chrome does not allow websites to close their own tabs.')
               }} style={{
                 flex:1, padding:'12px', borderRadius:10, cursor:'pointer',
                 border:'1.5px solid rgba(255,60,60,0.6)', background:'rgba(255,60,60,0.15)',
                 color:'var(--red)', fontSize:14, fontWeight:800, fontFamily:'var(--mono)',
-              }}>Exit</button>
+              }}>{exitHint ? 'OK' : 'Exit'}</button>
             </div>
           </div>
         </div>
