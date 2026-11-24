@@ -2023,12 +2023,17 @@ export default function PatternBuilderTab({ settings, update }) {
   function selectNone() { setDeleteConfirm(false); setSelectedIds(new Set()) }
   function exitSelectionMode() { setSelectionMode(false); setSelectedIds(new Set()); setDeleteConfirm(false) }
 
-  // Move a pattern up or down in the list
-  function movePattern(fromIdx, dir) {
-    const toIdx = fromIdx + dir
-    if (toIdx < 0 || toIdx >= patterns.length) return
+  // Move directly to the first or last editable position.
+  function movePattern(fromIdx, edge) {
+    const slots = patterns.map((p,i) => p.locked ? -1 : i).filter(i => i >= 0)
+    const from = slots.indexOf(fromIdx)
+    if (from < 0 || slots.length < 2) return
+    const ordered = slots.map(i => patterns[i])
+    const [item] = ordered.splice(from, 1)
+    if (edge === 'top') ordered.unshift(item)
+    else ordered.push(item)
     const next = [...patterns]
-    ;[next[fromIdx], next[toIdx]] = [next[toIdx], next[fromIdx]]
+    slots.forEach((slot,i) => { next[slot] = ordered[i] })
     savePatterns(next)
   }
 
@@ -2557,40 +2562,40 @@ export default function PatternBuilderTab({ settings, update }) {
                     /* ▲ index ▼ */
                     <>
                       <button
-                        onClick={() => movePattern(origIdx, -1)}
-                        disabled={origIdx === 0}
-                        title="Move up"
+                        onClick={() => movePattern(origIdx, 'top')}
+                        disabled={i === 0}
+                        title="Move to Top" aria-label="Move to Top"
                         style={{
                           width: 24, height: 24, borderRadius: 6, padding: 0,
-                          border: `1px solid ${origIdx === 0 ? 'rgba(255,255,255,0.08)' : 'rgba(255,255,255,0.18)'}`,
-                          background: origIdx === 0 ? 'transparent' : 'rgba(255,255,255,0.05)',
-                          cursor: origIdx === 0 ? 'default' : 'pointer',
+                          border: `1px solid ${i === 0 ? 'rgba(255,255,255,0.08)' : 'rgba(255,255,255,0.18)'}`,
+                          background: i === 0 ? 'transparent' : 'rgba(255,255,255,0.05)',
+                          cursor: i === 0 ? 'default' : 'pointer',
                           display: 'flex', alignItems: 'center', justifyContent: 'center',
-                          opacity: origIdx === 0 ? 0.2 : 1,
+                          opacity: i === 0 ? 0.2 : 1,
                         }}
                       >
-                        <span style={{ fontSize: 13, lineHeight: 1, color: 'var(--text2)', fontWeight: 700 }}>↑</span>
+                        <span style={{ fontSize: 13, lineHeight: 1, color: 'var(--text2)', fontWeight: 700 }}>⇈</span>
                       </button>
 
                       <span style={{
                         fontSize: 9, fontFamily: 'var(--mono)', fontWeight: 800,
                         color: 'var(--text3)', lineHeight: 1, userSelect: 'none',
-                      }}>{origIdx + 1}</span>
+                      }}>{i + 1}</span>
 
                       <button
-                        onClick={() => movePattern(origIdx, +1)}
-                        disabled={origIdx === patterns.length - 1}
-                        title="Move down"
+                        onClick={() => movePattern(origIdx, 'bottom')}
+                        disabled={i === visibleList.length - 1}
+                        title="Move to Bottom" aria-label="Move to Bottom"
                         style={{
                           width: 24, height: 24, borderRadius: 6, padding: 0,
-                          border: `1px solid ${origIdx === patterns.length - 1 ? 'rgba(255,255,255,0.08)' : 'rgba(255,255,255,0.18)'}`,
-                          background: origIdx === patterns.length - 1 ? 'transparent' : 'rgba(255,255,255,0.05)',
-                          cursor: origIdx === patterns.length - 1 ? 'default' : 'pointer',
+                          border: `1px solid ${i === visibleList.length - 1 ? 'rgba(255,255,255,0.08)' : 'rgba(255,255,255,0.18)'}`,
+                          background: i === visibleList.length - 1 ? 'transparent' : 'rgba(255,255,255,0.05)',
+                          cursor: i === visibleList.length - 1 ? 'default' : 'pointer',
                           display: 'flex', alignItems: 'center', justifyContent: 'center',
-                          opacity: origIdx === patterns.length - 1 ? 0.2 : 1,
+                          opacity: i === visibleList.length - 1 ? 0.2 : 1,
                         }}
                       >
-                        <span style={{ fontSize: 13, lineHeight: 1, color: 'var(--text2)', fontWeight: 700 }}>↓</span>
+                        <span style={{ fontSize: 13, lineHeight: 1, color: 'var(--text2)', fontWeight: 700 }}>⇊</span>
                       </button>
                     </>
                   )}
