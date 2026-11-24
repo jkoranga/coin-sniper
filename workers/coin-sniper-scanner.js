@@ -163,11 +163,12 @@ async function sendWebPush(projectId, token, alert, env) {
   const response = await fetch("https://fcm.googleapis.com/v1/projects/" + projectId + "/messages:send", {
     method: "POST", headers: { Authorization: "Bearer " + accessToken, "Content-Type": "application/json" },
     body: JSON.stringify({ message: {
-      token, notification: { title, body },
+      token,
       data: { title, body, symbol: alert.symbol, timeframe: alert.timeframe, side,
         scannerName: alert.scannerName,
-        url: "https://www.tradingview.com/chart/?symbol=BINANCE:" + alert.symbol },
-      webpush: { fcm_options: { link: "https://coin-sniper.vercel.app/" } },
+        time: String(alert.time || Date.now()), dailyChangePct: String(alert.dailyChangePct ?? ""), hourlyChangePct: String(alert.hourlyChangePct ?? ""),
+        url: "https://coin-sniper.vercel.app/" },
+      webpush: { headers: { Urgency: "high", TTL: "900" } },
     } }),
   });
   if (!response.ok) throw new Error("FCM send failed: " + response.status + " " + (await response.text()).slice(0, 250));
@@ -521,6 +522,7 @@ async function scanCron(env) {
 
         const alert = {
           symbol: task.symbol,
+          time: Date.now(),
           timeframe: task.timeframe,
           side: pattern.side,
           scannerName: pattern.name,
