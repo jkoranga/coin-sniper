@@ -276,7 +276,7 @@ async function handleSync(request, env) {
     .filter(p => p && p.enabled === true && typeof p.id === "string" && Array.isArray(p.tfs))
     .map(p => ({
       id: p.id,
-      name: String(p.name || "Pattern").slice(0, 80),
+      name: String(p.name || "Pattern").slice(0, 1000),
       side: p.side === "bear" ? "bear" : "bull",
       icon: String(p.icon || (p.side === "bear" ? "🔴" : "🟢")).slice(0, 8),
       enabled: true,
