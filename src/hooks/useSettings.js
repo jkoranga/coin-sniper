@@ -434,6 +434,7 @@ export function useSettings(firebaseUser) {
     clearTimeout(saveTimeoutRef.current)
     const merged = { ...settingsRef.current, ...patch }
     settingsRef.current = merged
+    setSettings(merged)
     setCloudSaving(true)
     const ok = await saveSettingsToCloud(uid, merged)
     if (ok) setCloudSynced(true)
