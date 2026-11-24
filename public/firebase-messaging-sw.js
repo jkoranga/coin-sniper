@@ -3,17 +3,10 @@ self.addEventListener('notificationclick', event => {
   event.stopImmediatePropagation()
   event.notification.close()
   const d = event.notification.data || {}
-  const url = new URL('/', self.location.origin)
-  if (d.symbol && d.timeframe) {
-    for (const k of ['symbol','timeframe','side','scannerName','time','dailyChangePct','hourlyChangePct']) if (d[k] != null) url.searchParams.set(k,d[k])
-    url.searchParams.set('signal','1')
-  }
-  event.waitUntil((async () => {
-    const windows = await clients.matchAll({type:'window',includeUncontrolled:true})
-    const existing = windows.find(w => new URL(w.url).origin === url.origin)
-    if (existing) { await existing.navigate(url.href); await existing.focus() }
-    else await clients.openWindow(url.href)
-  })())
+  const tf = {'1m':'1','3m':'3','5m':'5','15m':'15','30m':'30','1h':'60','4h':'240','1d':'D'}[d.timeframe] || '15'
+  const symbol = String(d.symbol || '').toUpperCase()
+  const url = symbol && symbol !== 'WEBPUSH' ? 'https://www.tradingview.com/chart/?symbol=BYBIT:'+encodeURIComponent(symbol.replace(/USDT$/,'')+'USDT.P')+'&interval='+tf : self.location.origin
+  event.waitUntil(clients.openWindow(url))
 })
 
 importScripts('https://www.gstatic.com/firebasejs/12.13.0/firebase-app-compat.js')
@@ -38,6 +31,8 @@ messaging.onBackgroundMessage(payload => {
     data: { ...payload.data },
     tag: [payload.data?.symbol, payload.data?.timeframe, payload.data?.side, payload.data?.scannerName].filter(Boolean).join('-') || 'coin-sniper-alert',
     renotify: true,
+    timestamp: Number(payload.data?.time) || Date.now(),
+    actions: [{action:'chart',title:'Open TradingView'}],
   }
   self.registration.showNotification(title, options)
 })
