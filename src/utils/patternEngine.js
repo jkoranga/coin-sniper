@@ -115,14 +115,19 @@ export function condFormula(c) {
     const rf = FIELD_MAP[c.rhsField || c.lhsField]?.short || c.rhsField || c.lhsField || '?'
     const cf = c.histCurrentFrom ?? 1, ct = c.histCurrentTo ?? 2
     const pf = c.histPreviousFrom ?? 3, pt = c.histPreviousTo ?? 20
-    if (['crossUp','crossDown'].includes(c.op)) return `${htfPfx}${f}[${cf}–${ct}] ${c.op === 'crossUp' ? 'Cross Up' : 'Cross Down'} BOTH halves of ${rf}[${pf}–${pt}]`
+    // Stored historical indices are backward compatible: 1 means [-1], 0 means [0].
+    const signed = n => Number(n) === 0 ? '0' : String(-Math.abs(Number(n)))
+    const recentRange = `${signed(cf)}→${signed(ct)}`
+    const olderRange = `${signed(pf)}→${signed(pt)}`
+    const operator = c.op || '?'
+    if (['crossUp','crossDown'].includes(c.op)) return `${htfPfx}${f}[${recentRange}] ${c.op === 'crossUp' ? 'Cross Up' : 'Cross Down'} BOTH halves of ${rf}[${olderRange}]`
     const mode = (c.histPreviousMode ?? 'max').toUpperCase()
     const match = (c.histCurrentMatch ?? 'any').toUpperCase()
-    const ref = `${rf} PREV[${pf}–${pt}] ${mode}`
+    const ref = `${rf} PREV[${olderRange}] ${mode}`
     const rhs = c.rhsMode === 'number' ? String(c.rhsNum ?? 0) : c.rhsMode === 'mult' ? `${ref} × ${c.rhsMult ?? 1}` : c.rhsMode === 'pct' ? `${ref} × (1 + ${c.rhsPct ?? 0}/100)` : ref
-    if (c.op === '% Diff' || c.rhsMode === 'pctdiff' || c.histCompareMode === 'pctdiff') return `${htfPfx}${match} %Δ(${f}[${cf}–${ct}], ${ref}) ${c.op === '% Diff' ? c.histPctOp || '>=' : c.op} ${c.op === '% Diff' ? c.histPctThreshold ?? c.rhsNum ?? 0 : c.rhsNum ?? 0}%`
-    if (c.rhsMode === 'slope') return `${htfPfx}${match} ${f}[${cf}–${ct}] slope (${c.slopeLen ?? 5}+${c.slopeSkip ?? 0} bars) ${c.op} ${c.slopeNum ?? 0}%`
-    return `${htfPfx}${match} ${f}[${cf}–${ct}] ${c.op} ${rhs}`
+    if (c.op === '% Diff' || c.rhsMode === 'pctdiff' || c.histCompareMode === 'pctdiff') return `${htfPfx}${match} %Δ(${f}[${recentRange}], ${ref}) ${c.op === '% Diff' ? c.histPctOp || '>=' : operator} ${c.op === '% Diff' ? c.histPctThreshold ?? c.rhsNum ?? 0 : c.rhsNum ?? 0}%`
+    if (c.rhsMode === 'slope') return `${htfPfx}${match} ${f}[${recentRange}] slope (${c.slopeLen ?? 5}+${c.slopeSkip ?? 0} bars) ${operator} ${c.slopeNum ?? 0}%`
+    return `${htfPfx}${match} ${f}[${recentRange}] ${operator} ${rhs}`
   }
 
   // Range mode: prefix with "ALL/ANY [from..to]"
@@ -242,8 +247,9 @@ export function compilePattern(pattern, _htfCandlesMap) {
 
       // ── Historical range comparison: current window vs older reference window ──
       if (cond.histCompare) {
-        const cf = Math.max(1, Math.min(20, Math.round(cond.histCurrentFrom ?? 1)))
-        const ct = Math.max(1, Math.min(20, Math.round(cond.histCurrentTo ?? 2)))
+        if (!cond.op) return null // no hidden comparison direction / no accidental signal
+        const cf = Math.max(0, Math.min(20, Math.round(cond.histCurrentFrom ?? 1)))
+        const ct = Math.max(0, Math.min(20, Math.round(cond.histCurrentTo ?? 2)))
         const pf = Math.max(1, Math.min(20, Math.round(cond.histPreviousFrom ?? 3)))
         const pt = Math.max(1, Math.min(20, Math.round(cond.histPreviousTo ?? 20)))
         const cStart = Math.min(cf, ct), cEnd = Math.max(cf, ct)
