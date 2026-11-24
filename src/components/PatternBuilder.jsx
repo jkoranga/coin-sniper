@@ -605,6 +605,15 @@ function CondCard({ cond, idx, total, color, onChange, onRemove, onCopy, onMoveU
                   </select>
                 </div>
               </div>
+              {!isHistCross && (
+              <div>
+                <Lbl>CURRENT RANGE MATCH</Lbl>
+                <div style={{fontSize:10,color:'var(--text2)',marginBottom:5}}>ANY = at least one recent candle passes. ALL = every recent candle passes.</div>
+                <div style={{ display: 'flex', gap: 6 }}>
+                  {[['any','ANY current candle'],['all','ALL current candles']].map(([v,l])=><Pill key={v} active={(cond.histCurrentMatch ?? 'any')===v} color="#00e676" onClick={()=>s('histCurrentMatch',v)}>{l}</Pill>)}
+                </div>
+              </div>
+              )}
               <div style={{ display: 'flex', gap: 8 }}>
                 <div style={{ flex: 1 }}>
                   <Lbl>PREVIOUS FROM</Lbl>
@@ -625,13 +634,6 @@ function CondCard({ cond, idx, total, color, onChange, onRemove, onCopy, onMoveU
                 <div style={{fontSize:10,color:'var(--text2)',marginBottom:5}}>Every = compare against each older candle; Max/Min/Avg = compare against one reference value.</div>
                 <div style={{ display: 'flex', gap: 5, flexWrap: 'wrap' }}>
                   {[['every','Every candle'],['max','Maximum'],['min','Minimum'],['avg','Average']].map(([v,l])=><Pill key={v} sm active={(cond.histPreviousMode ?? 'max')===v} color="#00e676" onClick={()=>s('histPreviousMode',v)}>{l}</Pill>)}
-                </div>
-              </div>
-              <div>
-                <Lbl>CURRENT RANGE MATCH</Lbl>
-                <div style={{fontSize:10,color:'var(--text2)',marginBottom:5}}>ANY = at least one recent candle passes. ALL = every recent candle passes.</div>
-                <div style={{ display: 'flex', gap: 6 }}>
-                  {[['any','ANY current candle'],['all','ALL current candles']].map(([v,l])=><Pill key={v} active={(cond.histCurrentMatch ?? 'any')===v} color="#00e676" onClick={()=>s('histCurrentMatch',v)}>{l}</Pill>)}
                 </div>
               </div>
               </>}
