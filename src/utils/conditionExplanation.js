@@ -14,7 +14,6 @@ const FIELD_NAMES = {
   redUpperWickPct: 'Red bar upper wick %',
 }
 const fieldName = id => FIELD_NAMES[id] || (/^ema\d+$/.test(id || '') ? `EMA ${id.slice(3)}` : id || '(indicator not selected)')
-const hindiOps = { '>': 'से ज्यादा', '>=': 'के बराबर या ज्यादा', '<': 'से कम', '<=': 'के बराबर या कम', '=': 'के बराबर', '≠': 'से अलग' }
 const opWords = {
   '>': 'greater than', '>=': 'greater than or equal to',
   '<': 'less than', '<=': 'less than or equal to',
@@ -96,7 +95,6 @@ export function explainCondition(cond) {
       })
       return {
         summary: `${up ? 'CROSS UP' : 'CROSS DOWN'} passes only when ${left} moves ${up ? 'from below to above' : 'from above to below'} both historical reference levels.`,
-        hindi: `पुरानी ${older} candles के दो अलग reference levels को ${left} को ${up ? 'नीचे से ऊपर' : 'ऊपर से नीचे'} पार करना होगा। तभी condition PASS होगी।`,
         steps,
         note: `This is a two-level historical cross, not simply ${left} ${up ? '>' : '<'} its older value.${Number(cf) === 0 ? ' Candle 0 is still forming, so this can change.' : ''}`,
       }
@@ -134,18 +132,8 @@ export function explainCondition(cond) {
     }
     steps.push({ label: 'Signal pass rule', text: `${overAll}. Otherwise this condition fails.` })
     const incomplete = !cond.op
-    const recentHindi = currentMatch === 'all' ? 'हाल की सभी candles' : 'हाल की कम-से-कम एक candle'
-    const oldHindi = previousMode === 'every' ? 'हर पुरानी candle' : previousMode === 'min' ? 'पुरानी candles का Minimum' : previousMode === 'avg' ? 'पुरानी candles का Average' : 'पुरानी candles का Maximum'
-    const comparisonHindi = actualMode === 'pctdiff'
-      ? `${left} का ${oldHindi} ${right} से percentage gap ${number(cond.op === '% Diff' ? (cond.histPctThreshold ?? cond.rhsNum) : cond.rhsNum)}% ${hindiOps[op] || 'के अनुसार'} होना चाहिए`
-      : actualMode === 'slope'
-        ? `${left} का ${Number(number(cond.slopeLen, 5)) + Number(number(cond.slopeSkip))} candles का slope ${number(cond.slopeNum)}% ${hindiOps[op] || 'के अनुसार'} होना चाहिए`
-        : actualMode === 'number'
-          ? `${left} ${number(cond.rhsNum)} ${hindiOps[op] || 'के अनुसार'} होना चाहिए`
-          : `${left} की तुलना ${oldHindi} ${right} ${actualMode === 'mult' ? `× ${number(cond.rhsMult,1)}` : actualMode === 'pct' ? `± ${number(cond.rhsPct)}%` : ''} से ${hindiOps[op] || 'करनी है'}`
     return {
       summary: incomplete ? 'INCOMPLETE: Choose a comparison direction to finish this rule.' : summary,
-      hindi: incomplete ? 'Operator चुनना जरूरी है। इसके बिना condition signal PASS नहीं करेगी।' : `${recentHindi} ${current} में ${comparisonHindi}। पुरानी candle range ${older} है।`,
       steps,
       note: `${Number(cf) === 0 ? 'Candle 0 is running and its value can change until close. ' : ''}This preview describes the configured rule; it does not claim a live market match.${incomplete ? ' No signal is generated without an operator.' : ''}`,
     }
@@ -180,7 +168,6 @@ export function explainCondition(cond) {
       : `${match} when the LEFT value is ${direction} the comparison value.` })
   return {
     summary: !cond.op ? 'INCOMPLETE: Select a comparison direction.' : `${match}; the selected operator is ${op} (${direction}).`,
-    hindi: !cond.op ? 'Operator चुनना जरूरी है।' : `${range ? (cond.rangeMode === 'any' ? 'इस range की कम-से-कम एक candle' : 'इस range की सभी candles') : 'इस candle'} ${candleRange} में ${mode === 'pctdiff' ? `${left} का percentage gap ${number(cond.rhsNum)}% ${hindiOps[op] || 'के अनुसार'} होना चाहिए` : mode === 'slope' ? `${left} का slope ${number(cond.slopeNum)}% ${hindiOps[op] || 'के अनुसार'} होना चाहिए` : `${left} ${hindiOps[op] || 'के अनुसार'} compare होना चाहिए`}।`,
     steps,
     note: `${Number(from) === 0 || Number(to) === 0 ? 'Includes running candle 0; its value may change. ' : ''}This preview explains your configured logic; it is not live signal validation.`,
   }
