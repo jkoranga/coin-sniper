@@ -59,6 +59,97 @@ const FIELDS = [
 ]
 const FIELD_MAP = Object.fromEntries(FIELDS.map(f => [f.id, f]))
 
+// Validate what the user can configure before evaluating live market data.
+// "Ready" means syntactically evaluable, NOT that the current candles match.
+export function validateConditionConfig(cond) {
+  const invalid = reason => ({ valid: false, reason })
+  if (!cond || typeof cond !== 'object') return invalid('Condition is missing.')
+  if (!cond.lhsField || !FIELD_MAP[cond.lhsField]) return invalid('Choose a valid recent / left indicator.')
+
+  const validNumber = value => value !== null && value !== undefined &&
+    String(value).trim() !== '' && Number.isFinite(Number(value))
+  const validIndex = (value, min, max) => validNumber(value) &&
+    Number.isInteger(Number(value)) && Number(value) >= min && Number(value) <= max
+  const standardOperators = ['>', '>=', '<', '<=', '=', '≠']
+  const histOperators = [...standardOperators, 'crossUp', 'crossDown', '% Diff']
+  const ops = cond.histCompare ? histOperators : standardOperators
+  if (!ops.includes(cond.op)) return invalid('Choose a comparison direction / operator.')
+
+  if (cond.htfTf && !['1m', '3m', '5m', '15m', '30m', '1h', '4h', '1d'].includes(cond.htfTf)) {
+    return invalid('Choose a supported higher timeframe.')
+  }
+  if (cond.histCompare) {
+    const cf = cond.histCurrentFrom ?? 1
+    const ct = cond.histCurrentTo ?? 2
+    const pf = cond.histPreviousFrom ?? 3
+    const pt = cond.histPreviousTo ?? 20
+    if (![cf, ct, pf, pt].every(value => validIndex(value, 0, 20))) {
+      return invalid('Choose candle indexes between 0 and -20.')
+    }
+    if (Number(cf) > Number(ct)) return invalid('Recent FROM must be newer than or equal to Recent TO.')
+    if (Number(pf) < 1 || Number(pf) <= Number(ct) || Number(pf) > Number(pt)) {
+      return invalid('Older candle range must be after the recent range without overlap.')
+    }
+    if (['crossUp', 'crossDown'].includes(cond.op) && Number(pt) - Number(pf) < 1) {
+      return invalid('Cross Up / Down needs at least two older candles.')
+    }
+    if (cond.histCurrentMatch && !['any', 'all'].includes(cond.histCurrentMatch)) {
+      return invalid('Choose ANY or ALL for the recent candles.')
+    }
+    if (cond.histPreviousMode && !['every', 'max', 'min', 'avg'].includes(cond.histPreviousMode)) {
+      return invalid('Choose Every, Maximum, Minimum or Average for older candles.')
+    }
+  } else if (cond.rangeCheck) {
+    if (!validIndex(cond.rangeFrom ?? -1, -1000, 0) || !validIndex(cond.rangeTo ?? -5, -1000, 0)) {
+      return invalid('Multi-candle range must use 0 or negative candle indexes.')
+    }
+    if (cond.rangeMode && !['any', 'all'].includes(cond.rangeMode)) {
+      return invalid('Choose ANY or ALL for the candle range.')
+    }
+    if (cond.rhsPinned && !validIndex(cond.rhsPinnedOffset ?? 0, -1000, 0)) {
+      return invalid('Pinned comparison candle must be 0 or a past candle.')
+    }
+  } else if (!validIndex(cond.lhsOffset ?? 0, -1000, 0)) {
+    return invalid('Left candle offset must be 0 or a past candle.')
+  }
+
+  const mode = cond.rhsMode ?? (cond.histCompare ? 'field' : null)
+  if (!['number', 'field', 'mult', 'pct', 'pctdiff', 'slope'].includes(mode)) {
+    return invalid('Choose a Compare With mode (Value, Field, Multiplier, Percent, Diff or Slope).')
+  }
+  if (['crossUp', 'crossDown'].includes(cond.op) && mode !== 'field') {
+    return invalid('Cross Up / Down requires the Field comparison mode.')
+  }
+  if (!['number', 'slope'].includes(mode)) {
+    const field = cond.histCompare ? (cond.rhsField || cond.lhsField) : cond.rhsField
+    if (!field || !FIELD_MAP[field]) return invalid('Choose a valid historical / right indicator.')
+    if (!cond.histCompare && !cond.rangeCheck && !validIndex(cond.rhsOffset ?? 0, -1000, 0)) {
+      return invalid('Right candle offset must be 0 or a past candle.')
+    }
+    if (cond.rangeCheck && !cond.histCompare && !cond.rhsPinned &&
+      !validIndex(cond.rhsOffset ?? 0, -1000, 0)) {
+      return invalid('Right candle offset must be 0 or a past candle.')
+    }
+  }
+  if (['number', 'pctdiff'].includes(mode) && !validNumber(cond.rhsNum ?? 0)) {
+    return invalid('Enter a valid numeric comparison value.')
+  }
+  if (mode === 'mult' && (!validNumber(cond.rhsMult) || Number(cond.rhsMult) === 0)) {
+    return invalid('Enter a non-zero multiplier.')
+  }
+  if (mode === 'pct' && !validNumber(cond.rhsPct ?? 0)) {
+    return invalid('Enter a valid percentage.')
+  }
+  if (mode === 'slope') {
+    if (!validIndex(cond.slopeLen ?? 5, 1, 1000) || !validIndex(cond.slopeSkip ?? 0, 0, 1000)) {
+      return invalid('Slope look-back and skip must be valid candle counts.')
+    }
+    if (!validNumber(cond.slopeNum ?? 0)) return invalid('Enter a slope threshold.')
+  }
+  return { valid: true, reason: 'Ready to evaluate. Signal depends on market data.' }
+}
+
+
 // Calculate the candle history needed by the selected conditions.
 // EMA history includes a 400-bar stabilization buffer (API limit is 1,000).
 export function requiredCandleCount(items = []) {
