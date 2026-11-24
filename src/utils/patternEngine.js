@@ -84,7 +84,7 @@ export function requiredCandleCount(items = []) {
       if (match) maxEma = Math.max(maxEma, Number(match[1]))
     }
   }
-  return Math.min(1000, Math.max(60, maxDepth + 60, maxEma ? maxEma + maxDepth + 400 : 60))
+  return Math.min(1000, Math.max(250, maxDepth + 250, maxEma ? maxEma + maxDepth + 400 : 250))
 }
 
 
@@ -204,7 +204,7 @@ export function compilePattern(pattern, _htfCandlesMap) {
         }
         if (f.computed) return f.computed(candle)
         const v = candle[fieldId]
-        return v == null ? null : v
+        return v == null || !Number.isFinite(v) ? null : v
       }
       return { arr, L, getC, getVal }
     }
