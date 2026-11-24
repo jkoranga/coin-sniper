@@ -1974,6 +1974,7 @@ export default function PatternBuilderTab({ settings, update }) {
       ...src,
       id: `custom_${uid()}`,
       name: customName,
+      mirrorOf: src.mirrorOf || src.id,
       side: src.side === 'bull' ? 'bear' : 'bull',
       conditions: src.conditions.map(c => mirrorCond(c)),
       createdAt: Date.now(),
