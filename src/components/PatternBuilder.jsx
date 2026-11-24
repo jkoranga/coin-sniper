@@ -2,6 +2,7 @@
 import React, { useState, useMemo, useRef } from 'react'
 import { compilePattern, condFormula, validateConditionConfig } from '../utils/patternEngine.js'
 import { mirrorCondition } from '../utils/mirrorPattern.js'
+import { explainCondition } from '../utils/conditionExplanation.js'
 export { compilePattern, condFormula } from '../utils/patternEngine.js'
 
 // ── Field catalogue ───────────────────────────────────────────────────────────
@@ -290,14 +291,7 @@ function CondCard({ cond, idx, total, color, onChange, onRemove, onCopy, onMoveU
   const statusReason = cond.mirrorReviewReason
     ? `Mirror review: ${cond.mirrorReviewReason}`
     : (!cond.enabled ? 'This condition is OFF and will not be scanned.' : validation.reason)
-  const recentWindow = `${candleIndexLabel(cond.histCurrentFrom ?? 1)} to ${candleIndexLabel(cond.histCurrentTo ?? 2)}`
-  const olderWindow = `${candleIndexLabel(cond.histPreviousFrom ?? 3)} to ${candleIndexLabel(cond.histPreviousTo ?? 20)}`
-  const directionWords = { '>': 'higher than', '>=': 'at least as high as', '<': 'lower than', '<=': 'at most as high as', '=': 'equal to', '≠': 'different from' }
-  const referenceWords = { every: 'every older candle', max: 'the highest older value', min: 'the lowest older value', avg: 'the average older value' }
-  const simpleExplanation = !cond.op ? 'Choose a comparison direction above to finish this rule.'
-    : cond.op === 'crossUp' || cond.op === 'crossDown'
-      ? `The recent candles (${recentWindow}) must cross ${cond.op === 'crossUp' ? 'above' : 'below'} both reference levels from older candles (${olderWindow}).`
-      : `${cond.histCurrentMatch === 'all' ? 'Every' : 'At least one'} recent candle (${recentWindow}) must be ${directionWords[cond.op] || 'compared with'} ${cond.rhsMode === 'number' ? 'the chosen fixed number' : (referenceWords[cond.histPreviousMode ?? 'max'] || 'the older reference')} ${cond.rhsMode === 'number' ? '' : `from candles (${olderWindow})`}. ${cond.rhsMode === 'pctdiff' ? 'The percent difference is compared with the threshold.' : ''}`
+  const explanation = explainCondition(cond)
   const [confirmDelete, setConfirmDelete] = useState(false)
 
   return (
@@ -885,11 +879,31 @@ function CondCard({ cond, idx, total, color, onChange, onRemove, onCopy, onMoveU
           }}>
             <div style={{ fontSize: 9, color: 'var(--text2)', marginBottom: 5 }}>LIVE CONDITION PREVIEW</div>
             {cond.histCompare && !cond.op ? '⚠ Choose direction:  ' : '→ '}{formula}
-            {cond.histCompare && (
-              <div style={{ borderTop: '1px solid var(--border)', marginTop: 8, paddingTop: 8, color: 'var(--text2)', fontFamily: 'inherit', fontSize: 11, lineHeight: 1.6 }}>
-                <b>In simple words:</b> {simpleExplanation}
+            <div style={{ borderTop: '1px solid var(--border)', marginTop: 9, paddingTop: 10, color: 'var(--text)', fontFamily: 'inherit', fontSize: 11, lineHeight: 1.65 }}>
+              <div style={{ color: '#a3e9c7', fontWeight: 800, marginBottom: 8, fontSize: 11 }}>WHAT THIS CONDITION MEANS</div>
+              <div style={{
+                padding: '9px 10px', borderRadius: 7, marginBottom: 9,
+                background: validation.valid ? 'rgba(25,187,114,.08)' : 'rgba(239,100,106,.10)',
+                border: `1px solid ${validation.valid ? 'rgba(25,187,114,.27)' : 'rgba(239,100,106,.38)'}`,
+                color: validation.valid ? '#b7f4d4' : '#ffc3c5',
+                fontWeight: 650, overflowWrap: 'anywhere',
+              }}>{explanation.summary}</div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 7 }}>
+                {explanation.steps.map((step, i) => (
+                  <div key={i} style={{ display: 'flex', flexWrap: 'wrap', gap: '3px 7px', lineHeight: 1.6 }}>
+                    <span style={{ minWidth: 105, flexShrink: 0, color: '#75d5b2', fontSize: 10, fontWeight: 800 }}>{step.label}</span>
+                    <span style={{ color: 'var(--text2)', flex: '1 1 170px', overflowWrap: 'anywhere' }}>{step.text}</span>
+                  </div>
+                ))}
               </div>
-            )}
+              <div style={{
+                borderTop: '1px solid var(--border)', marginTop: 10, paddingTop: 8,
+                color: 'var(--text2)', fontSize: 10, lineHeight: 1.6,
+              }}>{explanation.note}</div>
+              {!validation.valid && (
+                <div style={{ marginTop: 7, fontSize: 10, color: '#ff9ea5', lineHeight: 1.6 }}>⚠ Fix required: {validation.reason}</div>
+              )}
+            </div>
           </div>
         </div>
       )}
