@@ -578,11 +578,11 @@ function CondCard({ cond, idx, total, color, onChange, onRemove, onCopy, onMoveU
                 Current candles vs an older candle / EMA / RSI range
               </div>
             </div>
-            <button onClick={() => onChange({ ...cond, histCompare: !cond.histCompare, rangeCheck: cond.histCompare ? cond.rangeCheck : false })} style={{
+            <button onClick={() => onChange({ ...cond, histCompare: !cond.histCompare, rangeCheck: cond.histCompare ? cond.rangeCheck : false, rhsMode: !cond.histCompare && cond.rhsMode === 'number' ? 'field' : cond.rhsMode })} style={{
               padding: '5px 10px', borderRadius: 7, cursor: 'pointer', fontSize: 10, fontWeight: 800,
               border: `1px solid ${cond.histCompare ? '#00e676' : 'var(--border)'}`,
-              background: cond.histCompare ? 'rgba(0,230,118,0.16)' : 'var(--bg3)',
-              color: cond.histCompare ? '#00e676' : 'var(--text3)',
+              background: cond.histCompare ? 'rgba(0,230,118,0.16)' : 'rgba(239,68,68,.12)',
+              color: cond.histCompare ? '#00e676' : '#f87171',
             }}>{cond.histCompare ? 'ON' : 'OFF'}</button>
           </div>
           {cond.histCompare && (
@@ -618,18 +618,20 @@ function CondCard({ cond, idx, total, color, onChange, onRemove, onCopy, onMoveU
               </div>
               <div>
                 <Lbl>PREVIOUS RANGE COMPARE</Lbl>
+                <div style={{fontSize:10,color:'var(--text2)',marginBottom:5}}>Every = compare against each older candle; Max/Min/Avg = compare against one reference value.</div>
                 <div style={{ display: 'flex', gap: 5, flexWrap: 'wrap' }}>
                   {[['every','Every candle'],['max','Maximum'],['min','Minimum'],['avg','Average']].map(([v,l])=><Pill key={v} sm active={(cond.histPreviousMode ?? 'max')===v} color="#00e676" onClick={()=>s('histPreviousMode',v)}>{l}</Pill>)}
                 </div>
               </div>
               <div>
                 <Lbl>CURRENT RANGE MATCH</Lbl>
+                <div style={{fontSize:10,color:'var(--text2)',marginBottom:5}}>ANY = at least one recent candle passes. ALL = every recent candle passes.</div>
                 <div style={{ display: 'flex', gap: 6 }}>
                   {[['any','ANY current candle'],['all','ALL current candles']].map(([v,l])=><Pill key={v} active={(cond.histCurrentMatch ?? 'any')===v} color="#00e676" onClick={()=>s('histCurrentMatch',v)}>{l}</Pill>)}
                 </div>
               </div>
               <div style={{ fontSize: 10, fontFamily: 'var(--mono)', color: '#00e676', padding: '6px 8px', borderRadius: 6, background: 'rgba(0,230,118,0.08)' }}>
-                {cond.lhsField || 'Field'} [{cond.histCurrentFrom ?? 1}–{cond.histCurrentTo ?? 2}] {cond.op === '% Diff' ? `${cond.histPctOp || '>='} ${cond.histPctThreshold ?? 0}% difference vs ${cond.rhsField || cond.lhsField || 'Previous field'}` : `${cond.op} previous [${cond.histPreviousFrom ?? 3}–${cond.histPreviousTo ?? 20}]`} · {(cond.histPreviousMode ?? 'max').toUpperCase()} · {(cond.histCurrentMatch ?? 'any').toUpperCase()}
+                {condFormula(cond)}
               </div>
             </div>
           )}
