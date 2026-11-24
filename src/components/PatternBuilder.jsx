@@ -316,8 +316,17 @@ function CondCard({ cond, idx, total, color, onChange, onRemove, onCopy, onMoveU
       }}>
         {/* Enable / Disable toggle button */}
         <button
-          onClick={() => s('enabled', !cond.enabled)}
-          title={cond.enabled ? 'Disable condition' : 'Enable condition'}
+          onClick={() => {
+            if (cond.mirrorReviewReason && !cond.enabled) {
+              if (!window.confirm(`Mirror requires manual verification: ${cond.mirrorReviewReason}\n\nHave you reviewed the formula and want to enable this condition?`)) return
+              const verified = { ...cond, enabled: true }
+              delete verified.mirrorReviewReason
+              onChange(verified)
+            } else {
+              s('enabled', !cond.enabled)
+            }
+          }}
+          title={cond.mirrorReviewReason ? 'Review before enabling mirror' : cond.enabled ? 'Disable condition' : 'Enable condition'}
           style={{
             height: 20, padding: '0 7px', borderRadius: 5, cursor: 'pointer', flexShrink: 0,
             border: `1.5px solid ${cond.enabled ? color + '80' : 'rgba(255,60,60,0.5)'}`,
@@ -1669,6 +1678,17 @@ function PatternEditor({ pattern: rawPattern, onChange, onDelete, onMirrorPatter
 
           {/* Conditions */}
           <div>
+            {pattern.conditions.some(c => c.mirrorReviewReason) && (
+              <div role="alert" style={{
+                border: '1px solid rgba(255,120,120,.55)', background: 'rgba(255,75,85,.1)',
+                color: '#ffb5b5', padding: '9px 11px', borderRadius: 8,
+                fontSize: 11, lineHeight: 1.65, marginBottom: 10,
+              }}>
+                ⚠ Mirror review required. {pattern.conditions.filter(c => c.mirrorReviewReason).length} condition(s)
+                were left OFF because their formula cannot be mirrored exactly.
+                Review each red condition, confirm its values, then turn the pattern ON.
+              </div>
+            )}
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
               <Lbl>CONDITIONS</Lbl>
               <span style={{ fontSize: 9, fontFamily: 'var(--mono)', color: 'var(--text3)' }}>
