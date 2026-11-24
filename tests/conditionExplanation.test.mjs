@@ -10,7 +10,7 @@ const base = {
   histPreviousMode: 'max', histCurrentMatch: 'any',
 }
 const explain = options => explainCondition({ ...base, ...options })
-const fullText = e => [e.summary, e.hindi, ...e.steps.map(s => s.text), e.note].join(' ')
+const fullText = e => [e.summary, ...e.steps.map(s => s.text), e.note].join(' ')
 test('screenshotted historical RSI % gap explains the exact percentage calculation and threshold', () => {
   const text = fullText(explain())
   assert.match(text, /\[0 \(running\) to -1\]/)
@@ -19,7 +19,7 @@ test('screenshotted historical RSI % gap explains the exact percentage calculati
   assert.match(text, /\(\(recent RSI 14 ÷ older reference\) − 1\) × 100/)
   assert.match(text, /AT LEAST ONE/)
   assert.match(text, /greater than 25%/)
-  assert.match(text, /आसान|हाल की/)
+  assert.doesNotMatch(text, /[\u0900-\u097F]/)
 })
 test('operator and threshold update independently and immediately', () => {
   const x = explain({ op: '<=', rhsNum: 12 })
@@ -50,7 +50,7 @@ test('historical slope explains lookback plus skip and the measured percent', ()
   const x = explain({ rhsMode: 'slope', slopeLen: '5', slopeSkip: '2', slopeNum: 1.2 })
   assert.match(x.summary, /over 7 candles/)
   assert.match(fullText(x), /7 candles earlier/)
-  assert.match(x.hindi, /7 candles/)
+  assert.doesNotMatch(fullText(x), /[\u0900-\u097F]/)
 })
 test('historical Cross Up and Down explain two levels rather than a simple comparison', () => {
   for (const [op,word] of [['crossUp', 'below to above'], ['crossDown', 'above to below']]) {
