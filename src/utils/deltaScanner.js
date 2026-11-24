@@ -103,12 +103,16 @@ export async function fetchDeltaCandles(symbol, interval = '15m', limit = 60, ti
     `/api/delta-candles?symbol=${symbol}&resolution=${iv}&limit=${limit}`,
   ]
 
-  for (const url of URLS) {
+  const retryUrls = new Set()
+  for (let attempt = 0; attempt < 2; attempt++) {
+    if (attempt && !retryUrls.size) break
+    if (attempt) await new Promise(resolve => setTimeout(resolve, 600 + Math.random() * 900))
+    for (const url of attempt ? [...retryUrls] : URLS) {
     try {
-      const res = await fetch(url, { signal: AbortSignal.timeout(2500) })
-      if (!res.ok) { lastError = new Error(`Candle HTTP ${res.status}`); continue }
+      const res = await fetch(url, { signal: AbortSignal.timeout(attempt ? 6500 : 4500) })
+      if (!res.ok) { if (res.status >= 500 || res.status === 429 || res.status === 408) retryUrls.add(url); lastError = new Error(`Candle HTTP ${res.status}`); continue }
       const data = await res.json()
-      if (data.retCode === 10006) { lastError = new Error('Bybit rate limit'); continue }
+      if (data.retCode === 10006) { retryUrls.add(url); lastError = new Error('Bybit rate limit'); continue }
 
       // Bybit shape: { retCode:0, result:{ list:[ [time,open,high,low,close,vol,turnover], ... ] } }
       if (data.retCode === 0 && Array.isArray(data.result?.list) && data.result.list.length >= 3) {
@@ -134,7 +138,8 @@ export async function fetchDeltaCandles(symbol, interval = '15m', limit = 60, ti
           low:Number(row[3]),close:Number(row[4]),volume:Number(row[5])}))
           .filter(validCandle)
           .sort((a,b)=>a.time-b.time)
-        if(raw.length>=3)return attachIndicators(raw,ticker)
+        const clean = uniqueCandles(raw)
+        if(clean.length>=3)return attachIndicators(clean,ticker).slice(-limit)
       }
 
       // Proxy/Delta shape: { result:[ {time,open,high,low,close,volume} ] }
@@ -155,11 +160,13 @@ export async function fetchDeltaCandles(symbol, interval = '15m', limit = 60, ti
         if (clean.length >= 3) return attachIndicators(clean, ticker).slice(-limit)
       }
     } catch (e) {
+      retryUrls.add(url)
       lastError = e
       console.warn(`[Sniper] Candle fetch failed for ${symbol}:`, e.message)
     }
   }
 
+  }
   if (lastError) throw lastError
   return null
 }
