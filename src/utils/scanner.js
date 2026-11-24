@@ -417,10 +417,14 @@ export function buildTelegramMsg(alert) {
     : `⚪ <b>${label}:</b> N/A`
 
   return [
+    `⭐ <b>${setup}</b>`,
+    '',
     `<b>${icon} ${action} SIGNAL · ${escapeTelegramHtml(timeframe.toUpperCase())}</b>`,
+    '',
     `🪙 <b>Coin:</b> ${escapeTelegramHtml(symbol)}`,
-    `⭐ <b>Pattern:</b> ${setup}`,
+    '',
     changeLine('Daily Change', daily),
+    '',
     changeLine('Hourly Change', hourly),
     `📉 <a href="${escapeTelegramHtml(chartUrl)}">TradingView Chart</a>`,
     '',
