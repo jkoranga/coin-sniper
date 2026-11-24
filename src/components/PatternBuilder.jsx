@@ -237,7 +237,7 @@ function IBtn({ onClick, title, children, col = 'var(--text3)' }) {
   )
 }
 
-function JoinBadge({ value, onChange, onGroupToggle, grouped, groupColor }) {
+function JoinBadge({ value, onChange, onGroupToggle, onQuickOrGroup, grouped, groupColor }) {
   const isAnd = value === 'AND'
   return (
     <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: 6, margin: '1px 0' }}>
@@ -254,7 +254,7 @@ function JoinBadge({ value, onChange, onGroupToggle, grouped, groupColor }) {
       {/* Group toggle button */}
       <button
         onClick={onGroupToggle}
-        title={grouped ? 'Remove from group' : 'Group with condition above'}
+        title={grouped ? 'Remove from group' : 'Group these two adjacent conditions'}
         style={{
           padding: '3px 8px', borderRadius: 20, cursor: 'pointer',
           fontSize: 9, fontFamily: 'var(--mono)', fontWeight: 800,
@@ -264,6 +264,17 @@ function JoinBadge({ value, onChange, onGroupToggle, grouped, groupColor }) {
           letterSpacing: '.05em', transition: 'all .15s',
         }}
       >{grouped ? '[ ]' : '( )'}</button>
+      {onQuickOrGroup && (
+        <button onClick={onQuickOrGroup}
+          title="Create OR group: either of these two conditions can pass. Other conditions keep their own AND/OR links."
+          aria-label="Make these two conditions an OR group"
+          style={{
+            padding: '3px 8px', borderRadius: 20, cursor: 'pointer',
+            fontSize: 9, fontFamily: 'var(--mono)', fontWeight: 900,
+            background: 'rgba(158,220,70,.12)', border: '1px solid rgba(158,220,70,.55)',
+            color: '#bbef85', whiteSpace: 'nowrap',
+          }}>(OR)</button>
+      )}
       <div style={{ flex: 1, height: 1, background: grouped ? `${groupColor}40` : 'var(--border)' }} />
     </div>
   )
@@ -453,7 +464,15 @@ function CondCard({ cond, idx, total, color, onChange, onRemove, onCopy, onMoveU
               </div>
             </div>
             {/* Toggle switch */}
-            <div onClick={() => s('rangeCheck', !cond.rangeCheck)} style={{
+            <div onClick={() => {
+                const enabling = !cond.rangeCheck
+                onChange({
+                  ...cond,
+                  rangeCheck: enabling,
+                  histCompare: enabling ? false : cond.histCompare,
+                  op: enabling && ['crossUp', 'crossDown', '% Diff'].includes(cond.op) ? '' : cond.op,
+                })
+              }} style={{
               width: 38, height: 22, borderRadius: 11, cursor: 'pointer', flexShrink: 0,
               background: cond.rangeCheck ? color : 'var(--bg3)',
               border: `1.5px solid ${cond.rangeCheck ? color : 'var(--border)'}`,
@@ -1733,6 +1752,7 @@ function PatternEditor({ pattern: rawPattern, onChange, onDelete, onMirrorPatter
               </div>
               <div style={{ fontSize: 10, color: 'var(--text2)', marginTop: 6 }}>
                 AND = both needed · OR = either passes · ( ) = group evaluated first. Without grouping, combinations follow left-to-right.
+                Tap (OR) between two ungrouped conditions to make a safe alternative group in one step.
               </div>
               {logicGuide.errors.map((message, i) => (
                 <div key={`error-${i}`} style={{ fontSize: 10, color: '#ffa1a7', marginTop: 6 }}>
@@ -1843,6 +1863,13 @@ function PatternEditor({ pattern: rawPattern, onChange, onDelete, onMirrorPatter
                         <JoinBadge
                           value={cond.joinNext || 'AND'}
                           onChange={v => setJoin(idx, v)}
+                          onQuickOrGroup={!gid && !nextCond.groupId ? () => {
+                            const conditions = [...pattern.conditions]
+                            const groupId = `grp_${uid()}`
+                            conditions[idx] = { ...conditions[idx], groupId, joinNext: 'OR' }
+                            conditions[idx + 1] = { ...conditions[idx + 1], groupId }
+                            s('conditions', conditions)
+                          } : null}
                           grouped={isGrouped}
                           groupColor={isGrouped ? gCol : '#888'}
                           onGroupToggle={() => {
