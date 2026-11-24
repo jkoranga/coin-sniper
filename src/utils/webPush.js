@@ -69,3 +69,22 @@ export async function listenForForegroundMessages() {
 
   return unsubscribe
 }
+
+ 
+// Local scanner notifications do not require a Worker or FCM request.
+export async function showLocalScannerNotification(alert, enabled = () => true) {
+  if (!enabled() || !('Notification' in window) || Notification.permission !== 'granted' || !('serviceWorker' in navigator)) return false
+  const registration = await navigator.serviceWorker.getRegistration() || await navigator.serviceWorker.register('/firebase-messaging-sw.js')
+  if (!enabled()) return false
+  const change = value => value != null && Number.isFinite(Number(value)) ? (Number(value) >= 0 ? '+' : '') + Number(value).toFixed(2) + '%' : 'N/A'
+  const title = (alert.side === 'bull' ? '🟢 BUY' : '🔴 SELL') + ' · ' + alert.symbol + ' · ' + alert.timeframe
+  await registration.showNotification(title, {
+    body: [alert.scannerName, '24h: ' + change(alert.dailyChangePct) + ' | 1h: ' + change(alert.hourlyChangePct), 'Coin Sniper'].join('\n'),
+    icon: '/favicon.ico', badge: '/favicon.ico',
+    data: {symbol:alert.symbol,timeframe:alert.timeframe,side:alert.side,scannerName:alert.scannerName,time:alert.time},
+    tag: [alert.symbol,alert.timeframe,alert.side,alert.scannerName].join('-'),
+    renotify: true, timestamp: alert.time || Date.now(),
+    actions: [{action:'chart',title:'Open TradingView'}],
+  })
+  return true
+}
