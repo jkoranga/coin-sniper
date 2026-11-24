@@ -1,4 +1,21 @@
 /* Firebase Cloud Messaging service worker for Coin Sniper */
+self.addEventListener('notificationclick', event => {
+  event.stopImmediatePropagation()
+  event.notification.close()
+  const d = event.notification.data || {}
+  const url = new URL('/', self.location.origin)
+  if (d.symbol && d.timeframe) {
+    for (const k of ['symbol','timeframe','side','scannerName','time','dailyChangePct','hourlyChangePct']) if (d[k] != null) url.searchParams.set(k,d[k])
+    url.searchParams.set('signal','1')
+  }
+  event.waitUntil((async () => {
+    const windows = await clients.matchAll({type:'window',includeUncontrolled:true})
+    const existing = windows.find(w => new URL(w.url).origin === url.origin)
+    if (existing) { await existing.navigate(url.href); await existing.focus() }
+    else await clients.openWindow(url.href)
+  })())
+})
+
 importScripts('https://www.gstatic.com/firebasejs/12.13.0/firebase-app-compat.js')
 importScripts('https://www.gstatic.com/firebasejs/12.13.0/firebase-messaging-compat.js')
 
@@ -18,14 +35,10 @@ messaging.onBackgroundMessage(payload => {
     body: payload.notification?.body || payload.data?.body || 'A new scanner signal is available.',
     icon: '/favicon.ico',
     badge: '/favicon.ico',
-    data: { url: payload.data?.url || 'https://coin-sniper.vercel.app/' },
-    tag: [payload.data?.symbol, payload.data?.timeframe, payload.data?.side].filter(Boolean).join('-'),
+    data: { ...payload.data },
+    tag: [payload.data?.symbol, payload.data?.timeframe, payload.data?.side, payload.data?.scannerName].filter(Boolean).join('-') || 'coin-sniper-alert',
+    renotify: true,
   }
   self.registration.showNotification(title, options)
 })
 
-self.addEventListener('notificationclick', event => {
-  event.notification.close()
-  const url = event.notification.data?.url || 'https://coin-sniper.vercel.app/'
-  event.waitUntil(clients.openWindow(url))
-})
