@@ -250,7 +250,7 @@ function Pill({ active, color = A, onClick, children, sm }) {
       fontSize: sm ? 10 : 11, fontFamily: 'var(--mono)', fontWeight: active ? 800 : 500,
       border: `1.5px solid ${active ? color : 'var(--border)'}`,
       background: active ? `${color}1e` : 'transparent',
-      color: active ? color : 'var(--text3)',
+      color: active ? color : 'var(--text2)',
       transition: 'all .12s', whiteSpace: 'nowrap', flexShrink: 0,
     }}>{children}</button>
   )
@@ -351,6 +351,7 @@ function CondCard({ cond, idx, total, color, onChange, onRemove, onCopy, onMoveU
   const isHistCross = cond.histCompare && ['crossUp','crossDown'].includes(cond.op)
   const histStart = cond.histPreviousFrom ?? 3, histEnd = cond.histPreviousTo ?? 20
   const histMid = histStart + Math.ceil((histEnd-histStart+1)/2)-1
+  const candleIndexLabel = n => Number(n) === 0 ? '0 · running' : String(-Number(n))
   const formula = condFormula(cond)
   const [confirmDelete, setConfirmDelete] = useState(false)
 
@@ -581,7 +582,7 @@ function CondCard({ cond, idx, total, color, onChange, onRemove, onCopy, onMoveU
                 Compare recent indicator values with an older range
               </div>
             </div>
-            <button onClick={() => onChange({ ...cond, histCompare: !cond.histCompare, rangeCheck: cond.histCompare ? cond.rangeCheck : false, rhsMode: !cond.histCompare ? 'field' : cond.rhsMode, rhsField: !cond.histCompare ? cond.lhsField : cond.rhsField, op: cond.histCompare && isHistCross ? '>' : cond.op })} style={{
+            <button onClick={() => onChange({ ...cond, histCompare: !cond.histCompare, rangeCheck: cond.histCompare ? cond.rangeCheck : false, rhsMode: !cond.histCompare ? 'field' : cond.rhsMode, rhsField: !cond.histCompare ? cond.lhsField : cond.rhsField, op: !cond.histCompare ? '' : (isHistCross || !cond.op ? '>' : cond.op) })} style={{
               padding: '5px 10px', borderRadius: 7, cursor: 'pointer', fontSize: 10, fontWeight: 800,
               border: `1px solid ${cond.histCompare ? '#00e676' : 'var(--border)'}`,
               background: cond.histCompare ? 'rgba(0,230,118,0.16)' : 'rgba(239,68,68,.12)',
@@ -590,18 +591,18 @@ function CondCard({ cond, idx, total, color, onChange, onRemove, onCopy, onMoveU
           </div>
           {cond.histCompare && (
             <div style={{ padding: 10, borderRadius: 8, background: 'rgba(0,230,118,0.05)', border: '1px solid rgba(0,230,118,0.25)', display: 'flex', flexDirection: 'column', gap: 9 }}>
-              <div style={{ fontSize: 9, color: 'var(--text3)', fontFamily: 'var(--mono)' }}>CANDLE INDEX: 1 = latest closed candle · 2 = previous candle · current running candle is excluded</div>
+              <div style={{ fontSize: 9, color: 'var(--text3)', fontFamily: 'var(--mono)' }}>CANDLE INDEX: 0 = running candle (value can change) · -1 = latest closed · -2 = previous closed</div>
               <div style={{ display: 'flex', gap: 8 }}>
                 <div style={{ flex: 1 }}>
-                  <Lbl>CURRENT FROM</Lbl>
+                  <Lbl>RECENT FROM</Lbl>
                   <select value={cond.histCurrentFrom ?? 1} onChange={e => { const v=+e.target.value; const ct = Math.max(v, cond.histCurrentTo ?? 2); const pf = Math.max(ct + 1, cond.histPreviousFrom ?? 3); onChange({ ...cond, histCurrentFrom: v, histCurrentTo: ct, histPreviousFrom: pf, histPreviousTo: Math.max(pf, cond.histPreviousTo ?? 20) }) }} style={{ width: '100%', padding: 7, borderRadius: 7, background: 'var(--bg3)', color: 'var(--text)', border: '1px solid var(--border)' }}>
-                    {Array.from({length:18},(_,i)=>i+1).map(v=><option key={v} value={v}>{v}</option>)}
+                    {Array.from({length:19},(_,i)=>i).map(v=><option key={v} value={v}>{candleIndexLabel(v)}</option>)}
                   </select>
                 </div>
                 <div style={{ flex: 1 }}>
-                  <Lbl>CURRENT TO</Lbl>
+                  <Lbl>RECENT TO</Lbl>
                   <select value={cond.histCurrentTo ?? 2} onChange={e => { const v=+e.target.value; onChange({ ...cond, histCurrentTo: v, histPreviousFrom: Math.max(v + 1, cond.histPreviousFrom ?? 3), histPreviousTo: Math.max(v + 2, cond.histPreviousTo ?? 20) }) }} style={{ width: '100%', padding: 7, borderRadius: 7, background: 'var(--bg3)', color: 'var(--text)', border: '1px solid var(--border)' }}>
-                    {Array.from({length:18},(_,i)=>i+1).filter(v=>v>=(cond.histCurrentFrom ?? 1)).map(v=><option key={v} value={v}>{v}</option>)}
+                    {Array.from({length:19},(_,i)=>i).filter(v=>v>=(cond.histCurrentFrom ?? 1)).map(v=><option key={v} value={v}>{candleIndexLabel(v)}</option>)}
                   </select>
                 </div>
               </div>
@@ -616,19 +617,19 @@ function CondCard({ cond, idx, total, color, onChange, onRemove, onCopy, onMoveU
               )}
               <div style={{ display: 'flex', gap: 8 }}>
                 <div style={{ flex: 1 }}>
-                  <Lbl>PREVIOUS FROM</Lbl>
+                  <Lbl>OLDER FROM</Lbl>
                   <select value={cond.histPreviousFrom ?? 3} onChange={e => { const v=+e.target.value; onChange({ ...cond, histPreviousFrom: v, histPreviousTo: Math.max(v, cond.histPreviousTo ?? 20) }) }} style={{ width: '100%', padding: 7, borderRadius: 7, background: 'var(--bg3)', color: 'var(--text)', border: '1px solid var(--border)' }}>
-                    {Array.from({length:19},(_,i)=>i+1).filter(v=>v>(cond.histCurrentTo ?? 2)).map(v=><option key={v} value={v}>{v}</option>)}
+                    {Array.from({length:19},(_,i)=>i+1).filter(v=>v>(cond.histCurrentTo ?? 2)).map(v=><option key={v} value={v}>{candleIndexLabel(v)}</option>)}
                   </select>
                 </div>
                 <div style={{ flex: 1 }}>
-                  <Lbl>PREVIOUS TO</Lbl>
+                  <Lbl>OLDER TO</Lbl>
                   <select value={cond.histPreviousTo ?? 20} onChange={e => s('histPreviousTo', +e.target.value)} style={{ width: '100%', padding: 7, borderRadius: 7, background: 'var(--bg3)', color: 'var(--text)', border: '1px solid var(--border)' }}>
-                    {Array.from({length:20},(_,i)=>i+1).filter(v=>v>=(cond.histPreviousFrom ?? 3)).map(v=><option key={v} value={v}>{v}</option>)}
+                    {Array.from({length:20},(_,i)=>i+1).filter(v=>v>=(cond.histPreviousFrom ?? 3)).map(v=><option key={v} value={v}>{candleIndexLabel(v)}</option>)}
                   </select>
                 </div>
               </div>
-              {isHistCross ? <div style={{fontSize:11,color:'var(--text2)',lineHeight:1.6}}>{histEnd <= histStart ? 'Select at least two historical candles.' : `Auto split: B ${histStart}–${histMid} · C ${histMid+1}–${histEnd}`}<div>{cond.op === 'crossUp' ? 'Start below both levels; finish above both.' : 'Start above both levels; finish below both.'}</div><div>{cond.lhsField === 'close' ? 'Uses current range minimum/maximum Open and latest selected Close.' : 'Uses oldest and newest selected indicator values.'}</div></div> : <>
+              {isHistCross ? <div style={{fontSize:11,color:'var(--text2)',lineHeight:1.6}}>{histEnd <= histStart ? 'Select at least two historical candles.' : `Auto split: B ${candleIndexLabel(histStart)} to ${candleIndexLabel(histMid)} · C ${candleIndexLabel(histMid+1)} to ${candleIndexLabel(histEnd)}`}<div>{cond.op === 'crossUp' ? 'Start below both levels; finish above both.' : 'Start above both levels; finish below both.'}</div><div>{cond.lhsField === 'close' ? 'Uses current range minimum/maximum Open and latest selected Close.' : 'Uses oldest and newest selected indicator values.'}</div></div> : <>
               <div>
                 <Lbl>PREVIOUS RANGE COMPARE</Lbl>
                 <div style={{fontSize:10,color:'var(--text2)',marginBottom:5}}>Every = compare against each older candle; Max/Min/Avg = compare against one reference value.</div>
@@ -637,15 +638,12 @@ function CondCard({ cond, idx, total, color, onChange, onRemove, onCopy, onMoveU
                 </div>
               </div>
               </>}
-              <div style={{ fontSize: 10, fontFamily: 'var(--mono)', color: '#00e676', padding: '6px 8px', borderRadius: 6, background: 'rgba(0,230,118,0.08)' }}>
-                {condFormula(cond)}
-              </div>
             </div>
           )}
 
           {/* LEFT SIDE — show candle offset only when range is OFF */}
           <div style={{ padding: '7px 8px', borderRadius: 7, background: 'rgba(0,0,0,0.18)' }}>
-            <Lbl>{cond.histCompare ? 'RECENT RANGE — Indicator' : 'LEFT — candle field'}</Lbl>
+            <Lbl>{cond.histCompare ? 'STEP 3 · RECENT INDICATOR' : 'LEFT — candle field'}</Lbl>
             <FSelect
               value={cond.lhsField} offset={(cond.rangeCheck || cond.histCompare) ? 0 : cond.lhsOffset}
               onField={v => s('lhsField', v)} onOffset={(cond.rangeCheck || cond.histCompare) ? null : v => s('lhsOffset', v)}
@@ -653,19 +651,20 @@ function CondCard({ cond, idx, total, color, onChange, onRemove, onCopy, onMoveU
             />
           </div>
 
-          {/* OPERATOR */}
-          <div>
-            <Lbl>{cond.histCompare ? 'COMPARISON DIRECTION' : 'OPERATOR'}</Lbl>
-            <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
-              {(cond.histCompare ? [...OPS,'crossUp','crossDown'] : OPS).map(op => (
-                <Pill key={op} active={cond.op === op} color={op === 'crossUp' ? '#00e676' : op === 'crossDown' ? '#f87171' : color} onClick={() => ['crossUp','crossDown'].includes(op) ? onChange({...cond,op,rhsMode:'field',histPreviousTo:Math.max(histStart+1,histEnd)}) : s('op', op)}>{cond.histCompare ? ({'>':'↑ Above (>)','>=':'At or above (≥)','<':'↓ Below (<)','<=':'At or below (≤)','=':'Equal (=)','≠':'Not equal (≠)',crossUp:'↑ Cross Up',crossDown:'↓ Cross Down'})[op] : op}</Pill>
-              ))}
+          {/* Standard conditions keep their separate operator. Historical comparisons
+              choose their operator inside "Compare with" as the last required step. */}
+          {!cond.histCompare && (
+            <div>
+              <Lbl>OPERATOR</Lbl>
+              <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
+                {OPS.map(op => <Pill key={op} active={cond.op === op} color={color} onClick={() => s('op', op)}>{op}</Pill>)}
+              </div>
             </div>
-          </div>
+          )}
 
           <div style={{ padding: '7px 8px', borderRadius: 7, background: 'rgba(0,0,0,0.18)' }}>
-            <Lbl>{cond.histCompare ? 'HISTORICAL RANGE — Compare with' : 'RIGHT — compare to'}</Lbl>
-            {cond.histCompare && <div style={{fontSize:10,color:'var(--text2)',marginBottom:7}}>Automatically matches the recent indicator. You can select a different field below.</div>}
+            <Lbl>{cond.histCompare ? 'STEP 4 · HISTORICAL RANGE — COMPARE WITH' : 'RIGHT — compare to'}</Lbl>
+            {cond.histCompare && <div style={{fontSize:10,color:'var(--text2)',marginBottom:7,lineHeight:1.6}}>Choose the older indicator, a fixed value, or a calculated reference. If unchanged, the same indicator is compared across both ranges.</div>}
             <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap', marginBottom: 9 }}>
               {(isHistCross ? RHS_MODES.filter(m=>m.id==='field') : RHS_MODES).map(m => (
                 <Pill key={m.id} active={(cond.rhsMode ?? (cond.histCompare ? 'field' : 'number')) === m.id} color={color}
@@ -873,16 +872,43 @@ function CondCard({ cond, idx, total, color, onChange, onRemove, onCopy, onMoveU
                 </div>
               </div>
             )}
+            {cond.histCompare && (
+              <div style={{ marginTop: 14, paddingTop: 12, borderTop: '1px solid var(--border)' }}>
+                <Lbl>STEP 5 · COMPARE DIRECTION — REQUIRED</Lbl>
+                <div style={{ fontSize: 10, color: 'var(--text2)', lineHeight: 1.6, marginBottom: 8 }}>
+                  Choose how the recent value must compare with the older reference. No direction is preselected when starting a historical comparison.
+                </div>
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+                  {[...OPS, 'crossUp', 'crossDown'].map(op => (
+                    <Pill key={op} active={cond.op === op}
+                      color={op === 'crossUp' ? '#00e676' : op === 'crossDown' ? '#f87171' : '#00e676'}
+                      onClick={() => ['crossUp', 'crossDown'].includes(op)
+                        ? onChange({ ...cond, op, rhsMode: 'field', histPreviousTo: Math.max(histStart + 1, histEnd) })
+                        : s('op', op)}>
+                      {({ '>': '↑ Above (>)', '>=': 'At / above (≥)', '<': '↓ Below (<)', '<=': 'At / below (≤)', '=': 'Equal (=)', '≠': 'Not equal (≠)', crossUp: '↑ Cross Up', crossDown: '↓ Cross Down' })[op]}
+                    </Pill>
+                  ))}
+                </div>
+                {!cond.op && (
+                  <div role="status" style={{ color: '#ffc46b', border: '1px solid rgba(255,196,107,.45)', background: 'rgba(255,196,107,.07)', padding: '9px 10px', marginTop: 10, borderRadius: 7, fontSize: 11, lineHeight: 1.6 }}>
+                    ⚠ Select a direction to complete this condition. No signal will be generated until you choose one.
+                  </div>
+                )}
+              </div>
+            )}
           </div>
 
 
-          {/* Live formula */}
+          {/* One live formula, with an explicit incomplete state. */}
           <div style={{
-            fontSize: 10, fontFamily: 'var(--mono)', color: color,
-            padding: '5px 9px', borderRadius: 6,
-            background: `${color}10`, border: `1px solid ${color}30`,
+            fontSize: 11, fontFamily: 'var(--mono)', lineHeight: 1.65,
+            color: cond.histCompare && !cond.op ? '#ffc46b' : color,
+            padding: '10px 11px', borderRadius: 8, overflowWrap: 'anywhere',
+            background: cond.histCompare && !cond.op ? 'rgba(255,196,107,.06)' : `${color}10`,
+            border: `1px solid ${cond.histCompare && !cond.op ? 'rgba(255,196,107,.4)' : color + '30'}`,
           }}>
-            → {formula}
+            <div style={{ fontSize: 9, color: 'var(--text2)', marginBottom: 5 }}>LIVE CONDITION PREVIEW</div>
+            {cond.histCompare && !cond.op ? '⚠ Choose direction:  ' : '→ '}{formula}
           </div>
         </div>
       )}
