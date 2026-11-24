@@ -23,8 +23,9 @@ export async function syncBackgroundScanner(firebaseUser, settings) {
         (settings.tgOn && settings.tgToken && settings.tgChatId) ||
         (settings.webPushOn && settings.pushToken)
       ),
-      tgToken: settings.tgToken || '',
-      tgChatId: settings.tgChatId || '',
+      tgOn: Boolean(settings.tgOn),
+      tgToken: settings.tgOn ? (settings.tgToken || '') : '',
+      tgChatId: settings.tgOn ? (settings.tgChatId || '') : '',
       webPushOn: Boolean(settings.webPushOn),
       pushToken: settings.webPushOn ? (settings.pushToken || '') : '',
       patterns,
