@@ -1,6 +1,6 @@
 // ─── Pattern Builder v3 ───────────────────────────────────────────────────────
 import React, { useState, useMemo, useRef } from 'react'
-import { compilePattern, condFormula } from '../utils/patternEngine.js'
+import { compilePattern, condFormula, validateConditionConfig } from '../utils/patternEngine.js'
 export { compilePattern, condFormula } from '../utils/patternEngine.js'
 
 // ── Field catalogue ───────────────────────────────────────────────────────────
@@ -353,6 +353,13 @@ function CondCard({ cond, idx, total, color, onChange, onRemove, onCopy, onMoveU
   const histMid = histStart + Math.ceil((histEnd-histStart+1)/2)-1
   const candleIndexLabel = n => Number(n) === 0 ? '0 · running' : String(-Number(n))
   const formula = condFormula(cond)
+  const validation = validateConditionConfig(cond)
+  const ready = cond.enabled && validation.valid
+  const statusColor = ready ? '#19bb72' : '#ef646a'
+  const statusBackground = ready ? 'rgba(25,187,114,0.09)' : 'rgba(239,100,106,0.10)'
+  const statusBorder = ready ? 'rgba(25,187,114,0.50)' : 'rgba(239,100,106,0.55)'
+  const statusText = !cond.enabled ? 'OFF · NOT SCANNING' : validation.valid ? 'READY · VALID LOGIC' : 'FIX REQUIRED'
+  const statusReason = !cond.enabled ? 'This condition is OFF and will not be scanned.' : validation.reason
   const recentWindow = `${candleIndexLabel(cond.histCurrentFrom ?? 1)} to ${candleIndexLabel(cond.histCurrentTo ?? 2)}`
   const olderWindow = `${candleIndexLabel(cond.histPreviousFrom ?? 3)} to ${candleIndexLabel(cond.histPreviousTo ?? 20)}`
   const directionWords = { '>': 'higher than', '>=': 'at least as high as', '<': 'lower than', '<=': 'at most as high as', '=': 'equal to', '≠': 'different from' }
@@ -366,16 +373,16 @@ function CondCard({ cond, idx, total, color, onChange, onRemove, onCopy, onMoveU
   return (
     <div style={{
       borderRadius: 10,
-      border: `1.5px solid ${cond.enabled ? color + '50' : 'var(--border)'}`,
-      background: cond.enabled ? `${color}08` : 'rgba(0,0,0,0.1)',
-      opacity: cond.enabled ? 1 : 0.5,
-      transition: 'opacity .15s',
+      border: `1.5px solid ${statusBorder}`,
+      background: statusBackground,
+      boxShadow: ready ? 'inset 0 0 0 1px rgba(25,187,114,.05)' : 'inset 0 0 0 1px rgba(239,100,106,.05)',
+      transition: 'background .18s, border-color .18s',
       overflow: 'hidden',
     }}>
       {/* Topbar */}
       <div style={{
         display: 'flex', alignItems: 'center', gap: 6,
-        padding: '7px 9px', background: 'rgba(0,0,0,0.2)',
+        padding: '7px 9px', background: ready ? 'rgba(25,187,114,.05)' : 'rgba(239,100,106,.06)',
       }}>
         {/* Enable / Disable toggle button */}
         <button
@@ -404,12 +411,18 @@ function CondCard({ cond, idx, total, color, onChange, onRemove, onCopy, onMoveU
         {/* Formula — tap to expand */}
         <div onClick={onToggleOpen} style={{
           flex: 1, fontFamily: 'var(--mono)', fontWeight: 700,
-          fontSize: 11, color: cond.enabled ? color : 'var(--text3)',
+          fontSize: 11, color: ready ? 'var(--text)' : '#ff999e',
           whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
           cursor: 'pointer',
         }}>
           {formula}
         </div>
+        <span title={statusReason} style={{
+          padding: '3px 6px', flexShrink: 0,
+          borderRadius: 5, background: ready ? 'rgba(25,187,114,.16)' : 'rgba(239,100,106,.16)',
+          border: `1px solid ${statusBorder}`, color: statusColor,
+          fontSize: 9, fontFamily: 'var(--mono)', fontWeight: 800, letterSpacing: '.02em',
+        }}>{ready ? '✓ READY' : '⚠ CHECK'}</span>
 
         {/* Action icons */}
         <div style={{ display: 'flex', gap: 3, flexShrink: 0 }}>
@@ -428,6 +441,16 @@ function CondCard({ cond, idx, total, color, onChange, onRemove, onCopy, onMoveU
         <span onClick={onToggleOpen} style={{ color:'var(--text3)', fontSize:11, cursor:'pointer', flexShrink:0 }}>
           {open ? '▲' : '▼'}
         </span>
+      </div>
+
+      {/* A collapsed condition still shows its readiness and reason. */}
+      <div role="status" style={{
+        fontSize: 10, lineHeight: 1.5, padding: '5px 10px 7px',
+        borderTop: `1px solid ${statusBorder}`,
+        color: ready ? '#58dba2' : '#ffa1a5',
+        overflowWrap: 'anywhere',
+      }}>
+        <b>{statusText}</b> · {statusReason}
       </div>
 
       {/* Body */}
