@@ -51,8 +51,9 @@ export async function listenForForegroundMessages() {
       body,
       icon: '/favicon.ico',
       badge: '/favicon.ico',
-      data: { url: payload.data?.url || 'https://coin-sniper.vercel.app/' },
-      tag: [payload.data?.symbol, payload.data?.timeframe, payload.data?.side].filter(Boolean).join('-') || 'coin-sniper-alert',
+      data: { ...payload.data },
+      tag: [payload.data?.symbol, payload.data?.timeframe, payload.data?.side, payload.data?.scannerName].filter(Boolean).join('-') || 'coin-sniper-alert',
+      renotify: true,
     }
 
     try {
