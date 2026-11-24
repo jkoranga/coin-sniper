@@ -134,7 +134,7 @@ export function validateConditionConfig(cond) {
   if (['number', 'pctdiff'].includes(mode) && !validNumber(cond.rhsNum ?? 0)) {
     return invalid('Enter a valid numeric comparison value.')
   }
-  if (mode === 'mult' && (!validNumber(cond.rhsMult) || Number(cond.rhsMult) === 0)) {
+  if (mode === 'mult' && (!validNumber(cond.rhsMult ?? 1) || Number(cond.rhsMult ?? 1) === 0)) {
     return invalid('Enter a non-zero multiplier.')
   }
   if (mode === 'pct' && !validNumber(cond.rhsPct ?? 0)) {
