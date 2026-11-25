@@ -10,6 +10,7 @@ import { historyAddAlerts } from '../utils/history.js'
 import { onAuthChanged, loadNotificationCooldownsFromCloud, saveNotificationCooldownsToCloud } from '../firebase.js'
 import { intervalToMs, sendTelegram, buildTelegramMsg, fmt, timeSince, fmtVol, fetchCandles } from '../utils/scanner.js'
 import { createLiveCandles } from '../utils/liveCandles.js'
+import { acquireScannerSlot } from '../utils/scanCoordinator.js'
 import { showLocalScannerNotification } from '../utils/webPush.js'
 import { DEFAULT_GROUPS } from './sections/CustomPairsSection.jsx'
 
@@ -533,7 +534,7 @@ function DetailSheet({ alert: a, onClose }) {
 
 // ── Main DeltaScannerTab ───────────────────────────────────────────────────────
 export default function DeltaScannerTab({
-  settings, update, saveNowWithPatch, isActive,
+  settings, update, saveNowWithPatch, isActive, scanReady = true,
   onGoToPatterns, onAlertCount, timeframe: tfProp,
   triggerAutoScan,
 }) {
@@ -715,6 +716,9 @@ export default function DeltaScannerTab({
   const providerPauseRef = useRef({})
   const idRef       = useRef(0)
   const timerRef    = useRef(null)
+  const patternRefreshTimerRef = useRef(null)
+  const patternRefreshPendingRef = useRef(false)
+  const previousPatternsRef = useRef(settings.customPatterns)
   const settingsRef = useRef(settings)
   useEffect(() => { settingsRef.current = settings }, [settings])
   useEffect(() => { saveDeltaResults(timeframe, alerts) }, [timeframe, alerts])
@@ -901,7 +905,17 @@ export default function DeltaScannerTab({
     setProgress(0)
     setErrors([])
     // Keep existing results in Auto and Loop modes; repeated signals update in place.
-
+    // All timeframe panes stay mounted. Share a small number of scan slots
+    // so switching tabs does not stop the previous timeframe or overload APIs.
+    setProgressSym('Waiting for scan slot…')
+    const releaseScanSlot = await acquireScannerSlot(abortRef.current.signal)
+    if (!releaseScanSlot) {
+      scanningRef.current = false
+      setScanning(false)
+      setProgressSym('')
+      return
+    }
+    try {
     const CONCURRENCY = Math.max(2, Math.min(12, Number(cfg.concurrency) || 12))
     // Adaptive worker limit: start conservatively, expand on healthy responses,
     // and back off on rate limits/timeouts without changing the user's configured cap.
@@ -1081,39 +1095,82 @@ export default function DeltaScannerTab({
       // Small 300ms breath between loop cycles, then immediately restart
       setTimeout(() => { if (loopRef.current) runScanRef.current(symOverride) }, 300)
     }
+    } finally {
+      // Release even if any scan worker throws, so other TFs never deadlock.
+      releaseScanSlot()
+      if (patternRefreshPendingRef.current && settingsRef.current.autoScan) {
+        patternRefreshPendingRef.current = false
+        setTimeout(() => { if (!scanningRef.current) runScanRef.current() }, 700)
+      }
+    }
   }, [activePatterns, symbols, timeframe, dedupInt, assetGroups, rankedCryptoSymbols]) // eslint-disable-line
 
   // Keep runScan ref always current so effects/timers never call stale version
   const runScanRef = useRef(runScan)
   useEffect(() => { runScanRef.current = runScan }, [runScan])
 
-  // Schedule only the active, ready timeframe; never overlap scans.
+  // Auto ON means ALL timeframes that have enabled patterns continue to run,
+  // regardless of the visible tab, Builder or Settings. No overlap per TF;
+  // the shared queue limits overall concurrency across TFs.
   const initialScanRef = useRef(false)
-  const readyToScan = activePatterns.length > 0 && (symbols.length > 0 || (scanMode === 'custom' && (settings.customPairs || []).length > 0))
+  const readyToScan = activePatterns.length > 0 &&
+    (symbols.length > 0 || (scanMode === 'custom' && (settings.customPairs || []).length > 0))
+  const autoRunEnabled = scanReady && readyToScan && (autoEnabled || loopMode)
   useEffect(() => {
-    if (!isActive || !readyToScan) return
+    if (!autoRunEnabled) {
+      clearTimeout(timerRef.current)
+      setNextScanAt(null)
+      return
+    }
     let cancelled = false
-    const repeat = autoEnabled || loopMode
+    const repeatMs = loopMode ? 1000 : intervalToMs(settings.scanInterval || '3m')
     const schedule = ms => {
       if (cancelled) return
-      setNextScanAt(Date.now()+ms)
+      setNextScanAt(Date.now() + ms)
       timerRef.current = setTimeout(async () => {
         if (cancelled) return
-        if (scanningRef.current) { schedule(500); return }
+        if (scanningRef.current) { schedule(700); return }
         setNextScanAt(null)
         initialScanRef.current = true
-        try { await runScanRef.current() } catch (error) { console.error('[CoinSniper] Scan cycle failed',error); scanningRef.current=false; setScanning(false) }
-        if (!cancelled && repeat) schedule(loopMode ? 300 : intervalToMs(settings.scanInterval || '3m'))
+        try {
+          await runScanRef.current()
+        } catch (error) {
+          console.error('[CoinSniper] Scan cycle failed', error)
+          scanningRef.current = false
+          setScanning(false)
+        }
+        if (!cancelled) schedule(repeatMs)
       }, ms)
     }
-    if (settings.scanOnLoad !== false && (!initialScanRef.current || !lastScan)) schedule(3000)
-    else if (repeat) schedule(loopMode ? 300 : intervalToMs(settings.scanInterval || '3m'))
+    const stagger = ['1m','3m','5m','15m','30m','1h','4h','1d'].indexOf(timeframe) * 1000
+    const startupMs = settings.scanOnLoad === false
+      ? repeatMs
+      : (!initialScanRef.current ? 1800 + Math.max(0, stagger) : repeatMs)
+    schedule(startupMs)
     return () => { cancelled = true; clearTimeout(timerRef.current); setNextScanAt(null) }
-  }, [isActive, readyToScan, autoEnabled, loopMode, settings.scanOnLoad, settings.scanInterval, timeframe])
+  }, [autoRunEnabled, loopMode, settings.scanOnLoad, settings.scanInterval, timeframe])
 
+  // Pattern changes affect scanning without resetting the Auto countdown
+  // and without cancelling a scan that is already checking market data.
   useEffect(() => {
-    if (!isActive) { abortRef.current?.abort(); loopRef.current = false }
-  }, [isActive])
+    if (previousPatternsRef.current === settings.customPatterns) return
+    previousPatternsRef.current = settings.customPatterns
+    clearTimeout(patternRefreshTimerRef.current)
+    if (!autoRunEnabled) return
+    patternRefreshTimerRef.current = setTimeout(() => {
+      if (scanningRef.current) patternRefreshPendingRef.current = true
+      else runScanRef.current().catch(error => console.error('[CoinSniper] Pattern refresh scan failed', error))
+    }, 1500)
+    return () => clearTimeout(patternRefreshTimerRef.current)
+  }, [settings.customPatterns, autoRunEnabled])
+
+  // Changing the visible tab only affects the UI. Keep Auto/Loop scans alive.
+  useEffect(() => {
+    if (!isActive && !autoEnabled && !loopMode) {
+      abortRef.current?.abort()
+      loopRef.current = false
+    }
+  }, [isActive, autoEnabled, loopMode])
 
   function stopScan() {
     loopRef.current = false
@@ -1126,7 +1183,7 @@ export default function DeltaScannerTab({
   }
   function toggleAuto() {
     if (autoEnabled) stopScan()
-    else { update({autoScan:true,loopScan:false}); if (!scanningRef.current) runScanRef.current() }
+    else update({autoScan:true,loopScan:false})
   }
 
   function toggleSort(col) {
