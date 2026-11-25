@@ -105,7 +105,10 @@ function symbolListFor(config, mode, allSymbols) {
       .filter(s => /^[A-Z0-9]+USDT$/.test(s))
       .map(symbol => bySymbol.get(symbol) || { symbol, volume: 0, dailyChangePct: null });
   }
-  return allSymbols;
+  // Match the frontend's selected symbol universe. Legacy synced configs that
+  // lack symbolSet retain their old "all" behaviour.
+  const caps = { top30: 30, top100: 100, top200: 200, top250: 250, top500: 500 };
+  return allSymbols.slice(0, caps[config.symbolSet] || allSymbols.length);
 }
 function volumeThreshold(value) {
   return ({ all: 0, "500k": 500000, "1m": 1000000, "5m": 5000000, "10m": 10000000 })[value] ?? 0;
@@ -314,6 +317,10 @@ async function handleSync(request, env) {
       : [],
     volumeFilter: ["all", "500k", "1m", "5m", "10m"].includes(payload.volumeFilter)
       ? payload.volumeFilter : "all",
+    symbolSet: ["top30", "top100", "top200", "top250", "top500", "all"].includes(payload.symbolSet)
+      ? payload.symbolSet : "all",
+    scanInterval: typeof payload.scanInterval === "string" ? payload.scanInterval : "3m",
+    autoScan: payload.autoScan === true,
     dedupMsByTf: Object.fromEntries(ALLOWED_TFS.map(tf => {
       const ms = Number(payload.dedupMsByTf?.[tf]);
       return [tf, Number.isFinite(ms) && ms >= 15000 && ms <= 86400000 ? ms : 180000];
@@ -369,19 +376,28 @@ async function loadConfigs(env) {
   return configs.sort((a, b) => a.uid.localeCompare(b.uid));
 }
 function makeUserTasks(config, allSymbols) {
-  const tasks = [];
+  // Rotate by SYMBOL first, then timeframe: each 3-minute cron gets a fair
+  // mix of configured timeframes instead of scanning one TF for many cycles
+  // while the others receive zero coverage.
+  const groups = [];
   for (const tf of config.timeframes || []) {
     const patterns = activePatternsFor(config, tf);
     if (!patterns.length) continue;
     const mode = config.scanModeByTf?.[tf] || "all";
-    const symbols = symbolListFor(config, mode, allSymbols);
-    for (const item of symbols) {
+    groups.push({ timeframe: tf, patterns, symbols: symbolListFor(config, mode, allSymbols) });
+  }
+  const tasks = [];
+  const max = Math.max(0, ...groups.map(group => group.symbols.length));
+  for (let index = 0; index < max; index++) {
+    for (const group of groups) {
+      const item = group.symbols[index];
+      if (!item) continue;
       tasks.push({
-        key: item.symbol + "|" + tf,
+        key: item.symbol + "|" + group.timeframe,
         symbol: item.symbol,
-        timeframe: tf,
+        timeframe: group.timeframe,
         ticker: item,
-        consumers: [{ config, patterns }],
+        consumers: [{ config, patterns: group.patterns }],
       });
     }
   }
@@ -435,8 +451,22 @@ async function scanCron(env) {
   const rawCursor = Number(await env.SCANNER_KV.get("scheduler:cursor") || 0);
   const cursor = Number.isFinite(rawCursor) ? rawCursor % allTasks.length : 0;
   const selected = [];
+  // Reserve fetch capacity for HIGHER-TIMEFRAME reference candles BEFORE
+  // selecting a task. Previously the final .slice(0, 25) silently dropped
+  // these reference candles and valid patterns would never be evaluated.
   for (let i = 0; i < Math.min(MAX_MARKET_TASKS, allTasks.length); i++) {
-    selected.push(allTasks[(cursor + i) % allTasks.length]);
+    const next = allTasks[(cursor + i) % allTasks.length];
+    const candidate = [...selected, next];
+    const distinctFetchKeys = new Set([
+      ...candidate.map(task => task.key),
+      ...requiredHtf(candidate).map(task => task.key),
+    ]);
+    if (distinctFetchKeys.size > MAX_TOTAL_FETCHES) break;
+    selected.push(next);
+  }
+  if (!selected.length) {
+    console.warn("[CoinSniper] No tasks fit the configured fetch budget.");
+    return { users: configs.length, tasks: 0, alerts: 0 };
   }
   await env.SCANNER_KV.put("scheduler:cursor", String((cursor + selected.length) % allTasks.length));
 
