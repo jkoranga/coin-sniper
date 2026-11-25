@@ -1117,11 +1117,13 @@ export default function DeltaScannerTab({
   // Auto ON means ALL timeframes that have enabled patterns continue to run,
   // regardless of the visible tab, Builder or Settings. No overlap per TF;
   // the shared queue limits overall concurrency across TFs.
-  const initialScanRef = useRef(false)
+  const wasAutoRunningRef = useRef(false)
   const readyToScan = activePatterns.length > 0 &&
-    (symbols.length > 0 || (scanMode === 'custom' && (settings.customPairs || []).length > 0))
+    (scanMode === 'custom' ? (settings.customPairs || []).length > 0 : symbols.length > 0)
   const autoRunEnabled = scanReady && readyToScan && (autoEnabled || loopMode)
   useEffect(() => {
+    const newlyArmed = !wasAutoRunningRef.current
+    wasAutoRunningRef.current = autoRunEnabled
     if (!autoRunEnabled) {
       clearTimeout(timerRef.current)
       setNextScanAt(null)
@@ -1136,7 +1138,6 @@ export default function DeltaScannerTab({
         if (cancelled) return
         if (scanningRef.current) { schedule(700); return }
         setNextScanAt(null)
-        initialScanRef.current = true
         try {
           await runScanRef.current()
         } catch (error) {
@@ -1150,7 +1151,7 @@ export default function DeltaScannerTab({
     const stagger = ['1m','3m','5m','15m','30m','1h','4h','1d'].indexOf(timeframe) * 1000
     const startupMs = settings.scanOnLoad === false
       ? repeatMs
-      : (!initialScanRef.current ? 1800 + Math.max(0, stagger) : repeatMs)
+      : (newlyArmed ? 1800 + Math.max(0, stagger) : repeatMs)
     schedule(startupMs)
     return () => { cancelled = true; clearTimeout(timerRef.current); setNextScanAt(null) }
   }, [autoRunEnabled, loopMode, settings.scanOnLoad, settings.scanInterval, timeframe])
@@ -1184,6 +1185,7 @@ export default function DeltaScannerTab({
     clearTimeout(timerRef.current); setNextScanAt(null)
   }
   function toggleLoop(on) {
+    if (!on) abortRef.current?.abort()
     update({loopScan:on,...(on?{autoScan:false}:{})})
   }
   function toggleAuto() {
