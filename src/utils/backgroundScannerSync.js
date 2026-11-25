@@ -37,6 +37,9 @@ export async function syncBackgroundScanner(firebaseUser, settings) {
       ])),
       customPairs: Array.isArray(settings.customPairs) ? settings.customPairs : [],
       volumeFilter: settings.volumeFilter || 'all',
+      symbolSet: settings.symbolSet || 'all',
+      scanInterval: settings.scanInterval || '3m',
+      autoScan: Boolean(settings.autoScan),
       dedupMsByTf: Object.fromEntries(DELTA_TFS.map(tf => {
         const value = settings[`delta_dedupInt_${tf}`] ?? settings.dedupInterval ?? '3m'
         const ms = { '15s':15000, '30s':30000, '1m':60000, '3m':180000, '5m':300000, '15m':900000, '30m':1800000, '1h':3600000, '4h':14400000, '1d':86400000 }
