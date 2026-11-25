@@ -1259,6 +1259,22 @@ export default function DeltaScannerTab({
         </>
       )}
 
+      {/* Auto applies to every enabled pattern timeframe, not only this view. */}
+      {autoEnabled && !loopMode && (
+        <div role="status" style={{
+          marginBottom: 9, padding: '7px 10px', borderRadius: 8,
+          border: '1px solid rgba(96,217,146,.33)',
+          background: 'rgba(46,164,104,.07)',
+          color: 'var(--text2)', fontSize: 10, lineHeight: 1.55,
+          display: 'flex', gap: 7, flexWrap: 'wrap', alignItems: 'center',
+        }}>
+          <b style={{ color: '#71dfa0' }}>● AUTO ON</b>
+          <span>Scans all enabled pattern timeframes while this app is open.</span>
+          <span>Interval: {settings.scanInterval || '3m'} after each completed scan.</span>
+          <span style={{ color: 'var(--text3)' }}>Switching tabs will not stop scans.</span>
+        </div>
+      )}
+
       {/* ── TF Header ── */}
       <div style={{
         display:'flex', alignItems:'center', justifyContent:'space-between', gap:8,
