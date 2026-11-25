@@ -1098,6 +1098,11 @@ export default function DeltaScannerTab({
     } finally {
       // Release even if any scan worker throws, so other TFs never deadlock.
       releaseScanSlot()
+      if (scanningRef.current) {
+        scanningRef.current = false
+        setScanning(false)
+        setProgress(-1)
+      }
       if (patternRefreshPendingRef.current && settingsRef.current.autoScan) {
         patternRefreshPendingRef.current = false
         setTimeout(() => { if (!scanningRef.current) runScanRef.current() }, 700)
