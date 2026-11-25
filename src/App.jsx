@@ -1154,6 +1154,7 @@ export default function App() {
                 saveNowWithPatch={saveNowWithPatch}
                 user={user}
                 isActive={activeTab === tab.id && authReady && (!user || cloudSynced)}
+                scanReady={authReady && (!user || cloudSynced)}
                 onAlertCount={handleAlertCount}
                 onGoToPatterns={() => { setShowPatterns(true) }}
                 triggerAutoScan={activeTab === tab.id && authReady && (!user || cloudSynced)}
