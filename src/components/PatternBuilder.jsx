@@ -1911,6 +1911,16 @@ function PatternEditor({ pattern: rawPattern, onChange, onDelete, onMirrorPatter
               <div style={{ fontFamily: 'var(--mono)', fontWeight: 800, fontSize: 11, lineHeight: 1.8, wordBreak: 'break-word', color: logicGuide.ready ? '#bdf099' : '#ffc3c4' }}>
                 {logicGuide.expression}
               </div>
+              {pattern.conditions.some(cond => cond.enabled) && (
+                <div style={{ borderTop: '1px solid var(--border)', marginTop: 9, paddingTop: 8, display: 'flex', flexDirection: 'column', gap: 6 }}>
+                  {pattern.conditions.map((cond, i) => cond.enabled && (
+                    <div key={cond.id || i} style={{ fontSize: 10, color: 'var(--text2)', lineHeight: 1.6, display: 'flex', gap: 8 }}>
+                      <b style={{ color: '#a3e9c7', flexShrink: 0 }}>C{i + 1}</b>
+                      <span style={{ overflowWrap: 'anywhere' }}>{explainCondition(cond).summary}</span>
+                    </div>
+                  ))}
+                </div>
+              )}
               {logicGuide.errors.map((message, i) => (
                 <div key={`error-${i}`} style={{ fontSize: 10, color: '#ffa1a7', marginTop: 6 }}>
                   ⚠ {message}
