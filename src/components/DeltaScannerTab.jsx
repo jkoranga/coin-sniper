@@ -1272,20 +1272,6 @@ export default function DeltaScannerTab({
         </>
       )}
 
-      {/* Auto applies to every enabled pattern timeframe, not only this view. */}
-      {autoEnabled && !loopMode && (
-        <div role="status" style={{
-          marginBottom: 9, padding: '7px 10px', borderRadius: 8,
-          border: '1px solid rgba(96,217,146,.33)',
-          background: 'rgba(46,164,104,.07)',
-          color: 'var(--text2)', fontSize: 10, lineHeight: 1.55,
-          display: 'flex', gap: 7, flexWrap: 'wrap', alignItems: 'center',
-        }}>
-          <b style={{ color: '#71dfa0' }}>● AUTO ON</b>
-          <span>All enabled TFs · Every {settings.scanInterval || '3m'} after each scan · Tab switches do not stop Auto</span>
-        </div>
-      )}
-
       {/* Persistent compact warning when this timeframe has no scan conditions. */}
       {scanReady && activePatterns.length === 0 && (
         <div role="alert" style={{
@@ -1364,9 +1350,9 @@ export default function DeltaScannerTab({
               padding:'7px 14px', borderRadius:8, cursor:'pointer',
               fontSize:12, fontFamily:'var(--mono)', fontWeight:700,
               border:`2px solid ${autoEnabled&&!loopMode?'var(--green)':scanning?DC+'cc':DC}`,
-              background:autoEnabled&&!loopMode?'var(--green-dim)':`${DC}15`,
-              color:autoEnabled&&!loopMode?'var(--green)':DC,
-              boxShadow:autoEnabled&&!loopMode?'0 0 8px rgba(0,230,118,.3)':scanning?`0 0 10px ${DC}55`:`0 0 6px ${DC}33`,
+              background:autoEnabled&&!loopMode?'rgba(0,230,118,.16)':'var(--bg2)',
+              color:autoEnabled&&!loopMode?'#82ffb8':'var(--text2)',
+              boxShadow:autoEnabled&&!loopMode?'0 0 9px rgba(0,230,118,.65), 0 0 22px rgba(0,230,118,.23), inset 0 0 9px rgba(0,230,118,.10)':'none',
               minWidth:74, justifyContent:'center',
             }}>
               {scanning
@@ -1381,10 +1367,10 @@ export default function DeltaScannerTab({
               display:'flex', alignItems:'center', gap:5,
               padding:'7px 14px', borderRadius:8, cursor:'pointer',
               fontSize:12, fontFamily:'var(--mono)', fontWeight:700,
-              border:`2px solid ${loopMode?CY:CYB}`,
-              background:loopMode?CYD:'rgba(0,212,255,.05)',
-              color:loopMode?CY:'rgba(0,212,255,.7)',
-              boxShadow:loopMode?`0 0 10px ${CY}55`:'none',
+              border:`2px solid ${loopMode?CY:'var(--border)'}`,
+              background:loopMode?CYD:'var(--bg2)',
+              color:loopMode?CY:'var(--text2)',
+              boxShadow:loopMode?'0 0 10px rgba(0,212,255,.65), 0 0 24px rgba(0,212,255,.24), inset 0 0 8px rgba(0,212,255,.1)':'none',
               minWidth:loopMode?68:56, justifyContent:'center',
             }}>
               <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"
