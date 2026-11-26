@@ -1072,6 +1072,12 @@ function PatternEditor({ pattern: rawPattern, onChange, onDelete, onMirrorPatter
 
   const active = pattern.conditions.filter(c => c.enabled).length
   const logicGuide = inspectPatternLogic(pattern)
+  // Expand symbolic C1/C2 references only for display. Keep the underlying
+  // AND/OR grouping and saved pattern logic entirely unchanged.
+  const readableLogic = logicGuide.expression.replace(/\bC(\d+)\b/g, (label, number) => {
+    const condition = pattern.conditions[Number(number) - 1]
+    return condition ? `[${condFormula(condition)}]` : label
+  })
 
   return (
     <div style={{ position: 'relative', borderRadius: 13, overflow: 'hidden', ...outerStyle }}>
@@ -1833,17 +1839,25 @@ function PatternEditor({ pattern: rawPattern, onChange, onDelete, onMirrorPatter
                   {logicGuide.ready ? '✓ LOGIC READY' : '⚠ NEEDS FIX'} · {logicGuide.active} ON
                 </span>
               </div>
-              <div style={{ fontFamily: 'var(--mono)', fontWeight: 800, fontSize: 11, lineHeight: 1.8, wordBreak: 'break-word', color: logicGuide.ready ? '#bdf099' : '#ffc3c4' }}>
-                {logicGuide.expression}
+              <div style={{ fontFamily: 'var(--mono)', fontWeight: 800, fontSize: 11, lineHeight: 1.85, wordBreak: 'break-word', color: logicGuide.ready ? '#bdf099' : '#ffc3c4' }}>
+                {readableLogic}
               </div>
               {pattern.conditions.some(cond => cond.enabled) && (
-                <div style={{ borderTop: '1px solid var(--border)', marginTop: 9, paddingTop: 8, display: 'flex', flexDirection: 'column', gap: 6 }}>
-                  {pattern.conditions.map((cond, i) => cond.enabled && (
-                    <div key={cond.id || i} style={{ fontSize: 10, color: 'var(--text2)', lineHeight: 1.6, display: 'flex', gap: 8 }}>
-                      <b style={{ color: '#a3e9c7', flexShrink: 0 }}>C{i + 1}</b>
-                      <span style={{ overflowWrap: 'anywhere' }}>{explainCondition(cond).summary}</span>
-                    </div>
-                  ))}
+                <div style={{ borderTop: '1px solid var(--border)', marginTop: 9, paddingTop: 8, display: 'flex', flexDirection: 'column', gap: 10 }}>
+                  {pattern.conditions.map((cond, i) => {
+                    if (!cond.enabled) return null
+                    const explanation = explainCondition(cond)
+                    const calculation = explanation.steps.find(step => step.label === 'Calculation')?.text
+                    return (
+                      <div key={cond.id || i} style={{ fontSize: 10, color: 'var(--text2)', lineHeight: 1.65, overflowWrap: 'anywhere' }}>
+                        <div style={{ fontFamily: 'var(--mono)', fontSize: 11, fontWeight: 800, color: '#a3e9c7' }}>
+                          {condFormula(cond)}
+                        </div>
+                        <div style={{ marginTop: 3 }}>{explanation.summary}</div>
+                        {calculation && <div style={{ marginTop: 2, color: 'var(--text3)' }}>{calculation}</div>}
+                      </div>
+                    )
+                  })}
                 </div>
               )}
               {logicGuide.errors.map((message, i) => (
