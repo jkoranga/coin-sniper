@@ -175,6 +175,7 @@ function Pill({ active, color = A, onClick, children, sm }) {
       border: `1.5px solid ${active ? color : 'var(--border)'}`,
       background: active ? `${color}1e` : 'transparent',
       color: active ? color : 'var(--text2)',
+      boxShadow: active ? `0 0 9px ${color}55, 0 0 18px ${color}22` : 'none',
       transition: 'all .12s', whiteSpace: 'nowrap', flexShrink: 0,
     }}>{children}</button>
   )
@@ -430,6 +431,7 @@ function CondCard({ cond, idx, total, color, onChange, onRemove, onCopy, onMoveU
                       border: `1px solid ${cond.htfTf === tf
                         ? (tf ? 'rgba(179,136,255,0.5)' : 'var(--border)')
                         : 'transparent'}`,
+                      boxShadow: tf && cond.htfTf === tf ? '0 0 10px rgba(179,136,255,.47)' : 'none',
                       transition: 'all .12s',
                     }}>
                     {tf ?? 'off'}
