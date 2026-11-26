@@ -1750,47 +1750,6 @@ function PatternEditor({ pattern: rawPattern, onChange, onDelete, onMirrorPatter
 
           {/* Conditions */}
           <div>
-            {/* Read-only live logic guide: always shows exactly what the engine
-                will evaluate, including LEFT-to-RIGHT group boundaries. */}
-            <div role="status" style={{
-              padding: '10px 11px', borderRadius: 9, marginBottom: 11,
-              background: logicGuide.ready ? 'rgba(158,220,70,.07)' : 'rgba(239,100,106,.10)',
-              border: `1px solid ${logicGuide.ready ? 'rgba(158,220,70,.35)' : 'rgba(239,100,106,.5)'}`,
-              color: 'var(--text)', lineHeight: 1.65, overflowWrap: 'anywhere',
-            }}>
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 6, flexWrap: 'wrap', marginBottom: 6 }}>
-                <span style={{ fontSize: 10, fontWeight: 900, letterSpacing: '.04em', color: 'var(--text2)' }}>LIVE PATTERN LOGIC</span>
-                <span style={{ fontSize: 9, fontWeight: 900, color: logicGuide.ready ? '#a7e86e' : '#ffa0a5' }}>
-                  {logicGuide.ready ? '✓ LOGIC READY' : '⚠ NEEDS FIX'} · {logicGuide.active} ON
-                </span>
-              </div>
-              <div style={{ fontFamily: 'var(--mono)', fontWeight: 800, fontSize: 11, lineHeight: 1.8, wordBreak: 'break-word', color: logicGuide.ready ? '#bdf099' : '#ffc3c4' }}>
-                {logicGuide.expression}
-              </div>
-              <div style={{ fontSize: 10, color: 'var(--text2)', marginTop: 6 }}>
-                AND = both needed · OR = either passes · ( ) = group evaluated first. Without grouping, combinations follow left-to-right.
-                Tap (OR) between two ungrouped conditions to make a safe alternative group in one step.
-              </div>
-              {logicGuide.errors.map((message, i) => (
-                <div key={`error-${i}`} style={{ fontSize: 10, color: '#ffa1a7', marginTop: 6 }}>
-                  ⚠ {message}
-                </div>
-              ))}
-              {logicGuide.warnings.filter(msg => !msg.startsWith('Grouped OR is correctly')).slice(0, 2).map((message, i) => (
-                <div key={`warning-${i}`} style={{ fontSize: 10, color: '#ffc46b', marginTop: 6 }}>
-                  ! {message}
-                </div>
-              ))}
-              {logicGuide.groupedOr && !logicGuide.ungroupedOr && (
-                <div style={{ fontSize: 10, color: '#a7e86e', marginTop: 5 }}>✓ OR alternatives stay inside the group; outside conditions use AND.</div>
-              )}
-              {logicGuide.warnings.filter(msg => !msg.startsWith('Grouped OR is correctly')).length > 2 && (
-                <details style={{ marginTop: 5, fontSize: 10, color: '#ffc46b' }}>
-                  <summary style={{ cursor: 'pointer' }}>More logic warnings</summary>
-                  {logicGuide.warnings.filter(msg => !msg.startsWith('Grouped OR is correctly')).slice(2).map((msg, i) => <div key={i}>! {msg}</div>)}
-                </details>
-              )}
-            </div>
             {pattern.conditions.some(c => c.mirrorReviewReason) && (
               <div role="alert" style={{
                 border: '1px solid rgba(255,120,120,.55)', background: 'rgba(255,75,85,.1)',
@@ -1805,7 +1764,7 @@ function PatternEditor({ pattern: rawPattern, onChange, onDelete, onMirrorPatter
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
               <Lbl>CONDITIONS</Lbl>
               <span style={{ fontSize: 9, fontFamily: 'var(--mono)', color: 'var(--text3)' }}>
-                {active} active · AND / OR + groups
+                {active} active
               </span>
             </div>
 
@@ -1936,6 +1895,39 @@ function PatternEditor({ pattern: rawPattern, onChange, onDelete, onMirrorPatter
               }}
             >+ Add Condition</button>
           </div>
+            {/* Final full-pattern logic review — displayed after the last condition. */}
+            <div role="status" style={{
+              padding: '12px 11px', borderRadius: 9, marginTop: 13,
+              background: logicGuide.ready ? 'rgba(158,220,70,.07)' : 'rgba(239,100,106,.10)',
+              border: `1px solid ${logicGuide.ready ? 'rgba(158,220,70,.35)' : 'rgba(239,100,106,.5)'}`,
+              color: 'var(--text)', lineHeight: 1.65, overflowWrap: 'anywhere',
+            }}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 6, flexWrap: 'wrap', marginBottom: 6 }}>
+                <span style={{ fontSize: 10, fontWeight: 900, letterSpacing: '.04em', color: 'var(--text2)' }}>FINAL PATTERN LOGIC</span>
+                <span style={{ fontSize: 9, fontWeight: 900, color: logicGuide.ready ? '#a7e86e' : '#ffa0a5' }}>
+                  {logicGuide.ready ? '✓ LOGIC READY' : '⚠ NEEDS FIX'} · {logicGuide.active} ON
+                </span>
+              </div>
+              <div style={{ fontFamily: 'var(--mono)', fontWeight: 800, fontSize: 11, lineHeight: 1.8, wordBreak: 'break-word', color: logicGuide.ready ? '#bdf099' : '#ffc3c4' }}>
+                {logicGuide.expression}
+              </div>
+              {logicGuide.errors.map((message, i) => (
+                <div key={`error-${i}`} style={{ fontSize: 10, color: '#ffa1a7', marginTop: 6 }}>
+                  ⚠ {message}
+                </div>
+              ))}
+              {logicGuide.warnings.filter(msg => !msg.startsWith('Grouped OR is correctly')).slice(0, 2).map((message, i) => (
+                <div key={`warning-${i}`} style={{ fontSize: 10, color: '#ffc46b', marginTop: 6 }}>
+                  ! {message}
+                </div>
+              ))}
+              {logicGuide.warnings.filter(msg => !msg.startsWith('Grouped OR is correctly')).length > 2 && (
+                <details style={{ marginTop: 5, fontSize: 10, color: '#ffc46b' }}>
+                  <summary style={{ cursor: 'pointer' }}>More logic warnings</summary>
+                  {logicGuide.warnings.filter(msg => !msg.startsWith('Grouped OR is correctly')).slice(2).map((msg, i) => <div key={i}>! {msg}</div>)}
+                </details>
+              )}
+            </div>
         </div>
       )}
     </div>
@@ -2597,8 +2589,6 @@ export default function PatternBuilderTab({ settings, update }) {
         </div>
       )}
 
-      {/* Quick reference — collapsible hints accordion */}
-      <HintsAccordion />
 
       {/* List — "My Patterns" section */}
       {patterns.length === 0 ? (
