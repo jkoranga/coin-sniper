@@ -63,12 +63,12 @@ const OP_SYM = { '=': '==', '≠': '!=' }
 
 // RHS modes
 const RHS_MODES = [
-  { id: 'number',  label: 'Value',       hint: 'A fixed number' },
-  { id: 'field',   label: 'Field',       hint: 'Another candle field' },
-  { id: 'mult',    label: '× Mult',      hint: 'Field × multiplier  e.g. EMA20[-2] × 1.5' },
-  { id: 'pct',     label: 'Adjust ± %',  hint: 'Adjust the reference value by a percentage. Example: +100% means DOUBLE the older value.' },
-  { id: 'pctdiff', label: '% Change',    hint: 'Percentage CHANGE versus the selected reference: ((Recent ÷ Previous) − 1) × 100. Works for RSI, EMA, price, volume, wicks, and all numeric indicators.' },
-  { id: 'slope',   label: 'Slope %',     hint: '(field[0] / field[-N] − 1) × 100 — how much the field rose over N candles' },
+  { id: 'number', label: 'Value' },
+  { id: 'field', label: 'Field' },
+  { id: 'mult', label: '× Mult' },
+  { id: 'pct', label: 'Adjust ± %' },
+  { id: 'pctdiff', label: '% Change' },
+  { id: 'slope', label: 'Slope %' },
 ]
 
 // Range-check modes — condition applied to every candle in a window
@@ -733,7 +733,6 @@ function CondCard({ cond, idx, total, color, onChange, onRemove, onCopy, onMoveU
                 <div style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
                   <span style={{ fontFamily:'var(--mono)', color:'var(--text3)', fontSize:13 }}>×</span>
                   <NInput value={cond.rhsMult ?? 1} onChange={v => s('rhsMult', v)} step="0.0001" />
-                  <span style={{ fontSize:9, color:'var(--text3)', fontFamily:'var(--mono)' }}>1.5 = ×1.5 · 1.005 = +0.5%</span>
                 </div>
               </div>
             )}
@@ -760,23 +759,12 @@ function CondCard({ cond, idx, total, color, onChange, onRemove, onCopy, onMoveU
                   <span style={{ fontSize:11, fontFamily:'var(--mono)', color:'var(--text3)' }}>{cond.op}</span>
                   <NInput value={cond.rhsNum ?? 0} onChange={v => s('rhsNum', v)} step="0.01" suffix="%" />
                 </div>
-                <div style={{ fontSize:9, fontFamily:'var(--mono)', color:'var(--text3)' }}>
-                  (Left / Right − 1) × 100 {cond.op} {cond.rhsNum ?? 0}%
-                </div>
               </div>
             )}
 
 
             {(cond.rhsMode ?? (cond.histCompare ? 'field' : 'number')) === 'slope' && (
               <div style={{ display: 'flex', flexDirection: 'column', gap: 9 }}>
-                {/* Which field to measure slope of — same as LHS, just show info */}
-                <div style={{
-                  fontSize: 10, fontFamily: 'var(--mono)', color: 'var(--text3)',
-                  padding: '6px 9px', borderRadius: 7, background: 'rgba(0,0,0,0.18)',
-                }}>
-                  📐 Measures slope of <b style={{ color }}>{FIELD_MAP[cond.lhsField]?.short || cond.lhsField}</b> (same as LEFT field)
-                </div>
-
                 <div style={{ display: 'flex', gap: 10, alignItems: 'flex-end', flexWrap: 'wrap' }}>
                   <div style={{ flex: 1, minWidth: 140 }}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
@@ -828,30 +816,6 @@ function CondCard({ cond, idx, total, color, onChange, onRemove, onCopy, onMoveU
                   </div>
                 </div>
 
-                {/* Live explanation */}
-                <div style={{
-                  fontSize: 9, fontFamily: 'var(--mono)', color: color,
-                  padding: '6px 9px', borderRadius: 6,
-                  background: `${color}10`, border: `1px solid ${color}25`,
-                  lineHeight: 1.7,
-                }}>
-                  {(() => {
-                    const sk = cond.slopeSkip ?? 0
-                    const n  = cond.slopeLen ?? 5
-                    const f  = FIELD_MAP[cond.lhsField]?.short
-                    const nowRef  = sk > 0 ? `[-${sk}]` : '[0]'
-                    const pastRef = `[-${sk + n}]`
-                    return <>
-                      <b>Slope</b> = ({f}{nowRef} / {f}{pastRef} − 1) × 100
-                      {sk > 0 && <span style={{ color: 'var(--text3)' }}> &nbsp;·&nbsp; skipping {sk} recent candle{sk > 1 ? 's' : ''}</span>}<br/>
-                      → <b>{f}{nowRef} vs {f}{pastRef} over {n} candles</b><br/>
-                      <span style={{ opacity: .7 }}>
-                        Bullish slope: op <b>&gt;</b> threshold <b>0</b> or <b>0.3</b> &nbsp;·&nbsp;
-                        Bearish slope: op <b>&lt;</b> threshold <b>0</b> or <b>-0.3</b>
-                      </span>
-                    </>
-                  })()}
-                </div>
               </div>
             )}
             {cond.histCompare && (
@@ -1890,59 +1854,6 @@ function PatternEditor({ pattern: rawPattern, onChange, onDelete, onMirrorPatter
         </div>
       )}
     </div>
-    </div>
-  )
-}
-
-// ── Hints accordion ───────────────────────────────────────────────────────────
-function HintsAccordion() {
-  const [open, setOpen] = React.useState(false)
-  return (
-    <div style={{
-      marginBottom: 12, borderRadius: 9,
-      border: `1px solid ${open ? 'rgba(179,136,255,0.38)' : 'rgba(179,136,255,0.18)'}`,
-      background: open ? 'rgba(179,136,255,0.07)' : 'rgba(179,136,255,0.03)',
-      overflow: 'hidden', transition: 'border-color .18s, background .18s',
-    }}>
-      <button onClick={() => setOpen(o => !o)} style={{
-        width: '100%', display: 'flex', alignItems: 'center', gap: 8,
-        padding: '8px 12px', background: 'none', border: 'none', cursor: 'pointer',
-      }}>
-        <span style={{ fontSize: 13 }}>💡</span>
-        <span style={{ flex: 1, fontFamily: 'var(--mono)', fontWeight: 800, fontSize: 10,
-          letterSpacing: '.07em', color: A, textAlign: 'left' }}>QUICK REFERENCE · FORMULAS &amp; LOGIC</span>
-        <span style={{ fontSize: 10, color: A, opacity: .7, transition: 'transform .18s',
-          display: 'inline-block', transform: open ? 'rotate(180deg)' : 'rotate(0deg)' }}>▼</span>
-      </button>
-      {open && (
-        <div style={{ padding: '4px 12px 12px', borderTop: '1px solid rgba(179,136,255,0.15)',
-          fontSize: 10, fontFamily: 'var(--mono)', color: A, lineHeight: 1.8 }}>
-          <div style={{fontWeight:800,color:'var(--text)',margin:'5px 0 2px'}}>RIGHT-SIDE (RHS) MODES</div>
-          <div><b>Value:</b> LHS compared with a fixed number. <code>RSI &gt; 50</code></div>
-          <div><b>Field:</b> compare two fields. <code>Close &gt; EMA20</code></div>
-          <div><b>× Mult:</b> RHS × multiplier. <code>EMA10 &gt; EMA20 × 1.5</code></div>
-          <div><b>± %:</b> RHS × (1 + percent/100). <code>Close &gt; EMA20 + 1%</code></div>
-          <div><b>% Diff:</b> ((LHS / RHS) − 1) × 100. Positive = LHS above RHS; negative = below.</div>
-          <div><b>Slope %:</b> ((Field[now] / Field[past]) − 1) × 100. Past = N candles back; Skip shifts both points older.</div>
-          <div style={{fontWeight:800,color:'var(--text)',margin:'8px 0 2px'}}>CANDLE &amp; RANGE LOGIC</div>
-          <div><b>Offset:</b> [0] latest candle, [-1] previous, [-2] two candles back.</div>
-          <div><b>Range ALL:</b> condition must pass on every candle in the selected offset window.</div>
-          <div><b>Range ANY:</b> condition must pass on at least one candle in that window.</div>
-          <div><b>AND / OR:</b> AND requires both linked conditions; OR requires either. Use the bracket/group control to combine conditions as a group.</div>
-          <div><b>HTF:</b> condition reads candles from the selected higher timeframe. If HTF candles are unavailable, that condition does not pass.</div>
-          <div style={{fontWeight:800,color:'var(--text)',margin:'8px 0 2px'}}>CANDLE CALCULATIONS</div>
-          <div><b>Change %:</b> (Close[0] / Close[-1] − 1) × 100.</div>
-          <div><b>Full Body %:</b> |Close − Open| / (High − Low) × 100. Body share of the full candle range.</div>
-          <div><b>Body Size %:</b> |Close − Open| / |Open| × 100. Direction-neutral size; use Is Green / Is Red to select candle direction.</div>
-          <div><b>Green Lower Wick %:</b> (Open − Low) / |Open| × 100; available only on green candles.</div>
-          <div><b>Red Lower Wick %:</b> (Close − Low) / |Close| × 100; available only on red candles.</div>
-          <div><b>Green Upper Wick %:</b> (High − Close) / |Open| × 100; available only on green candles.</div>
-          <div><b>Red Upper Wick %:</b> (High − Open) / |Close| × 100; available only on red candles.</div>
-          <div><b>24h Change%:</b> exchange ticker's rolling 24-hour price change; not the candle change.</div>
-          <div><b>+DI / −DI:</b> directional movement; <b>ADX</b> measures trend strength, not direction by itself.</div>
-          <div style={{marginTop:7,color:'var(--text2)'}}>Tip: percentage and size fields are magnitudes unless the field is Change % or a signed slope / % Diff. A condition with unavailable data cannot trigger.</div>
-        </div>
-      )}
     </div>
   )
 }
