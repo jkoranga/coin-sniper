@@ -589,6 +589,7 @@ export default function DeltaScannerTab({
     }
   }, [isActive,tfProp])
   const [noPatWarn,   setNoPatWarn]   = useState(false)
+  const shownMissingPatternModalRef = useRef(false)
   const [selPatterns,  setSelPatterns]  = useState(new Set()) // selected pattern name filter
   const [activeCategoryId, setActiveCategoryId] = useState('crypto')
   const [customCryptoLimit, setCustomCryptoLimit] = useState(settings.customCryptoLimit || 30)
@@ -798,6 +799,19 @@ export default function DeltaScannerTab({
       .map(p => ({ id:p.id, name:p.name, side:p.side, icon:p.icon||(p.side==='bull'?'🟢':'🔴'), conditions: p.conditions.filter(c => c.enabled), logic:compilePattern(p) }))
       .filter(p => p.logic !== null)
   }, [settings.customPatterns, timeframe, scanMode])
+
+  // Alert once on entry when this timeframe has no active conditions.
+  // Dismissing the modal hides it, but the compact warning stays visible.
+  useEffect(() => {
+    if (activePatterns.length) {
+      shownMissingPatternModalRef.current = false
+      setNoPatWarn(false)
+      return
+    }
+    if (!isActive || !scanReady || shownMissingPatternModalRef.current) return
+    shownMissingPatternModalRef.current = true
+    setNoPatWarn(true)
+  }, [activePatterns.length, isActive, scanReady])
 
   // ── Candle cache (60s TTL) ───────────────────────────────────────────────────
   async function fetchCached(symbol, tf, limit, ticker = null) {
@@ -1240,16 +1254,15 @@ export default function DeltaScannerTab({
             boxShadow:'0 20px 60px rgba(0,0,0,.7)', textAlign:'center',
           }}>
             <div style={{fontSize:38, marginBottom:10}}>🔶</div>
-            <div style={{fontWeight:900, fontSize:15, color:DC, marginBottom:6}}>No Patterns for {timeframe}</div>
-            <div style={{fontSize:11, fontFamily:'var(--mono)', color:'var(--text3)', lineHeight:1.7, marginBottom:18}}>
-              No active patterns set for <b style={{color:DC}}>{timeframe}</b>.<br/>
-              Build a pattern and enable this TF.
+            <div style={{fontWeight:900, fontSize:15, color:'#ff9b9e', marginBottom:6}}>No active conditions · {timeframe}</div>
+            <div style={{fontSize:11, fontFamily:'var(--mono)', color:'var(--text2)', lineHeight:1.7, marginBottom:18}}>
+              Add a pattern with at least one enabled condition to scan this timeframe.
             </div>
-            <button onClick={() => { setNoPatWarn(false); onGoToPatterns?.() }} style={{
+            <button onClick={() => { setNoPatWarn(false); onGoToPatterns?.(timeframe) }} style={{
               width:'100%', padding:'12px', borderRadius:10, cursor:'pointer', marginBottom:8,
               fontFamily:'var(--mono)', fontWeight:800, fontSize:12,
               border:`1.5px solid ${DB}`, background:DD, color:DC,
-            }}>🔬 Open Patterns</button>
+            }}>+ Add Pattern</button>
             <button onClick={() => setNoPatWarn(false)} style={{
               width:'100%', padding:'10px', borderRadius:10, cursor:'pointer',
               fontFamily:'var(--mono)', fontWeight:700, fontSize:11,
@@ -1269,13 +1282,30 @@ export default function DeltaScannerTab({
           display: 'flex', gap: 7, flexWrap: 'wrap', alignItems: 'center',
         }}>
           <b style={{ color: '#71dfa0' }}>● AUTO ON</b>
-          <span>Scans all enabled pattern timeframes while this app is open.</span>
-          <span>Interval: {settings.scanInterval || '3m'} after each completed scan.</span>
-          <span style={{ color: 'var(--text3)' }}>Switching tabs will not stop scans.</span>
+          <span>All enabled TFs · Every {settings.scanInterval || '3m'} after each scan · Tab switches do not stop Auto</span>
         </div>
       )}
 
-      {/* ── TF Header ── */}
+      {/* Persistent compact warning when this timeframe has no scan conditions. */}
+      {scanReady && activePatterns.length === 0 && (
+        <div role="alert" style={{
+          padding: '10px 11px', marginBottom: 10, borderRadius: 10,
+          background: 'rgba(239,100,106,.09)', border: '1px solid rgba(239,100,106,.42)',
+          display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+          gap: 9, flexWrap: 'wrap',
+        }}>
+          <span style={{ fontSize: 11, color: '#ffadb1', fontWeight: 750 }}>
+            ⚠ {timeframe}: No enabled conditions
+          </span>
+          <button onClick={() => setNoPatWarn(true)} style={{
+            border: '1px solid rgba(239,100,106,.55)', background: 'rgba(239,100,106,.12)',
+            borderRadius: 7, cursor: 'pointer', padding: '7px 10px', fontSize: 11,
+            fontWeight: 800, color: '#ffd2d5',
+          }}>+ Add Pattern</button>
+        </div>
+      )}
+
+      {/* ── TF Header ── */
       <div style={{
         display:'flex', alignItems:'center', justifyContent:'space-between', gap:8,
         marginBottom:14, paddingBottom:10, position:'relative',
