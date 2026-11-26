@@ -303,7 +303,6 @@ function CondCard({ cond, idx, total, color, onChange, onRemove, onCopy, onMoveU
   const statusReason = cond.mirrorReviewReason
     ? `Mirror review: ${cond.mirrorReviewReason}`
     : (!cond.enabled ? 'This condition is OFF and will not be scanned.' : validation.reason)
-  const explanation = explainCondition(cond)
   const [confirmDelete, setConfirmDelete] = useState(false)
 
   return (
@@ -575,7 +574,7 @@ function CondCard({ cond, idx, total, color, onChange, onRemove, onCopy, onMoveU
           </div>
           {cond.histCompare && (
             <div style={{ padding: 10, borderRadius: 8, background: 'rgba(0,230,118,0.05)', border: '1px solid rgba(0,230,118,0.25)', display: 'flex', flexDirection: 'column', gap: 9 }}>
-              <div style={{ fontSize: 9, color: 'var(--text3)', fontFamily: 'var(--mono)' }}>CANDLE INDEX: 0 = running candle (value can change) · -1 = latest closed · -2 = previous closed</div>
+
               <div style={{ fontSize: 10, fontWeight: 800, color: 'var(--text2)', letterSpacing: '.04em' }}>STEP 1 · RECENT CANDLES</div>
               <div style={{ display: 'flex', gap: 8 }}>
                 <div style={{ flex: 1 }}>
@@ -594,7 +593,7 @@ function CondCard({ cond, idx, total, color, onChange, onRemove, onCopy, onMoveU
               {!isHistCross && (
               <div>
                 <Lbl>CURRENT RANGE MATCH</Lbl>
-                <div style={{fontSize:10,color:'var(--text2)',marginBottom:5}}>ANY = at least one recent candle passes. ALL = every recent candle passes.</div>
+
                 <div style={{ display: 'flex', gap: 6 }}>
                   {[['any','ANY current candle'],['all','ALL current candles']].map(([v,l])=><Pill key={v} active={(cond.histCurrentMatch ?? 'any')===v} color="#00e676" onClick={()=>s('histCurrentMatch',v)}>{l}</Pill>)}
                 </div>
@@ -618,7 +617,7 @@ function CondCard({ cond, idx, total, color, onChange, onRemove, onCopy, onMoveU
               {isHistCross ? <div style={{fontSize:11,color:'var(--text2)',lineHeight:1.6}}>{histEnd <= histStart ? 'Select at least two historical candles.' : `Auto split: B ${candleIndexLabel(histStart)} to ${candleIndexLabel(histMid)} · C ${candleIndexLabel(histMid+1)} to ${candleIndexLabel(histEnd)}`}<div>{cond.op === 'crossUp' ? 'Start below both levels; finish above both.' : 'Start above both levels; finish below both.'}</div><div>{cond.lhsField === 'close' ? 'Uses current range minimum/maximum Open and latest selected Close.' : 'Uses oldest and newest selected indicator values.'}</div></div> : <>
               <div>
                 <Lbl>PREVIOUS RANGE COMPARE</Lbl>
-                <div style={{fontSize:10,color:'var(--text2)',marginBottom:5}}>Every = compare against each older candle; Max/Min/Avg = compare against one reference value.</div>
+
                 <div style={{ display: 'flex', gap: 5, flexWrap: 'wrap' }}>
                   {[['every','Every candle'],['max','Maximum'],['min','Minimum'],['avg','Average']].map(([v,l])=><Pill key={v} sm active={(cond.histPreviousMode ?? 'max')===v} color="#00e676" onClick={()=>s('histPreviousMode',v)}>{l}</Pill>)}
                 </div>
@@ -650,7 +649,7 @@ function CondCard({ cond, idx, total, color, onChange, onRemove, onCopy, onMoveU
 
           <div style={{ padding: '7px 8px', borderRadius: 7, background: 'rgba(0,0,0,0.18)' }}>
             <Lbl>{cond.histCompare ? 'STEP 4 · HISTORICAL RANGE — COMPARE WITH' : 'RIGHT — compare to'}</Lbl>
-            {cond.histCompare && <div style={{fontSize:10,color:'var(--text2)',marginBottom:7,lineHeight:1.6}}>Choose the older indicator, a fixed value, or a calculated reference. If unchanged, the same indicator is compared across both ranges.</div>}
+
             <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap', marginBottom: 9 }}>
               {(isHistCross ? RHS_MODES.filter(m=>m.id==='field') : RHS_MODES).map(m => (
                 <Pill key={m.id} active={(cond.rhsMode ?? (cond.histCompare ? 'field' : 'number')) === m.id} color={color}
@@ -658,10 +657,7 @@ function CondCard({ cond, idx, total, color, onChange, onRemove, onCopy, onMoveU
               ))}
             </div>
 
-            {/* hint */}
-            <div style={{ fontSize: 9, fontFamily:'var(--mono)', color:'var(--text3)', marginBottom: 8, opacity:.75 }}>
-              {RHS_MODES.find(m => m.id === (cond.rhsMode ?? (cond.histCompare ? 'field' : 'number')))?.hint}
-            </div>
+
 
             {/* PIN RHS OFFSET — only shown in range check mode, for field-based RHS */}
             {cond.rangeCheck && !['number','slope'].includes(cond.rhsMode) && (
@@ -714,32 +710,6 @@ function CondCard({ cond, idx, total, color, onChange, onRemove, onCopy, onMoveU
               </div>
             )}
 
-            {cond.histCompare && ['pctdiff','pct'].includes(cond.rhsMode) && (
-              <div style={{
-                padding: '7px 10px', marginBottom: 9, borderRadius: 7,
-                border: '1px solid rgba(76,175,255,.32)', background: 'rgba(76,175,255,.06)',
-                color: 'var(--text2)', fontSize: 10, lineHeight: 1.75,
-              }}>
-                {(cond.rhsMode ?? 'field') === 'pctdiff' ? (
-                  <>
-                    <b style={{color:'#93d7ff'}}>PERCENT CHANGE VS PREVIOUS RANGE</b>
-                    <div>Uses the selected older {FIELD_MAP[cond.rhsField || cond.lhsField]?.label || 'indicator'} reference
-                      ({({every:'Every candle',max:'Maximum',min:'Minimum',avg:'Average'})[cond.histPreviousMode ?? 'max']}).</div>
-                    <div style={{fontFamily:'var(--mono)',overflowWrap:'anywhere'}}>(Recent ÷ Previous Reference − 1) × 100</div>
-                    <div>Example: recent RSI = 60, previous RSI = 50 → <b>+20% change</b>.
-                      Recent RSI = 40, previous RSI = 50 → <b>−20% change</b>.</div>
-                    <div><b>Enter 20 with Above (&gt;)</b> to require more than +20% growth. Enter -20 with Below (&lt;) to require a drop greater than 20%.</div>
-                    <div>Percentage change is NOT the same as an RSI point difference: 60 − 50 = 10 RSI points, but +20% relative change.</div>
-                  </>
-                ) : (cond.rhsMode ?? 'field') === 'pct' ? (
-                  <>
-                    <b style={{color:'#93d7ff'}}>REFERENCE ADJUSTMENT — NOT PERCENT CHANGE</b>
-                    <div>This changes the older reference before comparing raw values. Example: 50 adjusted by +100% = 100 (double); 50 adjusted by +20% = 60.</div>
-                    <div>For percentage growth/decline of the recent indicator relative to historical candles, select <b>% Change</b> instead.</div>
-                  </>
-                ) : null}
-              </div>
-            )}
             {/* Value inputs per mode */}
             {(cond.rhsMode ?? (cond.histCompare ? 'field' : 'number')) === 'number' && (
               <NInput value={cond.rhsNum} onChange={v => s('rhsNum', v)} />
@@ -887,9 +857,7 @@ function CondCard({ cond, idx, total, color, onChange, onRemove, onCopy, onMoveU
             {cond.histCompare && (
               <div style={{ marginTop: 14, paddingTop: 12, borderTop: '1px solid var(--border)' }}>
                 <Lbl>STEP 5 · COMPARE DIRECTION — REQUIRED</Lbl>
-                <div style={{ fontSize: 10, color: 'var(--text2)', lineHeight: 1.6, marginBottom: 8 }}>
-                  Choose how the recent value must compare with the older reference. No direction is preselected when starting a historical comparison.
-                </div>
+
                 <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
                   {[...OPS, 'crossUp', 'crossDown'].map(op => (
                     <Pill key={op} active={cond.op === op}
@@ -925,31 +893,12 @@ function CondCard({ cond, idx, total, color, onChange, onRemove, onCopy, onMoveU
           }}>
             <div style={{ fontSize: 9, color: 'var(--text2)', marginBottom: 5 }}>LIVE CONDITION PREVIEW</div>
             {cond.histCompare && !cond.op ? '⚠ Choose direction:  ' : '→ '}{formula}
-            <div style={{ borderTop: '1px solid var(--border)', marginTop: 9, paddingTop: 10, color: 'var(--text)', fontFamily: 'inherit', fontSize: 11, lineHeight: 1.65 }}>
-              <div style={{ color: '#a3e9c7', fontWeight: 800, marginBottom: 8, fontSize: 11 }}>WHAT THIS CONDITION MEANS</div>
-              <div style={{
-                padding: '9px 10px', borderRadius: 7, marginBottom: 9,
-                background: validation.valid ? 'rgba(25,187,114,.08)' : 'rgba(239,100,106,.10)',
-                border: `1px solid ${validation.valid ? 'rgba(25,187,114,.27)' : 'rgba(239,100,106,.38)'}`,
-                color: validation.valid ? '#b7f4d4' : '#ffc3c5',
-                fontWeight: 650, overflowWrap: 'anywhere',
-              }}>{explanation.summary}</div>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 7 }}>
-                {explanation.steps.map((step, i) => (
-                  <div key={i} style={{ display: 'flex', flexWrap: 'wrap', gap: '3px 7px', lineHeight: 1.6 }}>
-                    <span style={{ minWidth: 105, flexShrink: 0, color: '#75d5b2', fontSize: 10, fontWeight: 800 }}>{step.label}</span>
-                    <span style={{ color: 'var(--text2)', flex: '1 1 170px', overflowWrap: 'anywhere' }}>{step.text}</span>
-                  </div>
-                ))}
-              </div>
-              <div style={{
-                borderTop: '1px solid var(--border)', marginTop: 10, paddingTop: 8,
-                color: 'var(--text2)', fontSize: 10, lineHeight: 1.6,
-              }}>{explanation.note}</div>
-              {!validation.valid && (
-                <div style={{ marginTop: 7, fontSize: 10, color: '#ff9ea5', lineHeight: 1.6 }}>⚠ Fix required: {validation.reason}</div>
-              )}
-            </div>
+            {!validation.valid && (
+              <div role="alert" style={{
+                color: '#ffa1a7', fontFamily: 'inherit', fontSize: 10,
+                lineHeight: 1.55, marginTop: 6,
+              }}>⚠ {validation.reason}</div>
+            )}
           </div>
         </div>
       )}
