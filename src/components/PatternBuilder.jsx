@@ -1989,7 +1989,7 @@ function HintsAccordion() {
 }
 
 // ── Main tab ──────────────────────────────────────────────────────────────────
-export default function PatternBuilderTab({ settings, update }) {
+export default function PatternBuilderTab({ settings, update, createPatternRequest, onCreatePatternRequestHandled }) {
   const patterns = useMemo(() => settings.customPatterns || [], [settings.customPatterns])
   const trash    = useMemo(() => settings.deletedPatterns || [], [settings.deletedPatterns])
   const [newId, setNewId] = useState(null)
@@ -2008,6 +2008,7 @@ export default function PatternBuilderTab({ settings, update }) {
   // Keep a ref to patterns so debounced save always uses the latest version
   const patternsRef = useRef(patterns)
   patternsRef.current = patterns
+  const handledCreateRequestRef = useRef(null)
 
   // Debounce timer for text-field edits (name, condition values)
   // Single atomic save for patterns + trash together — one Firebase write
@@ -2031,6 +2032,29 @@ export default function PatternBuilderTab({ settings, update }) {
     const now = Date.now()
     update({ deletedPatterns: ts, _deletedPatternsAt: now })
   }
+
+  // The Add Pattern action inside an empty timeframe's warning card creates
+  // a NEW pattern for that exact timeframe and opens it for editing.
+  React.useEffect(() => {
+    const req = createPatternRequest
+    if (!req || handledCreateRequestRef.current === req.id) return
+    handledCreateRequestRef.current = req.id
+    const tf = TF_LIST.includes(req.timeframe) ? req.timeframe : '15m'
+    const p = blankPattern()
+    const baseName = `My ${tf} Pattern`
+    const names = new Set(patternsRef.current.map(item => item.name?.toLowerCase()))
+    let name = baseName
+    for (let count = 2; names.has(name.toLowerCase()); count++) name = `${baseName} ${count}`
+    p.name = name
+    p.tfs = [tf]
+    // A new condition must be set deliberately, not accidentally emit signals
+    // using the starter EMA example before the user finishes configuring it.
+    p.conditions = [{ ...p.conditions[0], op: '' }]
+    setNewId(p.id)
+    setOpenPatternId(p.id)
+    savePatterns([...patternsRef.current, p])
+    onCreatePatternRequestHandled?.()
+  }, [createPatternRequest?.id])
 
   function add() { const p = blankPattern(); setNewId(p.id); setOpenPatternId(p.id); savePatterns([...patterns, p]) }
 
