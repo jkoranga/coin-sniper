@@ -5,7 +5,7 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react'
 import { fetchDeltaSymbols, fetchDeltaCandles, DELTA_FALLBACK_SYMBOLS as DELTA_FALLBACK_SYMBOLS_IMPORT } from '../utils/deltaScanner.js'
 import { compilePattern } from './PatternBuilder.jsx'
-import { requiredCandleCount } from '../utils/patternEngine.js'
+import { requiredCandleCount, validateConditionConfig } from '../utils/patternEngine.js'
 import { historyAddAlerts } from '../utils/history.js'
 import { onAuthChanged, loadNotificationCooldownsFromCloud, saveNotificationCooldownsToCloud } from '../firebase.js'
 import { intervalToMs, sendTelegram, buildTelegramMsg, fmt, timeSince, fmtVol, fetchCandles } from '../utils/scanner.js'
@@ -793,7 +793,7 @@ export default function DeltaScannerTab({
       .filter(p =>
         p.enabled && // lock/unlock only controls Pattern Builder visibility, never scan eligibility
         Array.isArray(p.tfs) && p.tfs.includes(timeframe) &&
-        p.conditions.some(c => c.enabled) &&
+        p.conditions.some(c => c.enabled && validateConditionConfig(c).valid && !c.mirrorReviewReason) &&
         (!modeFilter || p.side === modeFilter)
       )
       .map(p => ({ id:p.id, name:p.name, side:p.side, icon:p.icon||(p.side==='bull'?'🟢':'🔴'), conditions: p.conditions.filter(c => c.enabled), logic:compilePattern(p) }))
@@ -1254,7 +1254,7 @@ export default function DeltaScannerTab({
             boxShadow:'0 20px 60px rgba(0,0,0,.7)', textAlign:'center',
           }}>
             <div style={{fontSize:38, marginBottom:10}}>🔶</div>
-            <div style={{fontWeight:900, fontSize:15, color:'#ff9b9e', marginBottom:6}}>No active conditions · {timeframe}</div>
+            <div style={{fontWeight:900, fontSize:15, color:'#ff9b9e', marginBottom:6}}>No ready conditions · {timeframe}</div>
             <div style={{fontSize:11, fontFamily:'var(--mono)', color:'var(--text2)', lineHeight:1.7, marginBottom:18}}>
               Add a pattern with at least one enabled condition to scan this timeframe.
             </div>
@@ -1295,7 +1295,7 @@ export default function DeltaScannerTab({
           gap: 9, flexWrap: 'wrap',
         }}>
           <span style={{ fontSize: 11, color: '#ffadb1', fontWeight: 750 }}>
-            ⚠ {timeframe}: No enabled conditions
+            ⚠ {timeframe}: No ready conditions
           </span>
           <button onClick={() => setNoPatWarn(true)} style={{
             border: '1px solid rgba(239,100,106,.55)', background: 'rgba(239,100,106,.12)',
