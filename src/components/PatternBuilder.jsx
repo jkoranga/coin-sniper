@@ -135,7 +135,7 @@ function blankCond() {
     label: '',
     lhsField: 'ema20', lhsOffset: 0,
     op: '>',
-    rhsMode: 'mult', rhsField: 'ema20', rhsOffset: -2,
+    rhsMode: 'mult', rhsField: 'ema20', rhsOffset: -1,
     rhsNum: 0, rhsMult: 1, rhsPct: 0,
     slopeLen: 5, slopeSkip: 0, slopeNum: 0, // for slope mode: look-back candles, skip recent candles, threshold %
     // Range check (applies condition to every candle in a window)
