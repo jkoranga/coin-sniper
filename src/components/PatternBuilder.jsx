@@ -1475,7 +1475,7 @@ function PatternEditor({ pattern: rawPattern, onChange, onDelete, onMirrorPatter
                 borderBottom: '1px solid var(--border)', overflowWrap: 'anywhere',
               }}>
                 <b>{logicGuide.ready ? '✓ LOGIC READY' : '⚠ CHECK CONFIGURATION'}</b>
-                <div style={{ marginTop: 3, fontFamily: 'var(--mono)' }}>{logicGuide.expression}</div>
+                <div style={{ marginTop: 3, fontFamily: 'var(--mono)', overflowWrap: 'anywhere' }}>{readableLogic}</div>
                 {logicGuide.errors.map((msg,i) => <div key={i}>⚠ {msg}</div>)}
                 {logicGuide.ungroupedOr && <div style={{ color: '#ffc46b', marginTop: 3 }}>! Outside-group OR can bypass earlier AND conditions.</div>}
               </div>
