@@ -1305,7 +1305,7 @@ export default function DeltaScannerTab({
         </div>
       )}
 
-      {/* ── TF Header ── */
+      {/* ── TF Header ── */}
       <div style={{
         display:'flex', alignItems:'center', justifyContent:'space-between', gap:8,
         marginBottom:14, paddingBottom:10, position:'relative',
