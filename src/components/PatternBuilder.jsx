@@ -1768,20 +1768,57 @@ function PatternEditor({ pattern: rawPattern, onChange, onDelete, onMirrorPatter
               })}
             </div>
 
+            {/* Same card shape as a condition, with a distinct cyan creation state. */}
             <button
+              type="button"
+              aria-label="Add a new condition"
               onClick={() => {
                 const nc = blankCond()
                 s('conditions', [...pattern.conditions, nc])
                 setOpenCondIds(prev => new Set([...prev, nc.id]))
               }}
               style={{
-                marginTop: 8, width: '100%', padding: '9px',
-                borderRadius: 8, cursor: 'pointer', fontSize: 12,
-                fontFamily: 'var(--mono)', fontWeight: 700,
-                border: `1.5px dashed ${color}55`,
-                background: `${color}08`, color,
+                marginTop: 9, width: '100%', minHeight: 52, padding: '8px 11px',
+                display: 'flex', alignItems: 'center', gap: 10, textAlign: 'left',
+                borderRadius: 10, cursor: 'pointer',
+                border: '1.5px dashed rgba(56,189,248,.65)',
+                background: 'rgba(56,189,248,.075)', color: '#8dddff',
+                boxShadow: 'inset 0 0 0 1px rgba(56,189,248,.035)',
+                transition: 'background .15s, border-color .15s, box-shadow .15s',
               }}
-            >+ Add Condition</button>
+              onMouseEnter={e => {
+                e.currentTarget.style.background = 'rgba(56,189,248,.15)'
+                e.currentTarget.style.boxShadow = '0 0 14px rgba(56,189,248,.18)'
+              }}
+              onMouseLeave={e => {
+                e.currentTarget.style.background = 'rgba(56,189,248,.075)'
+                e.currentTarget.style.boxShadow = 'inset 0 0 0 1px rgba(56,189,248,.035)'
+              }}
+            >
+              <span aria-hidden="true" style={{
+                width: 30, height: 30, borderRadius: 8, flexShrink: 0,
+                border: '1px solid rgba(56,189,248,.55)',
+                background: 'rgba(56,189,248,.13)', color: '#8dddff',
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                fontSize: 22, lineHeight: 1, fontWeight: 500,
+              }}>+</span>
+              <span style={{flex: 1, minWidth: 0}}>
+                <span style={{
+                  display: 'block', fontFamily: 'var(--mono)',
+                  fontSize: 12, fontWeight: 850, letterSpacing: '.01em',
+                }}>Add Condition</span>
+                <span style={{
+                  display: 'block', marginTop: 3, fontSize: 10,
+                  color: 'var(--text2)', lineHeight: 1.3,
+                }}>Create another condition</span>
+              </span>
+              <span aria-hidden="true" style={{
+                flexShrink: 0, padding: '3px 7px', borderRadius: 5,
+                border: '1px solid rgba(56,189,248,.30)',
+                color: '#82cfff', fontFamily: 'var(--mono)', fontWeight: 800,
+                fontSize: 9,
+              }}>NEW</span>
+            </button>
           </div>
             {/* Final full-pattern logic review — displayed after the last condition. */}
             <div role="status" style={{
