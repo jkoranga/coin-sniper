@@ -753,6 +753,7 @@ export default function App() {
   const [scanProgress,   setScanProgress]   = useState({ pct: -1, color: ORANGE })
   const [settingsOpenCount, setSettingsOpenCount] = useState(0)
   const [showPatterns,   setShowPatterns]   = useState(false)
+  const [createPatternRequest, setCreatePatternRequest] = useState(null)
   const [prevTab,        setPrevTab]        = useState(() => ssGetTab())
   const [userTappedTabs, setUserTappedTabs] = useState(() => ssGetTapped())
   const [showExitWarning,setShowExitWarning]= useState(false)
@@ -1156,7 +1157,11 @@ export default function App() {
                 isActive={activeTab === tab.id && authReady && (!user || cloudSynced)}
                 scanReady={authReady && (!user || cloudSynced)}
                 onAlertCount={handleAlertCount}
-                onGoToPatterns={() => { setShowPatterns(true) }}
+                onGoToPatterns={(tf) => {
+                  if (tf) setCreatePatternRequest({ id: Date.now() + Math.random(), timeframe: tf })
+                  setPrevTab(tab.id)
+                  setActiveTab('builder')
+                }}
                 triggerAutoScan={activeTab === tab.id && authReady && (!user || cloudSynced)}
               />
             </ErrorBoundary>
@@ -1175,7 +1180,11 @@ export default function App() {
 
         {activeTab === 'builder' && (
           <ErrorBoundary>
-            <PatternBuilderTab settings={settings} update={update} saveNowWithPatch={saveNowWithPatch} />
+            <PatternBuilderTab
+              settings={settings} update={update} saveNowWithPatch={saveNowWithPatch}
+              createPatternRequest={createPatternRequest}
+              onCreatePatternRequestHandled={() => setCreatePatternRequest(null)}
+            />
           </ErrorBoundary>
         )}
       </main>
