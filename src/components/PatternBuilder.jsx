@@ -82,7 +82,7 @@ const OFFSETS = Array.from({ length: 11 }, (_, i) =>
 )
 
 const TF_LIST = ['1m','3m','5m','15m','30m','1h','4h','1d']
-const HTF_TF_LIST = ['5m','15m','30m','1h','4h','1d']
+const HTF_TF_LIST = ['1m','3m','5m','15m','30m','1h','4h','1d']
 const ICON_CATEGORIES = [
   { label: '📈 Markets',  icons: ['📈','📉','💹','📊','💰','💵','💴','💸','🏦','💳','🪙','💲'] },
   { label: '🚀 Signals',  icons: ['🚀','⚡','🔥','💎','🎯','🏹','🧲','🔔','⭐','🌟','✨','💫'] },
@@ -411,7 +411,7 @@ function CondCard({ cond, idx, total, color, onChange, onRemove, onCopy, onMoveU
           }}>
             <div style={{ flex: 1 }}>
               <div style={{ fontSize: 11, fontWeight: 700, color: cond.htfTf ? 'rgba(179,136,255,1)' : 'var(--text2)', marginBottom: 4 }}>
-                Higher Timeframe {cond.htfTf ? `· ${cond.htfTf.toUpperCase()}` : ''}
+                Condition Timeframe {cond.htfTf ? `· ${cond.htfTf.toUpperCase()}` : ''}
               </div>
               <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
                 {/* "OFF" pill = null */}
@@ -436,54 +436,49 @@ function CondCard({ cond, idx, total, color, onChange, onRemove, onCopy, onMoveU
                   </div>
                 ))}
               </div>
-              {cond.htfTf && (
-                <div style={{ fontSize: 9, fontFamily: 'var(--mono)', color: 'rgba(179,136,255,0.7)', marginTop: 4 }}>
-                  This condition runs on {cond.htfTf.toUpperCase()} candles · all other features (slope, range, offset) apply on HTF
-                </div>
-              )}
+
             </div>
           </div>
 
-          {/* RANGE CHECK TOGGLE */}
+          {/* One consistent range-mode selector. Stored flags remain backward compatible. */}
           <div style={{
-            display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-            padding: '7px 10px', borderRadius: 8,
-            background: cond.rangeCheck ? `${color}14` : 'rgba(0,0,0,0.12)',
-            border: `1px solid ${cond.rangeCheck ? color + '40' : 'var(--border)'}`,
-            transition: 'all .15s',
+            padding: '9px 10px', borderRadius: 9,
+            background: cond.rangeCheck || cond.histCompare ? 'rgba(0,230,118,.065)' : 'var(--bg2)',
+            border: `1px solid ${cond.rangeCheck || cond.histCompare ? 'rgba(0,230,118,.42)' : 'var(--border)'}`,
           }}>
-            <div>
-              <div style={{ fontSize: 11, fontWeight: 700, color: cond.rangeCheck ? color : 'var(--text2)' }}>
-                Multi-Candle Range
-              </div>
-              <div style={{ fontSize: 9, fontFamily: 'var(--mono)', color: 'var(--text3)', marginTop: 1 }}>
-                {cond.rangeCheck
-                  ? `Check ${Math.abs((cond.rangeTo ?? -5) - (cond.rangeFrom ?? -1)) + 1} candles [${cond.rangeFrom ?? -1} → ${cond.rangeTo ?? -5}]`
-                  : 'Apply condition across a window of candles'}
-              </div>
-            </div>
-            {/* Toggle switch */}
-            <div onClick={() => {
-                const enabling = !cond.rangeCheck
-                onChange({
-                  ...cond,
-                  rangeCheck: enabling,
-                  histCompare: enabling ? false : cond.histCompare,
-                  op: enabling && ['crossUp', 'crossDown', '% Diff'].includes(cond.op) ? '' : cond.op,
-                })
-              }} style={{
-              width: 38, height: 22, borderRadius: 11, cursor: 'pointer', flexShrink: 0,
-              background: cond.rangeCheck ? color : 'var(--bg3)',
-              border: `1.5px solid ${cond.rangeCheck ? color : 'var(--border)'}`,
-              position: 'relative', transition: 'all .2s',
-            }}>
-              <div style={{
-                position: 'absolute', top: 2,
-                left: cond.rangeCheck ? 18 : 2,
-                width: 14, height: 14, borderRadius: '50%',
-                background: '#fff', transition: 'left .2s',
-                boxShadow: '0 1px 3px rgba(0,0,0,0.4)',
-              }} />
+            <Lbl>RANGE COMPARISON</Lbl>
+            <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+              {[
+                ['single', 'Single Candle'],
+                ['multi', 'Multi-Candle'],
+                ['hist', 'Historical'],
+              ].map(([mode, label]) => {
+                const selected = mode === 'hist' ? cond.histCompare : mode === 'multi' ? cond.rangeCheck && !cond.histCompare : !cond.rangeCheck && !cond.histCompare
+                return (
+                  <button key={mode} type="button"
+                    onClick={() => {
+                      if (selected) return
+                      const historical = mode === 'hist'
+                      const multi = mode === 'multi'
+                      onChange({
+                        ...cond, histCompare: historical, rangeCheck: multi,
+                        op: historical || ['crossUp','crossDown','% Diff'].includes(cond.op) ? '' : cond.op,
+                        ...(historical ? {rhsMode: 'field', rhsField: cond.rhsField || cond.lhsField} : {}),
+                      })
+                    }}
+                    aria-pressed={!!selected}
+                    style={{
+                      padding: '6px 10px', borderRadius: 7, cursor: 'pointer', fontSize: 10,
+                      fontFamily: 'var(--mono)', fontWeight: selected ? 900 : 650,
+                      background: selected ? 'rgba(0,230,118,.18)' : 'var(--bg3)',
+                      border: `1px solid ${selected ? '#00e676' : 'var(--border)'}`,
+                      color: selected ? '#7dffb2' : 'var(--text2)',
+                      boxShadow: selected ? '0 0 12px rgba(0,230,118,.40), inset 0 0 7px rgba(0,230,118,.10)' : 'none',
+                      transition: 'background .15s, box-shadow .15s',
+                    }}
+                  >{label}</button>
+                )
+              })}
             </div>
           </div>
 
@@ -552,30 +547,15 @@ function CondCard({ cond, idx, total, color, onChange, onRemove, onCopy, onMoveU
             </div>
           )}
 
-          {/* HISTORICAL RANGE COMPARISON */}
-          <div style={{
-            display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-            padding: '8px 10px', borderRadius: 8,
-            background: cond.histCompare ? 'rgba(0,230,118,0.10)' : 'rgba(0,0,0,0.12)',
-            border: `1px solid ${cond.histCompare ? 'rgba(0,230,118,0.45)' : 'var(--border)'}`,
-          }}>
-            <div>
-              <div style={{ fontSize: 11, fontWeight: 800, color: cond.histCompare ? '#00e676' : 'var(--text2)' }}>Historical Range Comparison</div>
-              <div style={{ fontSize: 9, color: 'var(--text3)', fontFamily: 'var(--mono)', marginTop: 2 }}>
-                Compare recent indicator values with an older range
-              </div>
-            </div>
-            <button onClick={() => onChange({ ...cond, histCompare: !cond.histCompare, rangeCheck: cond.histCompare ? cond.rangeCheck : false, rhsMode: !cond.histCompare ? 'field' : cond.rhsMode, rhsField: !cond.histCompare ? cond.lhsField : cond.rhsField, op: !cond.histCompare ? '' : (isHistCross || !cond.op ? '>' : cond.op) })} style={{
-              padding: '5px 10px', borderRadius: 7, cursor: 'pointer', fontSize: 10, fontWeight: 800,
-              border: `1px solid ${cond.histCompare ? '#00e676' : 'var(--border)'}`,
-              background: cond.histCompare ? 'rgba(0,230,118,0.16)' : 'rgba(239,68,68,.12)',
-              color: cond.histCompare ? '#00e676' : '#f87171',
-            }}>{cond.histCompare ? 'ON' : 'OFF'}</button>
-          </div>
-          {cond.histCompare && (
-            <div style={{ padding: 10, borderRadius: 8, background: 'rgba(0,230,118,0.05)', border: '1px solid rgba(0,230,118,0.25)', display: 'flex', flexDirection: 'column', gap: 9 }}>
 
-              <div style={{ fontSize: 10, fontWeight: 800, color: 'var(--text2)', letterSpacing: '.04em' }}>STEP 1 · RECENT CANDLES</div>
+          {cond.histCompare && (
+            <div style={{
+              padding: 10, borderRadius: 8,
+              background: 'rgba(0,230,118,.05)',
+              border: '1px solid rgba(0,230,118,.25)',
+              display: 'flex', flexDirection: 'column', gap: 9,
+            }}>
+              <div style={{ fontSize: 10, fontWeight: 800, color: 'var(--text2)', letterSpacing: '.04em' }}>1 · RECENT RANGE</div>
               <div style={{ display: 'flex', gap: 8 }}>
                 <div style={{ flex: 1 }}>
                   <Lbl>RECENT FROM</Lbl>
@@ -599,7 +579,47 @@ function CondCard({ cond, idx, total, color, onChange, onRemove, onCopy, onMoveU
                 </div>
               </div>
               )}
-              <div style={{ fontSize: 10, fontWeight: 800, color: 'var(--text2)', letterSpacing: '.04em' }}>STEP 2 · OLDER CANDLES</div>
+            </div>
+          )}
+
+          {/* LEFT SIDE — show candle offset only when range is OFF */}
+          <div style={{ padding: '7px 8px', borderRadius: 7, background: 'rgba(0,0,0,0.18)' }}>
+            <Lbl>{cond.histCompare ? '2 · RECENT INDICATOR' : 'LEFT — candle field'}</Lbl>
+            <FSelect
+              value={cond.lhsField} offset={(cond.rangeCheck || cond.histCompare) ? 0 : cond.lhsOffset}
+              onField={v => s('lhsField', v)} onOffset={(cond.rangeCheck || cond.histCompare) ? null : v => s('lhsOffset', v)}
+              color={color} hideOffset={!!(cond.rangeCheck || cond.histCompare)}
+            />
+          </div>
+
+          {/* Operator is always placed BETWEEN recent and previous values. */}
+          <div style={{ padding: '8px 9px', borderRadius: 8, border: `1px solid ${cond.histCompare && !cond.op ? 'rgba(239,100,106,.48)' : 'var(--border)'}` }}>
+            <Lbl>{cond.histCompare ? '3 · COMPARISON OPERATOR' : 'OPERATOR'}</Lbl>
+            <div style={{ display: 'flex', gap: 5, flexWrap: 'wrap' }}>
+              {(cond.histCompare ? [...OPS, 'crossUp', 'crossDown'] : OPS).map(op => (
+                <Pill key={op} active={cond.op === op}
+                  color={op === 'crossDown' ? '#f87171' : color}
+                  onClick={() => ['crossUp','crossDown'].includes(op)
+                    ? onChange({ ...cond, op, rhsMode:'field', histPreviousTo: Math.max(histStart + 1, histEnd) })
+                    : s('op', op)}>
+                  {cond.histCompare ? ({'>':'Above (>)','>=':'At/above (≥)','<':'Below (<)','<=':'At/below (≤)','=':'Equal (=)','≠':'Not equal (≠)',crossUp:'Cross Up',crossDown:'Cross Down'})[op] : op}
+                </Pill>
+              ))}
+              {cond.op && <button type="button" onClick={() => s('op','')}
+                style={{fontSize:10,padding:'5px 8px',borderRadius:7,border:'1px solid var(--border)',color:'var(--text2)',background:'transparent',cursor:'pointer'}}>Clear</button>}
+            </div>
+            {cond.histCompare && !cond.op && (
+              <div role="status" style={{color:'#ffa1a7',fontSize:10,marginTop:6}}>⚠ Select an operator to enable this condition.</div>
+            )}
+          </div>
+
+          {cond.histCompare && (
+            <div style={{
+              padding: 10, borderRadius: 8,
+              background:'rgba(0,230,118,.05)',border:'1px solid rgba(0,230,118,.25)',
+              display:'flex',flexDirection:'column',gap:9,
+            }}>
+              <div style={{ fontSize: 10, fontWeight: 800, color: 'var(--text2)', letterSpacing: '.04em' }}>4 · PREVIOUS RANGE</div>
               <div style={{ display: 'flex', gap: 8 }}>
                 <div style={{ flex: 1 }}>
                   <Lbl>OLDER FROM</Lbl>
@@ -626,29 +646,8 @@ function CondCard({ cond, idx, total, color, onChange, onRemove, onCopy, onMoveU
             </div>
           )}
 
-          {/* LEFT SIDE — show candle offset only when range is OFF */}
           <div style={{ padding: '7px 8px', borderRadius: 7, background: 'rgba(0,0,0,0.18)' }}>
-            <Lbl>{cond.histCompare ? 'STEP 3 · RECENT INDICATOR' : 'LEFT — candle field'}</Lbl>
-            <FSelect
-              value={cond.lhsField} offset={(cond.rangeCheck || cond.histCompare) ? 0 : cond.lhsOffset}
-              onField={v => s('lhsField', v)} onOffset={(cond.rangeCheck || cond.histCompare) ? null : v => s('lhsOffset', v)}
-              color={color} hideOffset={!!(cond.rangeCheck || cond.histCompare)}
-            />
-          </div>
-
-          {/* Standard conditions keep their separate operator. Historical comparisons
-              choose their operator inside "Compare with" as the last required step. */}
-          {!cond.histCompare && (
-            <div>
-              <Lbl>OPERATOR</Lbl>
-              <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
-                {OPS.map(op => <Pill key={op} active={cond.op === op} color={color} onClick={() => s('op', op)}>{op}</Pill>)}
-              </div>
-            </div>
-          )}
-
-          <div style={{ padding: '7px 8px', borderRadius: 7, background: 'rgba(0,0,0,0.18)' }}>
-            <Lbl>{cond.histCompare ? 'STEP 4 · HISTORICAL RANGE — COMPARE WITH' : 'RIGHT — compare to'}</Lbl>
+            <Lbl>{cond.histCompare ? '5 · PREVIOUS INDICATOR / VALUE' : 'RIGHT — compare to'}</Lbl>
 
             <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap', marginBottom: 9 }}>
               {(isHistCross ? RHS_MODES.filter(m=>m.id==='field') : RHS_MODES).map(m => (
@@ -816,32 +815,6 @@ function CondCard({ cond, idx, total, color, onChange, onRemove, onCopy, onMoveU
                   </div>
                 </div>
 
-              </div>
-            )}
-            {cond.histCompare && (
-              <div style={{ marginTop: 14, paddingTop: 12, borderTop: '1px solid var(--border)' }}>
-                <Lbl>STEP 5 · COMPARE DIRECTION — REQUIRED</Lbl>
-
-                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
-                  {[...OPS, 'crossUp', 'crossDown'].map(op => (
-                    <Pill key={op} active={cond.op === op}
-                      color={op === 'crossUp' ? '#00e676' : op === 'crossDown' ? '#f87171' : '#00e676'}
-                      onClick={() => ['crossUp', 'crossDown'].includes(op)
-                        ? onChange({ ...cond, op, rhsMode: 'field', histPreviousTo: Math.max(histStart + 1, histEnd) })
-                        : s('op', op)}>
-                      {({ '>': '↑ Above (>)', '>=': 'At / above (≥)', '<': '↓ Below (<)', '<=': 'At / below (≤)', '=': 'Equal (=)', '≠': 'Not equal (≠)', crossUp: '↑ Cross Up', crossDown: '↓ Cross Down' })[op]}
-                    </Pill>
-                  ))}
-                </div>
-                {cond.op ? (
-                  <button onClick={() => s('op', '')} style={{ marginTop: 10, cursor: 'pointer', padding: '6px 10px', background: 'transparent', border: '1px solid var(--border)', color: 'var(--text2)', borderRadius: 6, fontSize: 10 }}>
-                    Clear direction
-                  </button>
-                ) : (
-                  <div role="status" style={{ color: '#ffc46b', border: '1px solid rgba(255,196,107,.45)', background: 'rgba(255,196,107,.07)', padding: '9px 10px', marginTop: 10, borderRadius: 7, fontSize: 11, lineHeight: 1.6 }}>
-                    ⚠ Select a direction to complete this condition. No signal will be generated until you choose one.
-                  </div>
-                )}
               </div>
             )}
           </div>
