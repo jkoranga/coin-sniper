@@ -1672,7 +1672,7 @@ function PatternEditor({ pattern: rawPattern, onChange, onDelete, onMirrorPatter
               }}>
                 ⚠ Mirror review required. {pattern.conditions.filter(c => c.mirrorReviewReason).length} condition(s)
                 were left OFF because their formula cannot be mirrored exactly.
-                Review each red condition, confirm its values, then turn the pattern ON.
+                Review each red condition and confirm its values before enabling that condition.
               </div>
             )}
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
@@ -2026,9 +2026,6 @@ export default function PatternBuilderTab({ settings, update, createPatternReque
       createdAt: Date.now(),
       hiddenInBuilder: false,
     }
-    // If a non-symmetric expression needs manual review, do not activate an
-    // incomplete bearish/bullish pattern automatically.
-    if (mirrored.conditions.some(c => c.mirrorReviewReason)) mirrored.enabled = false
     const ps = [...patterns]
     ps.splice(i + 1, 0, mirrored)
     setNewId(null)
