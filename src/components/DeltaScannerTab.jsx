@@ -706,13 +706,26 @@ export default function DeltaScannerTab({
     return () => { active = false; unsubscribe?.(); clearTimeout(cooldownSaveTimerRef.current) }
   }, [])
   const liveCandlesRef = useRef(null)
+  const liveTopicsRef = useRef(new Set())
   useEffect(() => {
     if (!isActive || typeof WebSocket === 'undefined') return
-    const live = createLiveCandles()
-    liveCandlesRef.current = live
-    return () => { live.close(); liveCandlesRef.current = null }
+    function closeFeed() {
+      liveCandlesRef.current?.close()
+      liveCandlesRef.current = null
+      liveTopicsRef.current.clear()
+    }
+    function syncFeed() {
+      if (document.hidden) closeFeed()
+      else if (!liveCandlesRef.current) liveCandlesRef.current = createLiveCandles()
+    }
+    syncFeed()
+    document.addEventListener('visibilitychange', syncFeed)
+    return () => {
+      document.removeEventListener('visibilitychange', syncFeed)
+      closeFeed()
+    }
   }, [isActive, timeframe])
-  const cacheRef    = useRef({})
+  const cacheRef    = useRef(new Map())
   const inflightRef = useRef(new Map())
   const providerPauseRef = useRef({})
   const idRef       = useRef(0)
@@ -821,9 +834,15 @@ export default function DeltaScannerTab({
     const key = `${symbol}__${tf}`
     const requestedLimit = Math.max(3, Number(limit) || 60)
     const now = Date.now()
-    const hit = cacheRef.current[key]
+    const cache = cacheRef.current
+    const hit = cache.get(key)
     if (provider === 'crypto') {
-      liveCandlesRef.current?.watch(symbol, tf)
+      // Keep the visible tab's live feed small. Other pairs use the normal REST path.
+      const topics = liveTopicsRef.current
+      if (liveCandlesRef.current && !topics.has(key) && topics.size < 32) {
+        liveCandlesRef.current.watch(symbol, tf)
+        topics.add(key)
+      }
       const live = hit && liveCandlesRef.current?.merge(symbol, tf, hit.candles)
       if (live && live.length >= requestedLimit) return live.slice(-requestedLimit)
     }
@@ -849,7 +868,12 @@ export default function DeltaScannerTab({
         : await fetchDeltaCandles(symbol, tf, fetchLimit, ticker)
       const ttlMap = {'1m':60_000,'2m':120_000,'3m':180_000,'5m':300_000,'10m':600_000}
       const ttl = Math.min(ttlMap[settingsRef.current.cacheTtl || '1m'] || 60_000, intervalToMs(settingsRef.current.scanInterval || '3m'))
-      if (candles && (!cacheRef.current[key] || cacheRef.current[key].expiresAt <= Date.now() || cacheRef.current[key].candles.length <= candles.length)) cacheRef.current[key] = { candles, expiresAt: Date.now() + ttl }
+      const existing = cache.get(key)
+      if (candles && (!existing || existing.expiresAt <= Date.now() || existing.candles.length <= candles.length)) {
+        cache.delete(key)
+        cache.set(key, { candles, expiresAt: Date.now() + ttl })
+        if (cache.size > 128) cache.delete(cache.keys().next().value)
+      }
       return candles
     })()
     const inflightEntry = {promise:request,limit:Math.max(requestedLimit,hit?.candles?.length||0)}
