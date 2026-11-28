@@ -1497,14 +1497,21 @@ function PatternEditor({ pattern: rawPattern, onChange, onDelete, onMirrorPatter
               ) : pattern.conditions.filter(c => c.enabled).map((c, i, arr) => {
                 const formula = condFormula(c)
                 const joinNext = i < arr.length - 1 ? (c.joinNext || 'AND') : null
-                const isGroup  = c.groupStart || c.groupEnd
+                const groupId = c.groupId
+                const startsGroup = groupId && arr[i - 1]?.groupId !== groupId
+                const endsGroup = groupId && arr[i + 1]?.groupId !== groupId
+                const groupAccent = groupId ? groupColor(groupId) : null
+                const groupRail = groupAccent ? {
+                  marginInline: 10,
+                  borderLeft: `2px solid ${groupAccent}`,
+                  background: `${groupAccent}0d`,
+                } : undefined
+                const groupLabel = { ...groupRail, padding: '4px 10px', fontSize: 9, fontWeight: 800, fontFamily: 'var(--mono)', color: groupAccent }
                 return (
                   <div key={c.id || i}>
                     {/* Group open bracket */}
-                    {c.groupStart && (
-                      <div style={{ padding: '4px 16px 0', fontSize: 10, fontFamily: 'var(--mono)', color: `${color}88` }}>
-                        {'( group'}
-                      </div>
+                    {startsGroup && (
+                      <div style={groupLabel}>⌜ GROUP START</div>
                     )}
 
                     {/* Condition row */}
@@ -1513,6 +1520,7 @@ function PatternEditor({ pattern: rawPattern, onChange, onDelete, onMirrorPatter
                       padding: '10px 16px',
                       background: i % 2 === 0 ? 'rgba(0,0,0,0.1)' : 'transparent',
                       borderBottom: `1px solid ${color}12`,
+                      ...groupRail,
                     }}>
                       {/* Number badge */}
                       <div style={{
@@ -1550,15 +1558,16 @@ function PatternEditor({ pattern: rawPattern, onChange, onDelete, onMirrorPatter
                     </div>
 
                     {/* Group close bracket */}
-                    {c.groupEnd && (
-                      <div style={{ padding: '0 16px 4px', fontSize: 10, fontFamily: 'var(--mono)', color: `${color}88` }}>
-                        {'group )'}
-                      </div>
+                    {endsGroup && (
+                      <div style={groupLabel}>⌞ GROUP END</div>
                     )}
 
                     {/* AND / OR connector */}
                     {joinNext && (
-                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '3px 0' }}>
+                      <div style={{
+                        display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '3px 0',
+                        ...(endsGroup ? undefined : groupRail),
+                      }}>
                         <span style={{
                           fontSize: 9, fontFamily: 'var(--mono)', fontWeight: 900,
                           padding: '2px 10px', borderRadius: 5,
