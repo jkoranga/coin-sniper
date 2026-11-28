@@ -2,6 +2,7 @@
 import React, { useState, useMemo, useRef } from 'react'
 import { compilePattern, condFormula, validateConditionConfig } from '../utils/patternEngine.js'
 import { mirrorCondition } from '../utils/mirrorPattern.js'
+import { explainCondition } from '../utils/conditionExplanation.js'
 import { inspectPatternLogic } from '../utils/patternLogicGuide.js'
 export { compilePattern, condFormula } from '../utils/patternEngine.js'
 
@@ -1817,6 +1818,54 @@ function PatternEditor({ pattern: rawPattern, onChange, onDelete, onMirrorPatter
               }}>NEW</span>
             </button>
           </div>
+            {/* Pattern explanation — displayed after the last condition. */}
+            <div role="status" style={{
+              padding: '12px 11px', borderRadius: 9, marginTop: 13,
+              background: logicGuide.ready ? 'rgba(158,220,70,.07)' : 'rgba(239,100,106,.10)',
+              border: `1px solid ${logicGuide.ready ? 'rgba(158,220,70,.35)' : 'rgba(239,100,106,.5)'}`,
+              color: 'var(--text)', lineHeight: 1.65, overflowWrap: 'anywhere',
+            }}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 6, flexWrap: 'wrap', marginBottom: 6 }}>
+                <span style={{ fontSize: 10, fontWeight: 900, letterSpacing: '.04em', color: 'var(--text2)' }}>PATTERN EXPLANATION</span>
+                <span style={{ fontSize: 9, fontWeight: 900, color: logicGuide.ready ? '#a7e86e' : '#ffa0a5' }}>
+                  {logicGuide.ready ? '✓ LOGIC READY' : '⚠ NEEDS FIX'} · {logicGuide.active} ON
+                </span>
+              </div>
+              {pattern.conditions.some(cond => cond.enabled) && (
+                <div style={{ borderTop: '1px solid var(--border)', marginTop: 9, paddingTop: 8, display: 'flex', flexDirection: 'column', gap: 10 }}>
+                  {pattern.conditions.map((cond, i) => {
+                    if (!cond.enabled) return null
+                    const explanation = explainCondition(cond)
+                    const calculation = explanation.steps.find(step => step.label === 'Calculation')?.text
+                    return (
+                      <div key={cond.id || i} style={{ fontSize: 10, color: 'var(--text2)', lineHeight: 1.65, overflowWrap: 'anywhere' }}>
+                        <div style={{ fontFamily: 'var(--mono)', fontSize: 11, fontWeight: 800, color: '#a3e9c7' }}>
+                          {condFormula(cond)}
+                        </div>
+                        <div style={{ marginTop: 3 }}>{explanation.summary}</div>
+                        {calculation && <div style={{ marginTop: 2, color: 'var(--text3)' }}>{calculation}</div>}
+                      </div>
+                    )
+                  })}
+                </div>
+              )}
+              {logicGuide.errors.map((message, i) => (
+                <div key={`error-${i}`} style={{ fontSize: 10, color: '#ffa1a7', marginTop: 6 }}>
+                  ⚠ {message}
+                </div>
+              ))}
+              {logicGuide.warnings.filter(msg => !msg.startsWith('Grouped OR is correctly')).slice(0, 2).map((message, i) => (
+                <div key={`warning-${i}`} style={{ fontSize: 10, color: '#ffc46b', marginTop: 6 }}>
+                  ! {message}
+                </div>
+              ))}
+              {logicGuide.warnings.filter(msg => !msg.startsWith('Grouped OR is correctly')).length > 2 && (
+                <details style={{ marginTop: 5, fontSize: 10, color: '#ffc46b' }}>
+                  <summary style={{ cursor: 'pointer' }}>More logic warnings</summary>
+                  {logicGuide.warnings.filter(msg => !msg.startsWith('Grouped OR is correctly')).slice(2).map((msg, i) => <div key={i}>! {msg}</div>)}
+                </details>
+              )}
+            </div>
         </div>
       )}
     </div>
