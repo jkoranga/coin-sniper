@@ -238,6 +238,25 @@ function IBtn({ onClick, title, children, col = 'var(--text3)' }) {
   )
 }
 
+function toggleGroupBoundary(conditions, index, newGroupId) {
+  const leftId = conditions[index].groupId
+  const rightId = conditions[index + 1].groupId
+  let start = index
+  let end = index + 1
+  while (leftId && conditions[start - 1]?.groupId === leftId) start--
+  while (rightId && conditions[end + 1]?.groupId === rightId) end++
+
+  const splitting = leftId && leftId === rightId
+  const leftGroup = index > start ? leftId : null
+  const rightGroup = end > index + 1 ? newGroupId : null
+  const joinedGroup = leftId || rightId || newGroupId
+  return conditions.map((condition, position) => {
+    if (position < start || position > end) return condition
+    const groupId = splitting ? (position <= index ? leftGroup : rightGroup) : joinedGroup
+    return { ...condition, groupId }
+  })
+}
+
 function JoinBadge({ value, onChange, onGroupToggle, onQuickOrGroup, grouped, groupColor }) {
   const isAnd = value === 'AND'
   return (
@@ -255,7 +274,7 @@ function JoinBadge({ value, onChange, onGroupToggle, onQuickOrGroup, grouped, gr
       {/* Group toggle button */}
       <button
         onClick={onGroupToggle}
-        title={grouped ? 'Remove from group' : 'Group these two adjacent conditions'}
+        title={grouped ? 'Split group here' : 'Group across this connector'}
         style={{
           padding: '3px 8px', borderRadius: 20, cursor: 'pointer',
           fontSize: 9, fontFamily: 'var(--mono)', fontWeight: 800,
@@ -1734,30 +1753,7 @@ function PatternEditor({ pattern: rawPattern, onChange, onDelete, onMirrorPatter
                           } : null}
                           grouped={isGrouped}
                           groupColor={isGrouped ? gCol : '#888'}
-                          onGroupToggle={() => {
-                            const conds = [...pattern.conditions]
-                            const cur  = { ...conds[idx] }
-                            const next = { ...conds[idx + 1] }
-                            if (isGrouped) {
-                              // Remove next from group; if only one left in group, ungroup it too
-                              const membersAfter = conds.filter((c, i) => i !== idx + 1 && c.groupId === gid)
-                              if (membersAfter.length <= 1) {
-                                // Dissolve whole group
-                                conds.forEach((c, i) => { if (c.groupId === gid) conds[i] = { ...c, groupId: null } })
-                              } else {
-                                next.groupId = null
-                                conds[idx + 1] = next
-                              }
-                            } else {
-                              // Group these two together
-                              const existingGid = cur.groupId || next.groupId || `grp_${uid()}`
-                              cur.groupId  = existingGid
-                              next.groupId = existingGid
-                              conds[idx]     = cur
-                              conds[idx + 1] = next
-                            }
-                            s('conditions', conds)
-                          }}
+                          onGroupToggle={() => s('conditions', toggleGroupBoundary(pattern.conditions, idx, `grp_${uid()}`))}
                         />
                       )
                     })()}
