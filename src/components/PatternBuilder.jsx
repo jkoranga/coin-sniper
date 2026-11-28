@@ -319,7 +319,7 @@ function CondCard({ cond, idx, total, color, onChange, onRemove, onCopy, onMoveU
   const statusColor = ready ? '#19bb72' : '#ef646a'
   const statusBackground = ready ? 'rgba(25,187,114,0.09)' : 'rgba(239,100,106,0.10)'
   const statusBorder = ready ? 'rgba(25,187,114,0.50)' : 'rgba(239,100,106,0.55)'
-  const statusText = !cond.enabled ? 'OFF · NOT SCANNING' : validation.valid ? 'READY · VALID LOGIC' : 'FIX REQUIRED'
+  const statusText = !cond.enabled ? 'OFF · NOT SCANNING' : ready ? 'READY · VALID LOGIC' : 'FIX REQUIRED'
   const statusReason = cond.mirrorReviewReason
     ? `Mirror review: ${cond.mirrorReviewReason}`
     : (!cond.enabled ? 'This condition is OFF and will not be scanned.' : validation.reason)
@@ -1671,8 +1671,8 @@ function PatternEditor({ pattern: rawPattern, onChange, onDelete, onMirrorPatter
                 fontSize: 11, lineHeight: 1.65, marginBottom: 10,
               }}>
                 ⚠ Mirror review required. {pattern.conditions.filter(c => c.mirrorReviewReason).length} condition(s)
-                were left OFF because their formula cannot be mirrored exactly.
-                Review each red condition and confirm its values before enabling that condition.
+                need review because their formula cannot be mirrored exactly.
+                Open each flagged condition and verify its formula before scanning.
               </div>
             )}
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
@@ -2022,7 +2022,7 @@ export default function PatternBuilderTab({ settings, update, createPatternReque
       name: customName,
       mirrorOf: src.mirrorOf || src.id,
       side: src.side === 'bull' ? 'bear' : 'bull',
-      conditions: src.conditions.map(c => mirrorCondition(c, uid)),
+      conditions: src.conditions.map(c => ({ ...mirrorCondition(c, uid), enabled: c.enabled })),
       createdAt: Date.now(),
       hiddenInBuilder: false,
     }
